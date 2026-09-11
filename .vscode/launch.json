@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Rosewater Café (Chrome)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome"
+    },
+    {
+      "name": "Rosewater Café (Debug)",
+      "request": "launch",
+      "type": "dart"
+    }
+  ]
+}
