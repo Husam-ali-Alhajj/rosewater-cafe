@@ -33,6 +33,13 @@ dependencies:
   http: ^1.2.0
   provider: ^6.1.2
 
+  # Supabase backend: auth, database, storage
+  supabase_flutter: ^2.8.0
+
+  # Encrypted (Keystore/Keychain-backed) storage for the Supabase auth
+  # session, replacing supabase_flutter's plain-text SharedPreferences default
+  flutter_secure_storage: ^9.2.2
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
@@ -56,6 +63,10 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # Used only in tests, to fake the secure-storage platform channel so
+  # SecureLocalStorage's read/write logic can be tested without a device
+  flutter_secure_storage_platform_interface: ^1.1.2
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
