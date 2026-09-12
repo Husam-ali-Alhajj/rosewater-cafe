@@ -4,15 +4,15 @@ import '../theme/app_colors.dart';
 class DotsIndicator extends StatelessWidget {
   final int itemCount;
   final int currentIndex;
-  final Color activeColor;
+  final Gradient activeGradient;
   final Color inactiveColor;
 
   const DotsIndicator({
     super.key,
     required this.itemCount,
     required this.currentIndex,
-    this.activeColor = AppColors.pink,
-    this.inactiveColor = const Color(0xFFE0E0E0),
+    this.activeGradient = AppColors.primaryGradient,
+    this.inactiveColor = const Color(0xFFD1D5DC),
   });
 
   @override
@@ -24,10 +24,11 @@ class DotsIndicator extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: isActive ? 24 : 8,
+          width: isActive ? 32 : 8,
           height: 8,
           decoration: BoxDecoration(
-            color: isActive ? activeColor : inactiveColor,
+            color: isActive ? null : inactiveColor,
+            gradient: isActive ? activeGradient : null,
             borderRadius: BorderRadius.circular(4),
           ),
         );

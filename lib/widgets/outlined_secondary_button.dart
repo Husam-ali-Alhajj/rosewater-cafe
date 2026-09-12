@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
 
 class OutlinedSecondaryButton extends StatelessWidget {
   final String label;
@@ -15,31 +14,35 @@ class OutlinedSecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        side: const BorderSide(color: Color(0xFFE0E0E0)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (leadingIcon != null) ...[
-            Icon(leadingIcon, size: 18, color: AppColors.textDark),
-            const SizedBox(width: 8),
-          ],
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textDark,
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
-            ),
+    return SizedBox(
+      height: 48,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: Colors.black.withValues(alpha: 0.1), width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
           ),
-        ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (leadingIcon != null) ...[
+              Icon(leadingIcon, size: 18, color: const Color(0xFF0A0A0A)),
+              const SizedBox(width: 15),
+            ],
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF0A0A0A),
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+                letterSpacing: -0.15,
+                height: 20 / 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

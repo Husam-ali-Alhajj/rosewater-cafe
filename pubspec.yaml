@@ -60,6 +60,9 @@ dependencies:
   # Formatting dates (event reservations, membership "valid until")
   intl: ^0.19.0
 
+  # The Figma design uses Inter as its typeface throughout the app
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

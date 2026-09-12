@@ -39,8 +39,10 @@ class AppTextStyles {
   );
 
   static const TextStyle button = TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
+    fontSize: 18,
+    fontWeight: FontWeight.w500,
+    letterSpacing: -0.44,
+    height: 28 / 18,
     color: Colors.white,
   );
 }
