@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
-import 'screens/onboarding/onboarding_screen.dart';
+import 'screens/app_entry_point.dart';
 import 'services/secure_local_storage.dart';
 import 'theme/app_theme.dart';
 
@@ -24,7 +24,7 @@ class RosewaterCafeApp extends StatelessWidget {
       title: 'Rosewater Café',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const OnboardingScreen(),
+      home: const AppEntryPoint(),
     );
   }
 }

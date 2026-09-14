@@ -1,23 +1,16 @@
 import 'package:flutter/material.dart';
+import '../../services/onboarding_prefs.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/app_text_styles.dart';
+import '../auth/auth_landing_screen.dart';
 import '../../widgets/dots_indicator.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 import '../../widgets/outlined_secondary_button.dart';
 import 'onboarding_page_data.dart';
 
-/// The background wash behind every onboarding slide, per the Figma file.
-const _backgroundGradient = LinearGradient(
-  colors: [Color(0xFFFFF1F2), Color(0xFFFDF2F8), Color(0xFFFAF5FF)],
-  stops: [0, 0.5, 1],
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-);
-
-/// The 4-slide onboarding carousel shown on first launch (Task 4 will decide
-/// exactly when this is skipped for returning users). Pure UI/navigation —
-/// no backend calls.
+/// The 4-slide onboarding carousel shown on first launch (a future task will
+/// decide exactly when this is skipped for returning users). Pure
+/// UI/navigation — no backend calls.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -77,8 +70,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _goToNextDestination() {
+    // Fire-and-forget: a fast local write, not worth blocking navigation on.
+    const OnboardingPrefs().markOnboardingSeen();
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const _AuthLandingPlaceholder()),
+      MaterialPageRoute(builder: (_) => const AuthLandingScreen()),
     );
   }
 
@@ -106,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: _backgroundGradient),
+        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -235,32 +230,6 @@ class _OnboardingCard extends StatelessWidget {
                 height: 29.3 / 18,
                 color: Color(0xFF4A5565),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Temporary stand-in for the Auth Landing screen (Task 4). Onboarding's
-/// Skip/Get Started need somewhere to go so the flow is testable end-to-end;
-/// this gets replaced entirely once Task 4 builds the real screen.
-class _AuthLandingPlaceholder extends StatelessWidget {
-  const _AuthLandingPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Onboarding complete ✓', style: AppTextStyles.heading2),
-            const SizedBox(height: 8),
-            Text(
-              'Auth Landing screen — coming in Task 4',
-              style: AppTextStyles.bodyMuted,
             ),
           ],
         ),

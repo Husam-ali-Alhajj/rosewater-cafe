@@ -32,8 +32,11 @@ class AppTheme {
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
+        // Placeholder value — Figma showed a light gray fill on form fields
+        // (e.g. Create Account) but we haven't pulled its exact hex yet.
+        // Revisit once Figma API access is set up.
         filled: true,
-        fillColor: AppColors.cardWhite,
+        fillColor: const Color(0xFFF3F4F6),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,

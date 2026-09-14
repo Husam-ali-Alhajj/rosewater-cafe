@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
-/// The Figma file pairs a serif display face for the "Rosewater Café"
-/// wordmark with a plain sans body font everywhere else. We use the
-/// platform default sans for now — swap in a Google Font later if the
-/// design calls for something more specific once you inspect it closer.
+/// The Figma file pairs a serif display face ("Times") for the
+/// "Rosewater Café" wordmark with Inter everywhere else.
 class AppTextStyles {
   AppTextStyles._();
 
   static const TextStyle logoTitle = TextStyle(
-    fontFamily: 'serif',
-    fontSize: 28,
+    fontFamily: 'Times New Roman',
+    fontSize: 36,
     fontStyle: FontStyle.italic,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.bold,
+    height: 40 / 36,
     color: AppColors.textDark,
   );
 

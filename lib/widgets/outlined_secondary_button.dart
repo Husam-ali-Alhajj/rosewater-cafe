@@ -4,12 +4,22 @@ class OutlinedSecondaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final IconData? leadingIcon;
+  final Color borderColor;
+  final Color textColor;
+  final double fontSize;
+  final double height;
+  final double letterSpacing;
 
   const OutlinedSecondaryButton({
     super.key,
     required this.label,
     required this.onPressed,
     this.leadingIcon,
+    this.borderColor = const Color(0x1A000000),
+    this.textColor = const Color(0xFF0A0A0A),
+    this.fontSize = 14,
+    this.height = 20 / 14,
+    this.letterSpacing = -0.15,
   });
 
   @override
@@ -19,7 +29,7 @@ class OutlinedSecondaryButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.black.withValues(alpha: 0.1), width: 1.5),
+          side: BorderSide(color: borderColor, width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -28,17 +38,17 @@ class OutlinedSecondaryButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (leadingIcon != null) ...[
-              Icon(leadingIcon, size: 18, color: const Color(0xFF0A0A0A)),
+              Icon(leadingIcon, size: 18, color: textColor),
               const SizedBox(width: 15),
             ],
             Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF0A0A0A),
+              style: TextStyle(
+                color: textColor,
                 fontWeight: FontWeight.w500,
-                fontSize: 14,
-                letterSpacing: -0.15,
-                height: 20 / 14,
+                fontSize: fontSize,
+                letterSpacing: letterSpacing,
+                height: height,
               ),
             ),
           ],
