@@ -3,18 +3,20 @@ import 'package:flutter/material.dart';
 class OnboardingIconBadge extends StatelessWidget {
   final IconData icon;
   final Gradient gradient;
+  final double size;
 
   const OnboardingIconBadge({
     super.key,
     required this.icon,
     required this.gradient,
+    this.size = 96,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 96,
-      height: 96,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: gradient,
@@ -33,7 +35,7 @@ class OnboardingIconBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(icon, color: Colors.white, size: 48),
+      child: Icon(icon, color: Colors.white, size: size / 2),
     );
   }
 }

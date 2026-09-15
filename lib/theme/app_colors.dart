@@ -25,6 +25,43 @@ class AppColors {
     end: Alignment.bottomRight,
   );
 
+  // Choose Membership card accents (icon badge + "Select" button) per tier.
+  // Pulled exactly from the Figma file via the REST API (node 1213:1030,
+  // "Choose Your Membership") — gradient fill hex values read directly off
+  // each card's icon container / button, not estimated.
+  static const LinearGradient membershipBasicGradient = LinearGradient(
+    colors: [Color(0xFF99A1AF), Color(0xFF4A5565)],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+  static const LinearGradient membershipPremiumGradient = LinearGradient(
+    colors: [Color(0xFFC27AFF), Color(0xFF9810FA)],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+  static const LinearGradient membershipVipGradient = LinearGradient(
+    colors: [Color(0xFFFF637E), Color(0xFFEC003F)],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+
+  // "Most Popular" badge — a SOLID fill in Figma (the darker end of the
+  // Premium gradient), not a gradient.
+  static const Color membershipPopularBadge = Color(0xFF9810FA);
+
+  // Bullet checkmark green, and the Premium card's border color (the
+  // lighter end of its gradient, not the darker one) — both read directly
+  // off node 1213:1030.
+  static const Color membershipCheckmark = Color(0xFF00C950);
+  static const Color membershipPremiumBorder = Color(0xFFC27AFF);
+  static const Color membershipCardBorder = Color(0xFFE5E7EB);
+
+  // Text colors specific to the membership cards (Figma uses slightly
+  // different shades here than the app's general textDark/textMuted).
+  static const Color membershipListText = Color(0xFF364153);
+  static const Color membershipPriceText = Color(0xFF101828);
+  static const Color membershipPriceSuffix = Color(0xFF6A7282);
+
   // The soft 3-stop wash used behind every screen so far (onboarding, auth
   // landing) — confirmed identical on both, so treated as the page-wide
   // background rather than something screen-specific.

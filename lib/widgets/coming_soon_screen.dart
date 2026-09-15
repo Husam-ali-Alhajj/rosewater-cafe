@@ -15,7 +15,12 @@ class ComingSoonScreen extends StatelessWidget {
   /// already signed out (e.g. Forgot Password had no real screen yet).
   final bool showSignOut;
 
-  const ComingSoonScreen({super.key, required this.label, this.showSignOut = false});
+  /// Optional extra line under the main label — e.g. an id carried forward
+  /// from the previous real screen, so it stays visible/verifiable while
+  /// this destination is still a stub.
+  final String? subtitle;
+
+  const ComingSoonScreen({super.key, required this.label, this.showSignOut = false, this.subtitle});
 
   Future<void> _signOut(BuildContext context) async {
     await supabase.auth.signOut();
@@ -55,9 +60,18 @@ class ComingSoonScreen extends StatelessWidget {
               ),
               Expanded(
                 child: Center(
-                  child: Text(
-                    '$label — coming in a future task',
-                    style: AppTextStyles.bodyMuted,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$label — coming in a future task',
+                        style: AppTextStyles.bodyMuted,
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 8),
+                        Text(subtitle!, style: AppTextStyles.bodyMuted),
+                      ],
+                    ],
                   ),
                 ),
               ),

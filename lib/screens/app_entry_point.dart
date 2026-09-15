@@ -5,6 +5,7 @@ import '../services/supabase_client.dart';
 import '../theme/app_colors.dart';
 import '../widgets/coming_soon_screen.dart';
 import 'auth/auth_landing_screen.dart';
+import 'membership/choose_membership_screen.dart';
 import 'onboarding/onboarding_screen.dart';
 
 /// Decides the very first screen on app start, so a signed-in user is never
@@ -36,10 +37,9 @@ class _AppEntryPointState extends State<AppEntryPoint> {
     Widget destination;
     if (session != null) {
       final hasActive = await const SubscriptionService().hasActiveSubscription();
-      destination = ComingSoonScreen(
-        label: hasActive ? 'Home' : 'Choose Membership',
-        showSignOut: true,
-      );
+      destination = hasActive
+          ? const ComingSoonScreen(label: 'Home', showSignOut: true)
+          : const ChooseMembershipScreen();
     } else {
       final seenOnboarding = await const OnboardingPrefs().hasSeenOnboarding();
       destination = seenOnboarding ? const AuthLandingScreen() : const OnboardingScreen();

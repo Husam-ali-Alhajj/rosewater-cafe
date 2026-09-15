@@ -47,8 +47,12 @@ dependencies:
   # Sprint 4: QR code generation for Door Access
   qr_flutter: ^4.1.0
 
-  # Sprint 2 & 5: ID document upload, profile photo picker
+  # Sprint 2 & 5: ID document upload (camera/gallery), profile photo picker
   image_picker: ^1.1.2
+
+  # Sprint 2: ID document upload from an existing file (PNG/JPG/PDF) --
+  # image_picker only handles photos, not arbitrary file types like PDF
+  file_picker: ^10.3.4
 
   # Sprint 2: persist mock session/profile across app restarts
   shared_preferences: ^2.2.3

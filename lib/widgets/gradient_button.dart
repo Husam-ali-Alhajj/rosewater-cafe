@@ -8,51 +8,66 @@ class GradientButton extends StatelessWidget {
   final Gradient gradient;
   final IconData? trailingIcon;
 
+  /// Figma uses two distinct button sizes: full-width primary CTAs (Sign
+  /// In, Continue to Payment) at the default 48/18, and compact in-card
+  /// buttons (the plan "Select" buttons) at a smaller height/font — hence
+  /// these being overridable rather than fixed.
+  final double height;
+  final double fontSize;
+
   const GradientButton({
     super.key,
     required this.label,
     required this.onPressed,
     this.gradient = AppColors.primaryGradient,
     this.trailingIcon,
+    this.height = 48,
+    this.fontSize = 18,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 10),
-            spreadRadius: 3,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 4),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onPressed,
+    final disabled = onPressed == null;
+    return Opacity(
+      opacity: disabled ? 0.5 : 1,
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          gradient: gradient,
           borderRadius: BorderRadius.circular(8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(label, style: AppTextStyles.button),
-              if (trailingIcon != null) ...[
-                const SizedBox(width: 15),
-                Icon(trailingIcon, color: Colors.white, size: 18),
+          boxShadow: disabled
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 15,
+                    offset: const Offset(0, 10),
+                    spreadRadius: 3,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 6,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -4,
+                  ),
+                ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(label, style: AppTextStyles.button.copyWith(fontSize: fontSize)),
+                if (trailingIcon != null) ...[
+                  const SizedBox(width: 15),
+                  Icon(trailingIcon, color: Colors.white, size: 18),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

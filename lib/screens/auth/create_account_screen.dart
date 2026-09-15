@@ -3,9 +3,9 @@ import '../../services/auth_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
-import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
+import '../membership/choose_membership_screen.dart';
 import 'confirm_email_pending_screen.dart';
 import 'sign_in_screen.dart';
 
@@ -135,7 +135,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => hasSession
-              ? const ComingSoonScreen(label: 'Choose Membership', showSignOut: true)
+              ? const ChooseMembershipScreen()
               : ConfirmEmailPendingScreen(email: email),
         ),
       );

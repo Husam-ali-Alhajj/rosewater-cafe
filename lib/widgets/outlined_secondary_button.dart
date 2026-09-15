@@ -10,6 +10,12 @@ class OutlinedSecondaryButton extends StatelessWidget {
   final double height;
   final double letterSpacing;
 
+  /// The button's own box height — distinct from [height] above, which is
+  /// actually the text line-height ratio (a pre-existing naming collision
+  /// this doesn't attempt to fix, to avoid touching other call sites).
+  final double buttonHeight;
+  final double borderWidth;
+
   const OutlinedSecondaryButton({
     super.key,
     required this.label,
@@ -20,16 +26,18 @@ class OutlinedSecondaryButton extends StatelessWidget {
     this.fontSize = 14,
     this.height = 20 / 14,
     this.letterSpacing = -0.15,
+    this.buttonHeight = 48,
+    this.borderWidth = 1.5,
   });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: buttonHeight,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: borderColor, width: 1.5),
+          side: BorderSide(color: borderColor, width: borderWidth),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),

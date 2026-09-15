@@ -19,10 +19,17 @@ Keep this file updated as new decisions get made or open questions get answered.
 - Four shared UI widgets exist (`GradientButton`, `OutlinedSecondaryButton`,
   `OnboardingIconBadge`, `DotsIndicator`) matching the app's real theme colors.
 - Screens built so far: Onboarding (4 slides), Auth Landing, Create Account,
-  Sign In, Forgot Password (all real, wired to Supabase, live-tested — see
-  decisions #9, #11, #12). Home and Choose Membership are still placeholder
-  stubs (`ComingSoonScreen`), now reachable directly from a cold app start
-  when a session exists (decision #15), with a working Sign Out.
+  Sign In, Forgot Password, Choose Membership, ID Upload, Payment, Payment
+  Success (all real, wired to Supabase, live-tested — see decisions #9,
+  #11, #12, #17, #18, #22, #23). **The entire signup → active-member loop
+  (Sprint 2's whole point) is now verified live end to end with a
+  brand-new account and zero mock data** — see decision #23. Home itself
+  (the real dashboard) is Sprint 3 — still a placeholder stub
+  (`ComingSoonScreen`), reachable both from a cold app start when a session
+  exists (decision #15) and from the new Payment Success screen. Sign out
+  currently only exists on that stub screen — Choose Membership/ID
+  Upload/Payment/Payment Success deliberately have none, matching the
+  design; it'll live on a future Settings screen instead (decision #21).
 - **"Confirm email" is OFF again for this dev project** (reverted back from
   decision #14's "on" state — see decision #14's final update). A custom
   Gmail SMTP is still connected and does work when confirmation is on, but
@@ -36,9 +43,9 @@ Keep this file updated as new decisions get made or open questions get answered.
   behavior for *new* signups going forward, it doesn't retroactively confirm
   existing rows. Any test account stuck in that state needs to be manually
   confirmed via the dashboard or recreated.
-- Decision #4 below identifies a schema gap (subscription flow needs a
-  `pending` status + two `SECURITY DEFINER` RPC functions) that hasn't been
-  applied to the migration yet — planned as part of Sprint 1.
+- Decision #4's schema gap (subscription flow needs a `pending` status + two
+  `SECURITY DEFINER` RPC functions) is now implemented and live-verified —
+  see decision #16.
 - The Supabase session is now stored encrypted on-device (`flutter_secure_storage`)
   instead of plain text — see decision #6.
 - The dev Supabase project is temporary — at handoff, the company will get the
@@ -66,15 +73,10 @@ email/OTP login instead of a password).
 Supabase Auth), matching the short form and the "Welcome Back / Sign In"
 screen (which also expects a password).
 
-**Working assumption, not yet confirmed by the company** — how the screens
-combine: account creation (name/email/phone/password) happens first, and
-*then* the user picks a membership plan, uploads their ID, and pays, before
-landing on the home dashboard. This uses every screen from the design, in
-sequence, rather than treating them as competing alternatives. **This is our
-best guess, not a confirmed design decision — please double check with
-whoever gave you the Figma file whether this is really the intended order,
-and whether a user should be allowed to create an account without picking a
-plan/paying right away, or if that must happen immediately.**
+**Confirmed correct by the company:** account creation (name/email/phone/
+password) happens first, then the user picks a membership plan, uploads
+their ID, and pays, before landing on the home dashboard — this is the
+order the company actually specified, not just our best guess anymore.
 
 ### 2. Membership plan pricing/limits
 
@@ -171,9 +173,9 @@ as a known limitation whenever this gets explained, not left implicit.
   needs that default revoked and `EXECUTE` granted only to the `authenticated`
   role.
 
-**Status: not yet implemented.** This is documented now so the design is
-settled, but the enum change and the actual functions are Sprint 1 build work,
-not applied to the schema yet.
+**Status: implemented in Sprint 2, Task 1** — see decision #16 below for what
+actually got built, a real bug found while verifying it, and how it was
+fixed.
 
 ### 5. Dark mode / language settings
 
@@ -637,27 +639,598 @@ actually holding the port (`Get-NetTCPConnection -LocalPort ... | Stop-Process`)
 rather than the shell-visible wrapper PID. Worth remembering for any future
 "the app just won't load, no errors anywhere" situation in this dev setup.
 
+### 16. Sprint 2, Task 1 — Subscription `pending` status + the two-RPC pattern, and a real anon-execute bug found while verifying it
+
+Built exactly what decision #4 planned, plus one more piece decision #4 didn't
+call out: `confirm_subscription_payment` also has to insert the user's first
+`usage_allowances` row — without it, a newly-active member has no usage row
+for Home to read. Two migrations (kept separate deliberately — see below):
+
+- `20260914090000_add_pending_subscription_status.sql` — adds `pending` to
+  `subscription_status`, ordered before `active`. On its own in a migration
+  file/transaction by itself: Postgres forbids using a brand-new enum value
+  (e.g. in an index predicate) within the same transaction that added it, and
+  the next migration's partial unique index needs `pending` already committed.
+- `20260914090100_subscription_two_rpc_pattern.sql` — `start_subscription(plan_id)`
+  and `confirm_subscription_payment(subscription_id)`, both `SECURITY DEFINER`,
+  both pinning `set search_path = public`, both reading `auth.uid()` internally
+  rather than accepting a `user_id`/caller-supplied identity (so a caller can
+  never act on someone else's row). Also added: a partial unique index
+  (one pending row per user) as a race-condition guard, and `confirm_...`
+  inserting the first `usage_allowances` row.
+
+**Two user-facing decisions made explicitly with the user, not assumed:**
+- If `start_subscription` is called while the user already has a `pending` or
+  `active` row, it does **not** silently cancel/replace anything — it
+  `RAISE EXCEPTION`s a fixed, machine-readable message
+  (`pending_subscription_exists` / `active_subscription_exists`) with the
+  existing row's id/plan/valid_until in `DETAIL`, so the app can catch it and
+  ask the user what to do (resume vs. cancel). No UI for that decision exists
+  yet — this just makes it possible later.
+- `confirm_subscription_payment` has no real payment gateway behind it yet
+  (documented, accepted as a known Sprint 2 gap, same caveat as decision #4).
+
+**A real vulnerability found only by testing with actual role impersonation,
+not by reasoning about the SQL:** the SQL Editor's "Run" button executes as
+the `postgres` superuser, which bypasses RLS entirely. Testing "does a raw
+insert fail" *in that editor* would have been a false pass. Correctly
+impersonating the real `authenticated`/`anon` roles (via
+`set local role ...; set local request.jwt.claims = '...'`) inside an
+explicit `begin; ... rollback;` block was necessary to prove anything real:
+
+- Raw `insert into subscriptions ...` as `authenticated` → correctly
+  `42501 row violates row-level security policy` (no INSERT policy exists).
+- `start_subscription` / `confirm_subscription_payment` as `authenticated` →
+  worked end-to-end, including the `usage_allowances` row appearing.
+- `start_subscription` as `anon` → **executed the function body** (only
+  failing on its own internal `auth.uid() is null` check), instead of being
+  refused at the permission level. Root cause: `revoke execute ... from public`
+  is not enough on Supabase — its platform grants `EXECUTE` on every new
+  function directly to `anon`/`authenticated`/`service_role` as separate ACL
+  entries the moment it's created, and `REVOKE ... FROM PUBLIC` only removes
+  the generic "everyone" grant, not those already-existing per-role ones.
+  **Fixed** by adding an explicit `revoke execute ... from anon` on both
+  functions (both live, via the SQL Editor, and in the migration file for any
+  future fresh deploy) — re-verified afterward: `anon` now gets a real
+  `42501 permission denied for function`, and `pg_proc.proacl` shows only
+  `postgres`/`authenticated`/`service_role`, no `anon`.
+
+**Worth remembering for any future `SECURITY DEFINER` function in this
+project:** always explicitly revoke from `anon` by name — never assume
+`revoke ... from public` alone locks out unauthenticated callers on Supabase.
+
+### 17. Sprint 2, Task 2 — Choose Membership screen, real data
+
+Built the real "Choose Your Membership" screen (`lib/screens/membership/
+choose_membership_screen.dart`), replacing the `ComingSoonScreen` stub
+everywhere it was reached from (`AppEntryPoint`, `SignInScreen`,
+`CreateAccountScreen`).
+
+**Decided with the user, not assumed:**
+- The Figma design's bullet lists include perks with no backing database
+  column at all (seating tier, 24/7 access, private booth, event priority,
+  exclusive menu). Rather than hardcode them per plan name — which would
+  silently drift from the real plan data and partially defeat the point of
+  this task — bullets are generated only from real `membership_plans`
+  columns: hookah/drinks limits, guest count, plus a static "Member
+  discounts" line true for every plan. Less rich than the mockup, zero
+  hardcoded plan-specific copy.
+- If the user backs out of ID Upload (or force-closes/reopens) while a
+  pending subscription already exists, the screen skips the cards entirely
+  and resumes straight into ID Upload with that same `subscription_id` —
+  never re-showing the plan picker mid-checkout. Implemented via
+  `SubscriptionService.findPendingSubscription()` checked on screen load,
+  and (for the in-session back-button case specifically) navigating to ID
+  Upload with `Navigator.push(...).then((_) => ...)` that immediately
+  re-enters the same destination with the same id rather than letting the
+  cards become tappable again. This is what actually satisfies "back
+  navigation doesn't create a duplicate" — not any extra check inside
+  `start_subscription` itself (Task 1's RPC already refuses a duplicate
+  regardless, but relying on that alone would surface as a raw error the
+  user has no way to resolve yet).
+
+**Per-tier icon/gradient colors (gray/Basic, purple/Premium, pink-red/VIP)
+are estimated from the PDF export, not confirmed via Figma's Design panel**
+— flagged the same way decision #6's colors were pulled with real inspection
+and these weren't; worth a real hex check later.
+
+**A real bug caught only by looking at the rendered screen, not by reading
+the code:** `fetchPlans()` called `.order('price_cents')` expecting ascending
+(cheapest first, matching the design), but cards actually rendered VIP →
+Premium → Basic — descending. Worse, the per-tier icon/gradient was assigned
+by row rank, so the wrong visual treatment landed on the wrong plan (VIP got
+Basic's gray star). **Fixed** by passing `ascending: true` explicitly rather
+than relying on the client library's default. Re-verified live in the
+browser after the fix: Basic (gray star) → Premium (purple sparkle, "Most
+Popular" badge) → VIP, in that order.
+
+**Verified live end-to-end**, using a fresh signup
+(`husamalhaj46+task2test@gmail.com`, no prior subscription):
+1. Cards rendered from the live `membership_plans` table (not hardcoded),
+   correct order, correct "Most Popular" badge on Premium (from `is_popular`,
+   not a hardcoded index).
+2. Tapping "Select Basic" called `start_subscription`, landed on the ID
+   Upload stub showing a real `subscription_id`, confirmed directly in the
+   database: exactly one row, `status = 'pending'`, correct `plan_id`.
+3. Pressing back from ID Upload re-entered ID Upload with the *same*
+   `subscription_id` — the cards never reappeared. Re-checked the database
+   afterward: still exactly one row, no duplicate.
+4. Fully reloaded the app (simulating force-close/reopen) with that pending
+   row still in the database — landed straight back on ID Upload with the
+   same id, cards never shown, confirming the resume path also works on a
+   cold start, not just an in-session back button.
+
+**Known limitation, not yet built:** ID Upload itself is still the shared
+`ComingSoonScreen` stub (now carrying `subscription_id` forward via an
+optional `subtitle` parameter added to that widget) — real ID Upload is a
+later task.
+
+### 18. Sprint 2, Task 3 — ID Document upload, and not re-asking for name/email/phone
+
+The design's "Create Your Account" screen (Figma page 9) re-asks for Full
+Name/Email/Phone/Subscription Plan alongside the ID upload control. Per
+decision #1, those were already collected at real account creation in
+Sprint 1 — re-asking risks a mismatch between what's in `profiles` and
+whatever gets typed here for no reason. **Decision:** this screen (renamed
+"Verify Your Membership" — "Create Your Account" no longer describes what
+it does) shows name/email/phone as read-only, pulled from the user's own
+`profiles` row, and the plan as read-only too, pulled from the subscription
+the user just started. Only the ID upload control is interactive.
+
+Built `IdUploadScreen` (`lib/screens/membership/id_upload_screen.dart`),
+`ProfileService.fetchCurrentProfile()`, and
+`SubscriptionService.fetchPlanForSubscription(subscriptionId)`. The screen
+takes only `subscriptionId` as input (not a passed-through profile/plan
+object) and fetches both itself — so it behaves identically whether reached
+by a fresh plan selection or by Choose Membership resuming a pending
+subscription on a cold start (decision #17's resume path).
+
+**Upload control:** a bottom sheet offers Take Photo / Choose from Gallery
+(`image_picker`) or Choose File — PNG/JPG/PDF (`file_picker`, added as a new
+dependency since `image_picker` can't handle PDFs). `IdDocumentService.validate()`
+checks extension and size (10MB, per the design's stated limit) against just
+the file's name/size — never its bytes — immediately after picking, before
+`uploadAndRecord()` is ever called. Confirmed with a dedicated unit test
+suite (`test/id_document_service_test.dart`, 8 cases: each allowed extension,
+exactly-at-limit, one-byte-over, disallowed extension, no extension,
+case-insensitivity) rather than fighting a real file dialog for this part —
+see the testing note below for why.
+
+**verification_status forced to pending — this was already built in Sprint 1
+and needed confirming, not implementing.** `id_documents`' insert policy
+(`with check (auth.uid() = user_id and verification_status = 'pending')`,
+from `initial_schema.sql`) already rejects any other value outright — the
+client-side upload code simply never sends the field at all (relying on the
+column's own `default 'pending'`), so there's no path from this client to a
+non-pending row. Verified live with real role impersonation (same method as
+decision #16): as the real `authenticated` role, inserting with
+`verification_status = 'verified'` → `42501 row violates row-level security
+policy`; inserting with the field omitted → succeeds, lands as `pending`.
+
+**Storage isolation verified live, not just read off the policy text:**
+inserted a stand-in `storage.objects` row for one test user's folder
+(`f261f109.../RLS_TEST_other_user_file.png`), then, impersonating a
+*different* signed-in user, tried to read it — `0 rows`. Impersonating the
+actual owner — `1 row`. Proves the storage RLS policies
+(`(storage.foldername(name))[1] = auth.uid()::text`) actually isolate reads
+per user, not just per-bucket. **That test row is still sitting in
+`storage.objects`** (named `RLS_TEST_...` so it's obviously not a real
+document) — needs a human-run `delete from storage.objects where name like
+'%RLS_TEST_other_user_file.png'` to clean up, same as the decision #16
+cleanup pattern (deletion is a harness-blocked action for the assistant).
+Also left over from testing: one real `pending` row in `id_documents` for
+`husamalhaj46+task2test@gmail.com` (`storage_path` doesn't point to a real
+uploaded file, since the live upload click-through — see below — never
+completed) — harmless, but worth knowing it's there.
+
+**Testing note — the live "pick a file and click Continue" path could not
+be verified end-to-end via browser automation:** Flutter web renders the
+whole UI to a `<canvas>`; the accessibility tree the browser-automation
+tooling relies on to target a file input showed nothing but a generic
+"enable accessibility" node, both before and immediately after triggering
+`file_picker`'s hidden `<input type="file">`. Two attempts to locate and
+drive that input came back empty. Validation logic was proven with unit
+tests instead, and the two security-critical requirements (forced-pending,
+storage isolation) were proven directly against the database with real
+role impersonation.
+
+**Update: manually verified by the user afterward — a real file upload
+went through correctly.** The gap above was specifically about automated
+testing in this dev environment, not the feature itself; it's confirmed
+working end to end now.
+
+**Also fixed while testing:** `GradientButton` gave no visual indication
+when `onPressed` was null — "Continue to Payment" looked fully active even
+with no file picked yet. Not a new bug (every screen using this button had
+the same gap), just newly visible because this is the first button that's
+disabled by default rather than only briefly during a submit. Fixed with a
+0.5 opacity + dropped shadow when disabled, in the shared widget so every
+screen using it benefits.
+
+### 19. Real bug found by the user: "Back to Plans" didn't go back to plans
+
+**Reported by the user:** signing in to an existing account went straight to
+Verify Your Membership instead of Choose Membership.
+
+**Diagnosis:** not actually a routing bug — that account genuinely had a
+`pending` subscription already sitting in the database, and decision #17's
+resume behavior (approved earlier) is working exactly as designed: if a
+pending subscription exists, Choose Membership skips the cards and goes
+straight to ID Upload. The real bug was underneath that: **"Back to Plans"
+on Verify Your Membership didn't do anything.** `ChooseMembershipScreen`'s
+`_goToIdUpload` re-pushed ID Upload on *any* pop, with no way to tell "user
+hit hardware back" (should re-enter, preserving the anti-duplicate
+protection) apart from "user deliberately tapped a button labeled 'Back to
+Plans'" (should not). Since nothing could cancel a pending subscription,
+every path bounced back to the same screen — "Back to Plans" was a label
+with no working action behind it.
+
+**Decision, made with the user:** tapping "Back to Plans" cancels the
+pending subscription (a real, deliberate action, not silent) and shows the
+cards fresh.
+
+**Built:**
+- `cancel_subscription(subscription_id)` — a new RPC
+  (`20260915100000_cancel_subscription.sql`), same security pattern as the
+  other two (`SECURITY DEFINER`, `search_path` pinned, `auth.uid()` read
+  internally, `EXECUTE` revoked from `PUBLIC` *and* explicitly `anon` from
+  the start this time, per decision #16's lesson). Restricted to
+  `status = 'pending'` only — this must never be able to cancel an
+  already-active paid subscription.
+- `IdUploadScreen._backToPlans()` calls it, then pops with `Navigator.pop(true)`
+  — the `true` is what lets the parent tell a deliberate cancel apart from
+  an ordinary pop.
+- `ChooseMembershipScreen._goToIdUpload`'s `.then()` now branches on that
+  result: `true` → re-run `_init()` (finds no pending subscription now, and
+  actually shows the cards); anything else (hardware back, system gesture)
+  → re-enter ID Upload as before, keeping decision #17's protection intact.
+
+**A second real bug found immediately while testing the first fix:** after
+cancelling and returning to the cards, the just-selected plan's button was
+stuck showing "Selecting…" and disabled. `_selectingPlanId` gets set right
+before the original push and is never cleared on the way back, since
+`push` (not `pushReplacement`) keeps the same `State` object alive the
+whole time. Fixed by clearing `_selectingPlanId` (and `_errorMessage`)
+alongside `_loading` in the same branch.
+
+**Verified live end-to-end**, twice, using `task2test`: select a plan →
+lands on Verify Your Membership → tap "Back to Plans" → cards reappear
+fully interactive (not stuck on "Selecting…") → confirmed directly in the
+database each time: the just-created `pending` row flips to `cancelled`,
+no orphaned rows left over (final check: 3 rows for that user, all
+`cancelled`, zero `pending`).
+
+**Not touched:** the reporting user's own real pending subscription
+(`husamalhaj47@gmail.com`) was left exactly as found — verification used a
+separate test account instead, specifically to avoid changing state on an
+account the user was actively using themselves. They can now use "Back to
+Plans" themselves if they want a different plan than the one already
+pending.
+
+### 20. Real Figma API access — Choose Membership and Verify Your Membership rebuilt against exact design data, not estimates
+
+The user provided a Figma personal access token, which unblocks something
+decisions #17/#18 had explicitly flagged as a gap: every color used on the
+membership screens was **estimated from the PDF export**, not read from the
+actual Figma file. With API access, pulled the real node data directly
+(`GET /v1/files/:key/nodes?ids=...` for node `1213:1030` — "Choose Your
+Membership" — and `1213:1183` — "Create Your Account", i.e. Verify Your
+Membership) and compared every color, font size/weight, spacing value, and
+corner radius against what was actually built. Found real, concrete
+mismatches, not just imprecision:
+
+- **Every tier gradient was the wrong hex.** Basic was `#6B7280→#374151`,
+  should be `#99A1AF→#4A5565`; Premium was `#A855F7→#7C3AED`, should be
+  `#C27AFF→#9810FA`; VIP was `#F43F5E→#E11D48`, should be `#FF637E→#EC003F`.
+- **The "Most Popular" badge was the wrong shape and fill entirely** — built
+  as a fully-rounded pill with a two-color gradient; Figma specifies a
+  rounded rectangle (`radius: 8`, not a stadium shape) with a **solid**
+  fill (`#9810FA`, no gradient).
+- **Cards had an invented 0.9 opacity** and no border at all on the two
+  non-highlighted cards (Figma: solid white, `1px #E5E7EB` border); the
+  highlighted card's border color was the wrong end of the gradient
+  (`#9810FA` used, should be the lighter `#C27AFF`).
+- **Text sizes/weights were systematically off** because generic shared
+  styles (`AppTextStyles.heading1`/`heading2`/`body`) were reused across
+  elements that Figma actually gives distinct treatments: the page title is
+  36px/weight 500 (was rendered 24px/bold), the price is 36px/weight
+  400/color `#101828` (was rendered as a bold 24px heading), card button
+  labels are 14px (was the global 18px CTA size), bullet text color is
+  `#364153` (was the app's general `textDark`), the checkmark green is a
+  brighter `#00C950` (was the app's muted `success` green).
+- **Major spacing was much tighter than the design** — Figma's card gives
+  48px of breathing room between the icon/name/price block, the bullet
+  list, and the button; this was built at 16px throughout.
+- **Verify Your Membership had invented content and wrong alignment**: an
+  extra subtitle line ("Confirm your details...") that doesn't exist in
+  Figma at all, and a centered heading where Figma's is left-aligned. The
+  read-only fields' input styling (fill `#F3F3F5`, thin border, 24px gap
+  between fields — was 16px) and the upload box (fill `#F9FAFB` not
+  `#F3F4F6`, border `#D1D5DC` not black12, icon color `#99A1AF` not
+  `textMuted`) were also off.
+
+**Fixed:** `AppColors` gained exact-hex membership constants
+(`membershipBasicGradient`/`membershipPremiumGradient`/`membershipVipGradient`,
+`membershipPopularBadge`, `membershipCheckmark`, `membershipPremiumBorder`,
+`membershipCardBorder`, `membershipListText`, `membershipPriceText`,
+`membershipPriceSuffix`) replacing the old PDF-estimated ones.
+`GradientButton` gained optional `height`/`fontSize` params (default
+48/18, unchanged for every other already-correct button) since Figma
+genuinely uses two different button sizes — full-width CTAs vs. compact
+in-card buttons — that a single fixed size couldn't represent.
+`ChooseMembershipScreen` and `IdUploadScreen` were rewritten with literal
+inline styles matching the exact Figma values above, rather than reusing
+the shared `AppTextStyles` constants (which weren't touched, to avoid
+changing the look of already-approved screens — Sign In, Create Account,
+etc. — that weren't re-verified in this pass).
+
+**Deliberately NOT changed:** the DB-only bullet list (decision #17) and
+the "Verify Your Membership" heading text instead of "Create Your Account"
+(decision #18) — both were explicit prior decisions with the user, and
+this pass was about visual fidelity (color/type/spacing), not re-opening
+content decisions already made.
+
+**Not yet done:** the user asked about "some other pages" beyond these
+two specifically-named ones. This pass only re-verified Choose Membership
+and Verify Your Membership — the earlier screens (Onboarding, Auth
+Landing, Sign In, Create Account, Forgot Password) were not re-checked
+against the Figma API in this pass and may have similar drift, since they
+were originally built the same estimated way before this API access
+existed.
+
+### 21. Two more real gaps found by the user after decision #20's pass: missing perk bullets, and an invented Sign Out button
+
+Two concrete reports, both correct:
+
+- **The design shows more bullets than the app did.** Decision #17
+  deliberately limited bullets to what real `membership_plans` columns
+  could derive (hookah/drinks/guests + "Member discounts"), leaving out
+  the design's non-DB perks (seating tier, weekend/24-7 access, private
+  booth, event priority, exclusive menu) rather than hardcode them.
+  Correct call at the time given no column existed for them — but the
+  user is now explicit that full design fidelity matters more than
+  avoiding that column, superseding decision #17 on this specific point.
+
+  **Fixed:** added a real `features text[]` column to `membership_plans`
+  (`20260915120000_membership_plan_features.sql`) rather than hardcoding
+  the copy in the Flutter widget — keeps Task 2's original goal (no
+  hardcoded plan data in the app) while also matching the design exactly.
+  Seeded verbatim from the Figma node data pulled in decision #20: Basic
+  gets `['Standard seating', 'Member discounts']`, Premium gets
+  `['Priority seating', 'Weekend access', 'Member discounts']`, VIP gets
+  `['Private booth', '24/7 access', 'Event priority', 'Exclusive menu']`
+  — note VIP's list deliberately does **not** include "Member discounts"
+  the way Basic/Premium's do, because Figma's own VIP card bullet list
+  doesn't either (the footer note covers it for every plan instead).
+  `MembershipPlan.featureBullets` now appends `features` after the three
+  numeric bullets. Verified live: all three cards show the full bullet
+  set now, matching the design panel-by-panel.
+
+- **Neither Choose Membership nor Verify Your Membership has a Sign Out
+  button in the design** — that button was something added during
+  Sprint 2 build-out (for a real, if undocumented, reason: without it,
+  there was no way to sign out once past Auth Landing until Home/Payment
+  existed as stub screens). Since the user explicitly flagged it as not
+  matching the design, removed it from both screens entirely, along with
+  the now-unused `_signOut` methods and their imports.
+
+  **Known consequence, said plainly rather than left implicit:** there is
+  currently no way to sign out from within Choose Membership or Verify
+  Your Membership at all — the nearest sign-out path is now several
+  screens away (the `ComingSoonScreen` stubs for Home/Payment still have
+  one). This matches the design as given, but is worth a real answer
+  eventually: presumably sign-out belongs on a Settings/Profile screen
+  once one exists, the same way most real apps handle it, rather than
+  being sprinkled on every authenticated screen the way the Sprint 2
+  stopgap did.
+
+### 22. Sprint 2, Task 4 — Mock Payment screen, a real navigation bug it exposed, and reversing the auto-resume behavior from decision #17
+
+Built the real "Complete Payment" screen (Figma node 1213:1281,
+`lib/screens/membership/payment_screen.dart`) using the same exact-Figma-data
+approach as decision #20. Plan name/price come in via constructor from
+`IdUploadScreen`'s already-fetched state — this screen makes zero database
+reads of its own. Card Number/Expiry/CVV are validated client-side purely
+for realistic shape (`lib/utils/payment_validators.dart`, unit-tested: 19
+cases covering the 16-digit/MM-YY/3-digit boundaries and the expiry-in-the-
+past check) and are never sent anywhere: not to Supabase, not logged, no
+`autofillHints` (so the OS/browser never offers to save a fake card),
+controllers explicitly cleared and disposed. "Pay" calls
+`confirm_subscription_payment(subscription_id)` — the same RPC decision #16
+already hardened and verified.
+
+**Verified live, by the user, on their own real account:** tapped Pay,
+confirmed directly in the database that the subscription flipped to
+`active` with `started_at`/`valid_until` set correctly (30 days out) and a
+`usage_allowances` row was created — the actual acceptance criteria, not
+just "the screen appeared to work."
+
+**A real bug this surfaced: paying successfully bounced back to a
+membership screen instead of landing on Home.** Root cause:
+`ChooseMembershipScreen` pushes `IdUploadScreen` and has a `.then()`
+callback on that push to decide what to do when it's popped (re-enter it,
+or refresh after "Back to Plans" cancelled the subscription). It didn't
+account for a third case: `PaymentScreen`'s success path calls
+`pushAndRemoveUntil` to clear the *entire* stack down to Home, which also
+completes `IdUploadScreen`'s "pop" future — and because Flutter can
+complete that future as a microtask before actually disposing the popped
+route's State (which can wait for the next frame), `ChooseMembershipScreen`'s
+stale callback fired with `mounted == true` and blindly re-pushed ID Upload
+right after a successful payment. First fix attempt made the callback
+re-verify against the database before resuming (defensive, but still
+assumed resuming was ever the right default).
+
+**Decision, made with the user, that removed the need for that whole
+mechanism:** decision #17's "skip the cards, auto-resume straight into ID
+Upload if a pending subscription already exists" behavior is **reversed**.
+Signing in (or landing on Choose Membership at all) now always shows the
+plan cards, full stop — no silent redirect past them. Actual duplicate
+prevention still lives where it always did regardless: `start_subscription`'s
+own `pending_subscription_exists` check (decision #16) — re-selecting a
+plan while one is already pending now surfaces as a clear inline error
+message on the cards screen itself, rather than the user never seeing the
+cards at all. This let `_goToIdUpload` collapse back down to a plain
+`push().then()` that just clears the "Selecting…" state on return,
+regardless of *why* the pop happened — no more guessing, no more
+re-querying the database defensively. `findPendingSubscription()` and the
+now-unused `PendingSubscription` class were deleted from
+`SubscriptionService` rather than left as dead code.
+
+**Also found and cleaned up while investigating this:** a DevTools Network
+tab full of `.dart.lib.js` file requests, which the user flagged as a
+possible leak — confirmed these are just Flutter web's normal debug-mode
+module loading (one JS file per Dart source file, unminified, because this
+is `flutter run` not a release build), not a data leak. No card fields
+ever appeared in any request body; the network tab evidence for that
+specifically is filtering to Fetch/XHR and inspecting the
+`confirm_subscription_payment` RPC call's payload, which contains only
+`p_subscription_id`.
+
+### 23. Sprint 2, Task 5 — Payment success screen, and the full loop verified end to end
+
+No Figma frame exists for a dedicated "payment success" screen — searched
+the entire file via the API for "member"/"congrat"/"welcome"/"success"/
+"payment successful" text; the only hit is a notification list item on the
+Notifications screen ("Payment Successful... Your monthly subscription has
+been renewed"), not a standalone confirmation page. The task itself frames
+this as a temporary placeholder ahead of the real Home Dashboard (Sprint
+3), so `PaymentSuccessScreen` was built to match the app's existing visual
+language (same card/gradient/button treatment as every other screen in
+this flow) rather than inventing an unrelated look or forcing a nonexistent
+design match.
+
+Takes `plan` via constructor from `PaymentScreen`'s own already-known
+state — the last hop in a chain that started with Choose Membership's real
+`fetchPlans()` call — so this screen, like every screen before it in the
+flow, makes zero database reads and has zero hardcoded plan data. "Continue"
+routes to the Home `ComingSoonScreen` stub via the same
+`pushAndRemoveUntil` pattern `PaymentScreen` already used.
+
+**Verified live, end to end, by the user, with a brand-new account** (not
+a resumed/pre-seeded one — this exercised every step from real signup
+onward): Create Account → Choose Membership → ID Upload → Payment →
+confirmation screen. Checked directly in the database afterward:
+
+- `profiles`: real `full_name`, a freshly auto-generated `member_id`
+  (`RC-000030`) — confirms signup and the member-ID trigger both ran for
+  real, not against seeded data.
+- `subscriptions`: `status = 'active'`, `started_at`/`valid_until` 30 days
+  apart, matching `confirm_subscription_payment`'s contract exactly.
+- `usage_allowances`: a row exists for the same period.
+- `id_documents`: `verification_status = 'pending'` (correctly forced, per
+  decision #18 — never self-approved) with a real `storage_path` from an
+  actual uploaded file.
+
+No hardcoded or mock data anywhere in this path — the only intentionally
+"fake" data in the whole flow remains the Payment screen's card fields
+(decision #22), which are discarded client-side by design and never touch
+the database at all.
+
+### 24. Sprint 2, Task 6 — Resume-flow correctness conflicts with decision #22; keeping #22
+
+Task 6 as given asked for three sign-in states: no subscription → Choose
+Membership, **pending → Payment** (so someone who picked a plan but closed
+the app before paying resumes straight at the payment step instead of
+"restarting at Choose Membership, which would risk creating a second
+pending subscription"), active → Home.
+
+The middle case directly contradicts decision #22, made one task earlier:
+Choose Membership always shows the plan cards on sign-in, with no silent
+redirect past them for any state (none or pending) — the auto-resume
+behavior Task 6 is literally asking for was removed on purpose after it
+caused a real navigation bug (see #22). Rather than silently pick one,
+this was flagged to the user directly as a conflict between the new task
+and the immediately preceding decision.
+
+**User's explicit choice: keep decision #22, skip this requirement.**
+Sign-in still always shows Choose Membership's cards regardless of pending
+state. Recorded here rather than implemented so that whoever gave us Task
+6 can be told plainly: this specific requirement conflicts with an
+explicit decision made two tasks ago, rather than us quietly overriding
+either one.
+
+**Verified current behavior for all three states, in both routing entry
+points** (`SignInScreen._submit` and `AppEntryPoint._resolve`, which share
+the same two-way `hasActiveSubscription()` check):
+
+- **No subscription** → Choose Membership (shows cards).
+- **Pending** → Choose Membership (shows cards) — *not* Payment. This is
+  the one place Task 6's literal text and current behavior diverge.
+- **Active** → Home (`ComingSoonScreen`).
+
+Task 6's other concern — "check Task 2's duplicate-prevention logic" — is
+confirmed still intact and unaffected by this decision either way:
+`start_subscription`'s own `pending_subscription_exists` check (decision
+#16) still runs server-side on every call, RPC-level, regardless of what
+the client does before calling it. Re-selecting a plan while one is
+already pending surfaces the existing inline error message on the cards
+screen (`StartSubscriptionErrorCode.pendingSubscriptionExists`, "You
+already have a membership request in progress.") rather than creating a
+second row. Nothing about this decision touches or weakens that check.
+
+No dangling references to the deleted `findPendingSubscription()` /
+`PendingSubscription` (removed in decision #22) were found in either
+routing entry point — both were already re-read in full to confirm this.
+
 ---
 
-## Open questions still waiting on an answer from the company
+## Checkpoint: status of every open item, as of the end of Sprint 2
 
-These don't block current work, but will need real answers before the
-related screens can be finished correctly:
+Went through every open gap/question in this file with the user before
+starting the next task. Resolutions below.
 
-1. **Signup flow order** (see decision #1 above) — please confirm this is
-   right, and whether a plan/payment/ID upload is mandatory immediately after
-   creating an account.
-2. On the extended signup screen, the "Subscription Plan" field appears as an
-   empty dropdown — is it pre-filled from the plan chosen on the previous
-   screen, or does the user pick again there?
-3. **Event reservation pricing** — the design shows a placeholder "$150/hour"
-   base rate. What's the real pricing, and does it vary by event type (the
-   "Event Type" field's actual options weren't visible in the export)?
-4. **Full FAQ copy** — only 1 of 4 FAQ answers was visible/expanded in the
-   design export; need the other 3 answers for the Help & Support screen.
-5. **Notification preferences** (push/email/SMS toggles on the Notifications
-   settings screen) — should these be saved per-user in the database, or is
-   it fine for them to just be a local setting on the device with no backend?
+- **ID Upload live file-picker flow (decision #18's testing gap):**
+  confirmed — the user manually uploaded a real file and it worked
+  correctly end to end. Closed, see the update at the end of decision #18.
+- **Leftover test rows** (`RLS_TEST_...` in `storage.objects`, a stray
+  `pending` `id_documents` row for `task2test`): **deliberately left in
+  place for now** — the user will clean up test data in the database in
+  one pass at the end rather than piecemeal. Not a bug, just deferred
+  housekeeping.
+- **No Sign Out on Choose Membership/Verify Your Membership** (decision
+  #21): **confirmed intentional.** Sign out belongs on a Settings screen,
+  the same way most apps do it — not sprinkled across every authenticated
+  screen. It'll be built when Settings is built; no stopgap needed before
+  then.
+- **Other screens' fidelity to Figma** (Onboarding, Auth Landing, Sign In,
+  Create Account, Forgot Password — decision #20's leftover scope):
+  **deliberately not re-auditing these proactively.** The user will flag
+  specific mismatches as they find them rather than have every screen
+  re-checked against the API up front.
+- **Payment gateway is mocked** (decision #4/#16): **staying mocked
+  on purpose.** The user will get real Stripe credentials from the
+  company later and wire that in as its own task — not guessed at now.
+- **Custom SMTP via personal Gmail** (decision #14): the user confirmed
+  Forgot Password actually delivers a real email right now, so the
+  current setup is functionally working. The "fragile, personal-account"
+  concern from decision #14 stands as a pre-handoff cleanup item, not
+  something broken today.
+- **PKCE code verifier in plain text** (decision #6): no strong opinion
+  from the user either way. Leaving it as originally assessed — low
+  priority, inactive risk since no magic-link/OAuth flow exists yet — and
+  will revisit if such a flow gets built.
+- **Signup flow order** (decision #1): **confirmed correct by the
+  company** — this is the actual order they specified, not a guess
+  anymore. Updated decision #1 above to drop the "unconfirmed" caveat.
+
+## Genuinely open questions, deferred until their screens get built
+
+These only matter once we're actually building the related screen — no
+need to think about them now:
+
+- **"Subscription Plan" field on the old two-screen signup confusion**
+  (decision #1): moot in practice, since we made this field read-only
+  rather than an editable dropdown — nothing left to decide here.
+- **Event reservation pricing**: the design shows a placeholder
+  "$150/hour" — real pricing (and whether it varies by event type) is
+  needed only once the Event Reservations screen gets built.
+- **Full FAQ copy**: only 1 of 4 answers was visible in the design
+  export — the other 3 are needed only once the Help & Support screen
+  gets built.
+- **Notification preferences storage**: whether push/email/SMS toggles
+  need to be saved per-user in the database, or can just be a local
+  on-device setting — matters only once the Notifications settings
+  screen gets built.
 
 ---
 
