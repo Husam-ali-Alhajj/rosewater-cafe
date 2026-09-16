@@ -6,12 +6,14 @@ class Profile {
   final String fullName;
   final String email;
   final String? phone;
+  final String? memberId;
 
   const Profile({
     required this.id,
     required this.fullName,
     required this.email,
     required this.phone,
+    required this.memberId,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class Profile {
       fullName: json['full_name'] as String? ?? '',
       email: json['email'] as String,
       phone: json['phone'] as String?,
+      memberId: json['member_id'] as String?,
     );
   }
 }

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../services/subscription_service.dart';
+import '../../theme/app_colors.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/coming_soon_screen.dart';
+import '../events/events_tab.dart';
+import '../membership/choose_membership_screen.dart';
+import '../qr_access/qr_access_screen.dart';
 import 'home_screen.dart';
 
 const _homeTab = 0;
@@ -15,20 +20,18 @@ const _eventsTab = 2;
 /// flat `ComingSoonScreen(label: 'Home')` destination used everywhere
 /// before this sprint.
 ///
-/// Home is the only tab built out so far; the rest stay `ComingSoonScreen`
-/// stubs until their own task/sprint. `IndexedStack` (not swapping the
-/// child widget per tap) keeps each tab's state alive across switches,
-/// matching how a real tabbed app behaves.
+/// Home, QR Code, and Events are built out so far; Profile stays a
+/// `ComingSoonScreen` stub until its own task. `IndexedStack`
+/// (not swapping the child widget per tap) keeps each tab's state alive
+/// across switches, matching how a real tabbed app behaves.
 ///
-/// `_tabs` is built once in [initState], not `static const` anymore --
-/// `HomeScreen` needs [_goToTab] itself now (its two quick-action buttons
-/// switch to the QR Code/Events tabs the same way the bottom nav does,
-/// see docs/decisions.md #29), and a bound instance method can't be a
-/// compile-time constant. Built once rather than in [build] so switching
-/// tabs doesn't hand `HomeScreen` a new closure identity on every
-/// `setState` -- irrelevant here since `HomeScreen` never compares its
-/// callback's identity, but there's no reason to allocate one on every
-/// tab switch either.
+/// `ActiveMembership` is fetched exactly once, here, and handed down to
+/// both `HomeScreen` and `QrAccessScreen` -- Sprint 4 Task 2 explicitly
+/// asked for the QR screen's guest-count cap to reuse Home's already-
+/// fetched plan data rather than re-querying it a second time, so the
+/// fetch (and the "no active membership -- bounce to Choose Membership"
+/// defensive check from decision #27) moved up from `HomeScreen` to here,
+/// the one place both tabs can share it.
 ///
 /// Sign Out moved here from the old Home placeholder onto the Profile tab
 /// -- see docs/decisions.md #21/#26 -- since Profile is the natural
@@ -42,27 +45,56 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  final _subscriptionService = const SubscriptionService();
+
   int _index = _homeTab;
+  bool _loading = true;
   late final List<Widget> _tabs;
 
   @override
   void initState() {
     super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final membership = await _subscriptionService.fetchActiveMembership();
+    if (!mounted) return;
+    if (membership == null) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const ChooseMembershipScreen()),
+        (route) => false,
+      );
+      return;
+    }
     _tabs = [
       HomeScreen(
+        membership: membership,
         onGoToQrCode: () => _goToTab(_qrCodeTab),
         onGoToEvents: () => _goToTab(_eventsTab),
       ),
-      const ComingSoonScreen(label: 'QR Code'),
-      const ComingSoonScreen(label: 'Events'),
+      QrAccessScreen(
+        membership: membership,
+        onBackToDashboard: () => _goToTab(_homeTab),
+      ),
+      EventsTab(onGoToHome: () => _goToTab(_homeTab)),
       const ComingSoonScreen(label: 'Profile', showSignOut: true),
     ];
+    setState(() => _loading = false);
   }
 
   void _goToTab(int index) => setState(() => _index = index);
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
     return Scaffold(
       body: IndexedStack(index: _index, children: _tabs),
       bottomNavigationBar: AppBottomNav(currentIndex: _index, onTap: _goToTab),

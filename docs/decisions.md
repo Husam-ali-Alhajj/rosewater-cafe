@@ -1661,6 +1661,442 @@ tapped it, landed on the "Notifications — coming in a future task" stub
 with a working back arrow. `flutter analyze` clean, `flutter test`
 37/37 passing.
 
+### 33. Pre-Sprint-4 — two decisions made ahead of the QR Code and Event Reservation tasks
+
+Raised and decided before Sprint 4's screens exist, so both are settled
+by the time the actual tasks land rather than being re-litigated then.
+
+**Door access / QR check-in does not touch `usage_allowances`.** This
+app has no way to know what a member actually consumes once inside (a
+hookah session lit, a drink poured) -- that requires a real staff/POS
+system, out of scope entirely. Logging a door access only ever writes to
+`door_access_logs` (arrival timestamp + guest count); `usage_allowances`
+stays exactly as-is through that flow. Same deferred bucket as the
+renewal gap in decision #25 -- there is still no mechanism that
+increments `hookah_used`/`drinks_used` at all, door access or otherwise,
+and this doesn't change that.
+
+**Guest-count naming collision, called out explicitly so it doesn't get
+"helpfully" merged later:** the Door Access screen's guest count (how
+many people a member brings in with them, capped by their own plan's
+`max_guests` -- 0 to 2) and the Event Reservation screen's guest count
+(how many people a private event is booked for -- 5 to 100, the whole
+café) share a UI label ("Number of Guests"/similar) but mean completely
+different things, against completely different tables, with completely
+different valid ranges. Deliberately kept as fully separate fields with
+no shared model, validator, or widget between them -- a future refactor
+that spots the naming overlap and "simplifies" them into one shared
+component would be introducing a bug, not removing duplication.
+
+**Event pricing and event-type options stay placeholders** (already on
+the open-questions list above) rather than blocking Sprint 4 on real
+numbers from the company. When the Event Reservation screen gets built,
+the placeholder price/types will be computed server-side from a single
+named constant, so supplying the real values later is a one-line change
+in one place, not a redesign touching every place price was displayed.
+
+### 34. Sprint 4, Task 1 — `log_door_access` RPC, and proving all three of its server-side checks with role impersonation
+
+Added `log_door_access(p_guest_count integer)`
+(`supabase/migrations/20260916100000_log_door_access.sql`) -- the only
+way a row gets written to `door_access_logs` from the client, since that
+table has no INSERT policy for `authenticated` (same reason
+`subscriptions`/`usage_allowances` are RPC-only -- see decision #4).
+Same security pattern as every prior RPC: `SECURITY DEFINER`,
+`search_path` pinned, `auth.uid()` read internally rather than accepted
+as a parameter, `EXECUTE` revoked from `PUBLIC` *and* explicitly from
+`anon` (decision #16's lesson -- Supabase grants EXECUTE to `anon`
+per-function regardless of a bare `revoke ... from public`).
+
+**Two things this function does not trust the client for**, both
+explicitly called out in the task:
+
+1. **Active membership**, re-checked server-side with the identical
+   `status = 'active' and valid_until > now()` condition from decisions
+   #25/#27 -- not just `status = 'active'` alone, for the same reason as
+   Home's card: `expire_subscriptions()` only runs once a day, so a
+   lapsed row can sit with a stale `'active'` status for up to ~24h. A
+   member whose subscription expired 5 minutes ago is rejected
+   immediately here regardless of whether the cron job has caught up yet.
+   No match at all (including "never subscribed") raises
+   `no_active_subscription`.
+2. **Guest count**, validated against the caller's own plan's real
+   `max_guests` (fetched server-side via the same `subscriptions` joined
+   to `membership_plans` shape used elsewhere), not the value the UI's
+   stepper widget happens to allow. Out-of-range raises
+   `guest_count_exceeds_plan_limit` with `max_guests`/`requested` in the
+   detail, whether the client would have ever produced that number or
+   not.
+
+Deliberately does **not** touch `usage_allowances` at all (decision #33)
+-- a door access event only ever records arrival + guest count.
+
+**Verified live with role impersonation**, the same method as decisions
+#16/#19/#25, each check isolated in its own `begin; ... rollback;` so
+nothing touched real data:
+
+- **`anon`**: `set local role anon; select public.log_door_access(1);`
+  → `ERROR: 42501: permission denied for function log_door_access` --
+  rejected at the grant level, never reaches the function body at all.
+- **Authenticated, no active subscription** (a real user with no
+  matching row): → `ERROR: P0001: no_active_subscription`, raised inside
+  the function after the membership check found nothing.
+- **Guest count above the real limit**: impersonated a real Premium
+  subscriber (`max_guests = 2`) and called `log_door_access(3)` --
+  `3` chosen specifically because no UI stepper capped at 2 would ever
+  send it. → `ERROR: P0001: guest_count_exceeds_plan_limit`, `DETAIL:
+  {"max_guests": 2, "requested": 3}` -- the real plan limit, fetched
+  server-side, not trusted from the caller.
+- **Happy path, exactly at the limit** (`log_door_access(2)` for that
+  same account): succeeded, inserted a real row (`guest_count = 2`,
+  `accessed_at` populated) -- confirmed inside the same transaction, then
+  `rollback`, then confirmed with a fresh `count(*)` query afterward that
+  zero rows actually persisted.
+- **Grants double-checked directly**: `has_function_privilege()` shows
+  `prosecdef = true`, `anon` = false, `authenticated` = true -- matching
+  the migration file exactly, not just assumed from the revoke/grant
+  statements.
+
+### 35. Sprint 4, Task 2 — QR / Door Access screen, sharing Home's membership fetch, and a documented training-project simplification
+
+Built the real Door Access screen (Figma node 1215:1616), replacing that
+tab's `ComingSoonScreen` stub: real QR code (`qr_flutter`), a guest
+stepper clamped to the caller's real plan `max_guests`, and an "Open
+Door" button that calls `log_door_access` (decision #34).
+
+**Training-project simplification, logged rather than fixed, exactly as
+asked:** the QR payload is the member's plain `member_id` string
+(`lib/screens/qr_access/qr_access_screen.dart`'s class doc comment spells
+this out in full). A real production version needs a short-lived,
+signed/rotating token instead -- a static QR can be photographed once and
+reused indefinitely, with no way to revoke it, to log a door-access event
+against that member forever. Not building the token-issuing/verification
+infrastructure this would need; the comment exists so this doesn't get
+silently forgotten as "already handled."
+
+**Reusing Home's `ActiveMembership` fetch instead of re-querying it,**
+per the task's explicit instruction, meant moving that fetch (and the
+"no active membership -- bounce to Choose Membership" defensive check
+from decision #27) up from `HomeScreen` into `MainShell` itself --
+the one place both the Home and QR Code tabs can share it. `MainShell`
+now fetches `ActiveMembership` once, shows a loading spinner, bounces if
+null, and only then builds both `HomeScreen(membership: ...)` and
+`QrAccessScreen(membership: ...)` with the same object. `HomeScreen` no
+longer fetches or gates on membership at all -- `MainShell` never
+constructs it without one.
+
+**New pieces added to support this:**
+
+- `Profile.memberId` -- the `profiles.member_id` column was already being
+  fetched (`ProfileService.fetchCurrentProfile()` selects `*`) but had no
+  field on the Dart model until this task needed to display it.
+- `DoorAccessService.logDoorAccess()` -- same
+  `LogDoorAccessFailure`-with-a-safe-message pattern as
+  `StartSubscriptionFailure`/`ConfirmPaymentFailure`, mapping
+  `log_door_access`'s three exception strings to sentences safe to show
+  directly, so a caught `PostgrestException` never reaches the UI as raw
+  text.
+
+**Guest stepper clamps in the UI** (`0 <= count <= plan.maxGuests`,
+buttons disable visually at the bounds) as the primary UX, but that is
+explicitly not where the real enforcement lives -- decision #34's
+server-side check is what actually protects this, since the RPC never
+trusts what the client sends regardless of what the stepper allowed.
+"Open Door" resets the counter to `0` and shows a mock success banner
+("Door unlocked! Enjoy your visit.") on success -- there's no real door
+hardware to unlock, so this is explicitly a UI acknowledgment, not a
+simulated device response.
+
+**Verified live**, all four acceptance points, through the real UI (not
+just SQL) on the decision #26 test account, switching its real plan via
+SQL between checks the same way decisions #26-28/#31 did:
+
+- **Basic** (`max_guests = 1`): copy read "You can bring up to 1 guest
+  with your Basic membership" (correct singular grammar); tapped "+"
+  twice, counter stopped at `1`, button visibly disabled past that --
+  never reached `2`.
+- **Premium** (`max_guests = 2`): copy read "...2 guests..."; tapped "+"
+  three times, counter stopped at `2`.
+- **Real door_access_logs row**: tapped "Open Door" at guest count `2` on
+  the Premium account -- success banner shown, counter reset to `0`,
+  and a fresh SQL query confirmed a real row (`guest_count = 2`, a real
+  `accessed_at` timestamp) had actually been inserted.
+- **Expired account, friendly error**: backdated that same account's
+  `valid_until` to yesterday via SQL while the screen was already open
+  (simulating decision #27's mid-session-expiry scenario), then tapped
+  "Open Door" again without reloading -- the screen showed "Your
+  membership isn't active right now, so door access isn't available."
+  inline, in the app's normal error-text style, not a raw exception, a
+  stack trace, or a crash. Guest count stayed unchanged (the call never
+  succeeded), confirming the reset-to-0 only happens on a real success.
+- **Member ID confirmed real**: queried the same account's
+  `profiles.member_id` directly (`RC-000031`) to confirm the QR's data
+  source is the genuine column value, not a placeholder.
+
+`flutter analyze` (clean, same 3 pre-existing unrelated infos) and
+`flutter test` (37/37) both passed before this live verification.
+
+### 36. Sprint 4, Task 3 — `create_event_reservation` RPC, and a real direct-insert bypass it closes
+
+Added `create_event_reservation(p_event_type, p_event_date, p_start_time,
+p_duration_hours, p_guest_count)`
+(`supabase/migrations/20260916110000_create_event_reservation.sql`).
+Same security pattern as every prior RPC: `SECURITY DEFINER`,
+`search_path` pinned, `auth.uid()` read internally, `EXECUTE` revoked
+from `PUBLIC` and explicitly `anon`. `total_price` is computed
+server-side (`duration_hours * 150`, a single named `c_price_per_hour`
+constant flagged as placeholder pricing pending real numbers from the
+company -- same pattern decision #33 already established) and is **not**
+a function parameter at all -- there's no argument for a caller to smuggle
+a price through, not just a check that rejects one.
+
+**A real gap found while building this, not just a hypothetical:**
+`event_reservations` already had its own `"Users can create own
+reservations"` RLS policy from the initial schema, letting
+`authenticated` insert directly with `auth.uid() = user_id` --
+unlike `subscriptions`/`usage_allowances`/`door_access_logs`, which were
+RPC-only from the start (decision #4). That policy would have let a
+client bypass this entire RPC and insert a row with any `total_price` it
+wanted, making the "no path to supply a price" guarantee false the moment
+anything used a direct `.insert()` instead of this function. This
+migration drops that policy (`drop policy ... "Users can create own
+reservations"`), making `create_event_reservation` the only INSERT path,
+consistent with every other money-shaped table in this project. The
+`SELECT`/`UPDATE` policies are untouched for now -- worth flagging
+though: the `UPDATE` policy has the same latent shape (a user could
+directly update their own reservation's `total_price` after the fact) --
+deferred rather than fixed here since no screen updates reservations yet
+and this task's scope was specifically the create path; revisit when an
+edit/cancel flow gets built.
+
+**Two checks this function does not trust the client for:**
+
+1. **Guest count**, 5-100 -- the design's own stated range for a private
+   event booking. This is a completely different field from the Door
+   Access screen's 0-2 "guests you're bringing with you" despite sharing
+   a UI label pattern -- decision #33 called this naming collision out
+   explicitly precisely so the two never get conflated in code, and they
+   haven't been: separate parameter, separate range, separate table.
+2. **Event date**, rejecting anything before today. Deliberately not
+   layered with any availability/double-booking logic -- that's a
+   separate feature this project doesn't have and wasn't asked for here.
+
+**Deliberately inserts with `status = 'confirmed'`, not `'pending'`**,
+even though `reservation_status` has a `'pending'` value available: no
+screen in this app has any approval/review workflow for event
+reservations, so a `'pending'` row would just be a permanent dead end
+with nothing that could ever move it to `'confirmed'`. Building an
+approval-state machine nobody asked for and no screen would ever act on
+would be the same mistake decision #25 already avoided for
+`usage_allowances` renewal -- inventing a mechanism ahead of the flow
+that would need it. Logged here as the deliberate simplification instead.
+
+**Verification correction, mid-task:** the first attempt at this handed
+a multi-step SQL script (with placeholders like `<paste-uuid-here>`) to
+the user to run themselves. That failed -- a narrative sentence got
+pasted as if it were SQL, and the placeholder UUID was left unsubstituted
+-- because fetching and substituting an id by hand is exactly the kind
+of mechanical, error-prone step that isn't a good fit to hand off. The
+user's own call afterward: **all Supabase SQL Editor / database
+verification stays mine to drive directly** (via role impersonation in
+the SQL Editor), while app-level UI testing stays theirs. This split is
+now recorded in memory for future tasks.
+
+**Verified directly (by the assistant, via role impersonation in the
+Supabase SQL Editor), all passing:**
+- Migration applied: `create_event_reservation` exists,
+  `prosecdef = true`.
+- Grants correct: `has_function_privilege('anon', ..., 'execute') = false`,
+  `has_function_privilege('authenticated', ..., 'execute') = true`.
+- The dropped `"Users can create own reservations"` policy is confirmed
+  gone from `pg_policies` (only `SELECT`/`UPDATE` remain on
+  `event_reservations`).
+- `anon` rejected: `42501 permission denied for function
+  create_event_reservation`.
+- No `total_price` parameter exists at all: calling with a 6th argument
+  fails with `42883 function ... does not exist` -- not just a runtime
+  check, there's no such overload.
+- Guest count out of range, both directions: `4` and `101` both raise
+  `guest_count_out_of_range` with the requested value echoed in
+  `DETAIL`.
+- Past `event_date` (`2020-01-01`) raises `event_date_in_past`.
+- Happy path: a real authenticated user with an active subscription
+  calling with `duration_hours = 3` produced a row with
+  `total_price = 450.00` and `status = 'confirmed'` -- then rolled back,
+  confirming no row persisted from any of these tests.
+- Direct-insert bypass concretely blocked, not just absent from
+  `pg_policies`: attempting a raw `insert into event_reservations ...`
+  as `authenticated` fails with `42501 new row violates row-level
+  security policy for table "event_reservations"`.
+
+### 37. Sprint 4, Task 4 — Reserve an Event screen, and the shared-constant pricing pattern that ties its display to the RPC
+
+Built `ReserveEventScreen` (`lib/screens/events/reserve_event_screen.dart`)
+and `EventReservationService` (`lib/services/event_reservation_service.dart`),
+replacing the Events tab's `ComingSoonScreen` stub in `MainShell`. Matches
+Figma App-12: Event Type dropdown, Event Date/Start Time pickers, Duration
+(hours), Number of Guests (with the design's own "Minimum 5 guests,
+maximum 100 guests" helper text), a static "Event Package Includes" list,
+a live price breakdown, and "Confirm Reservation" calling
+`create_event_reservation` (decision #36).
+
+**Event Type's four options (Birthday / Corporate / Private Party /
+Other) are a placeholder**, same open-question bucket as the Help &
+Support FAQ gap — the design never confirmed a real list and no table
+backs it. Decided as a fixed in-code list rather than inventing a
+lookup table for four placeholder strings.
+
+**The live "Estimated Total" and the RPC's own `total_price` share one
+constant, not two independently-typed `150`s:**
+`EventReservationService.pricePerHour` is the exact same value read by
+both this screen's display calculation and documented as matching
+`create_event_reservation`'s `c_price_per_hour`. Since the RPC has no
+parameter for a client to supply a price at all (decision #36), a
+mismatch here could only ever be cosmetic — the display saying one
+number while the server silently stores its own — never a way for a
+client to make the server charge something else. Duration input is
+restricted client-side to at most 2 decimal places (`^\d{1,2}(\.\d{1,2})?$`),
+matching `duration_hours`'s own `numeric(4,2)` column precision — without
+this, a value like `2.126` would multiply cleanly for the live display
+but get silently rounded to `2.13` by Postgres on insert, a confusing
+(though still harmless) drift between the two.
+
+**Client-side validation blocks bad submissions before any network
+call**, same pattern as Create Account (decision #8): guest count
+outside 5–100, a non-positive or malformed duration, a past event date,
+and a missing event type/date/time all fail `Form.validate()` (or an
+equivalent manual check for the date/time pickers, which aren't
+`TextFormField`s) before `EventReservationService.createEventReservation`
+is ever called. The server's own checks (decision #36) remain the real
+enforcement — this is a courtesy that saves a round trip, not something
+either screen or RPC trusts alone.
+
+**A real bug caught before it shipped, not by testing but by reasoning
+through `DropdownButtonFormField`'s API:** newer Flutter versions renamed
+its `value` parameter to `initialValue`, making it behave like
+`TextFormField`'s own `initialValue` — read once on first build, not kept
+in sync with the backing variable afterward. Clearing `_eventType` after
+a successful submission alone would have left the dropdown visually
+stuck on the just-submitted selection. Fixed by calling
+`_formKey.currentState?.reset()` alongside the manual field clears.
+
+**Update, decision #38:** this whole reset-in-place approach (and the
+`FormState.reset()` workaround above) was superseded one task later —
+a successful submission now swaps the entire screen out via
+`EventsTab` rather than clearing this screen's own fields, which makes
+the dropdown problem moot: the next `ReserveEventScreen` is a brand-new
+instance, never the same one being reset.
+
+**Deliberately not built: a dedicated "Reservation Confirmed" screen.**
+Figma has one (App-13: date/time/duration/guest summary + "Back to
+Dashboard"), but this task's own acceptance criteria only covered the
+form screen itself. Matching Door Access's precedent (decision #35: a
+mock success `SnackBar`, not a full screen) rather than Payment's
+(decision #4: a dedicated `PaymentSuccessScreen`), this screen shows a
+success `SnackBar` and resets its own fields, staying in place. Flagging
+App-13 as a known, unbuilt screen rather than silently skipping it
+forever or building it without being asked — a natural candidate for its
+own future task.
+
+**Update: built one task later, see decision #38** — Task 5 asked for
+exactly this screen.
+
+**Not yet verified live** — this needs the user's own app-level
+click-through per the corrected verification split (decision #36): a
+real submission's `event_reservations.total_price` actually matching
+this screen's displayed estimate, and the guest-count/date validators
+firing before any network call is visible in the browser's network tab.
+(The dropdown-reset behavior this originally also listed no longer
+applies — see the decision #38 update above.)
+
+### 38. Sprint 4, Task 5 — Reservation Confirmed screen, and swapping tabs in place instead of pushing
+
+Built `ReservationConfirmedScreen` (`lib/screens/events/
+reservation_confirmed_screen.dart`), matching Figma App-13: a dark
+"Event reservation confirmed!" banner, a green check badge, "Reservation
+Confirmed!" heading, and a Date/Time/Duration/Guests summary card, with
+a "Back to Dashboard" gradient button.
+
+**Takes its data via constructor, zero additional DB reads** — a new
+`ReservationSummary` model (`lib/models/reservation_summary.dart`)
+carries `eventDate`/`startTime`/`durationHours`/`guestCount` straight
+from `ReserveEventScreen`'s own already-known form state, the same
+pattern `PaymentSuccessScreen` already established for `MembershipPlan`
+(decision #4).
+
+**How this screen actually gets shown — the part this task's own
+wording called out specifically:** it is never reached via
+`Navigator.push`. A new `EventsTab` widget
+(`lib/screens/events/events_tab.dart`) is what `MainShell` now puts in
+the Events slot of its `IndexedStack` (replacing the direct
+`ReserveEventScreen` from decision #37). `EventsTab` holds one piece of
+local state — the just-confirmed `ReservationSummary`, or null — and its
+`build()` is a plain conditional: null shows `ReserveEventScreen`,
+non-null shows `ReservationConfirmedScreen`. `ReserveEventScreen` gained
+an `onConfirmed` callback (replacing decision #37's success `SnackBar`)
+that `EventsTab` uses to flip that state after a real RPC success.
+"Back to Dashboard" on the confirmation screen clears that state *and*
+calls `MainShell`'s existing tab-switching callback
+(`onGoToHome` → `_goToTab(_homeTab)`) — the exact same `_goToTab`
+callback pattern decision #29 (Sprint 3, Task 5) introduced for Home's
+"Access Café"/"Reserve Event" quick actions and decision #35 later
+reused for `QrAccessScreen`, not a new mechanism invented for this
+screen.
+
+**"Returning to Home doesn't leave a dangling nav stack entry" is true
+by construction, not just by care taken on the way out** — this whole
+transition (form → confirmation → back to Home) never calls
+`Navigator.push` even once. There is nothing on the nav stack to leave
+behind, because nothing was ever pushed onto it.
+
+**Clearing the confirmed reservation on "Back to Dashboard" (not only
+lazily on next entry)** means the next time the user opens the Events
+tab via the bottom nav — not just the next time this specific widget
+happens to rebuild — they see a fresh, blank `ReserveEventScreen`,
+never the reservation they already confirmed. This also makes decision
+#37's `DropdownButtonFormField`/`FormState.reset()` workaround moot: the
+form widget is discarded and recreated on this path, not reset in
+place, so a fresh instance starts with a blank dropdown by construction.
+
+**Not yet verified live** — matches the design's layout by eye against
+the Figma export, but needs the user's own click-through (per the
+verification split, decision #36): confirming a real submission lands
+on this screen with the right values, "Back to Dashboard" actually lands
+on Home with the bottom nav still functional afterward, and returning to
+the Events tab later shows a blank form rather than the old confirmation.
+
+### 39. Sprint 4, Task 6 — logging this sprint's decisions (a checkpoint, not new work)
+
+This task's three items were each already decided and written down as
+they came up, rather than left to be reconstructed after the fact — this
+entry is a pointer to where, not new content:
+
+1. **The usage-allowances/door-access decoupling** — logged in decision
+   #33 (decided pre-Sprint-4) and re-confirmed in decision #34's
+   description of `log_door_access`: door access only ever writes to
+   `door_access_logs`; nothing about it touches `usage_allowances`, and
+   there is still no mechanism anywhere that increments
+   `hookah_used`/`drinks_used` (same gap decision #25 already flagged).
+2. **The guest-count naming distinction between the two screens** —
+   logged in decision #33: Door Access's guest count (0–2, capped by the
+   caller's own plan) and Event Reservation's guest count (5–100, the
+   whole café) share a UI label but are deliberately separate fields,
+   validators, and tables, called out specifically so a future "cleanup"
+   pass doesn't merge them into one shared component and introduce a
+   real bug.
+3. **Placeholder event pricing + event-type list** — the pricing
+   placeholder was first raised as an open question early in the project
+   and settled pre-Sprint-4 in decision #33; the event-type list
+   placeholder was decided when Reserve an Event was actually built
+   (decision #37). Both are now filed together under "Genuinely open
+   questions" below (updated in this pass to reflect that the screens
+   using them are built, not hypothetical) rather than left as two
+   separately-worded loose ends.
+
+No code changed for this task — it's a documentation pass confirming
+the sprint's decisions are traceable in this file, not just in chat
+history that won't survive past this conversation.
+
 ---
 
 ## Checkpoint: status of every open item, as of the end of Sprint 2
@@ -1710,9 +2146,18 @@ need to think about them now:
 - **"Subscription Plan" field on the old two-screen signup confusion**
   (decision #1): moot in practice, since we made this field read-only
   rather than an editable dropdown — nothing left to decide here.
-- **Event reservation pricing**: the design shows a placeholder
-  "$150/hour" — real pricing (and whether it varies by event type) is
-  needed only once the Event Reservations screen gets built.
+- **Event reservation pricing and event-type list**: both are live
+  placeholders now, not hypothetical — the Event Reservation screens got
+  built in Sprint 4 Tasks 4–5 (decisions #37/#38). Pricing is a flat
+  "$150/hour", computed server-side from the single named
+  `c_price_per_hour` constant in `create_event_reservation` (decision
+  #36) exactly as decision #33 planned, so plugging in real numbers (and
+  whether price should vary by event type) is a one-line change in one
+  place, not a redesign. The Event Type dropdown's four options
+  (Birthday / Corporate / Private Party / Other) are likewise a
+  placeholder fixed in-code list (decision #37) — no backing table, and
+  the design never confirmed a real list. Both still need the real
+  answer from the company; nothing here blocks further work until then.
 - **Full FAQ copy**: only 1 of 4 answers was visible in the design
   export — the other 3 are needed only once the Help & Support screen
   gets built.
@@ -1724,8 +2169,8 @@ need to think about them now:
   Sprint 3, Task 8): what a notification actually is here (payment
   receipts? event reminders? door-access alerts? some mix?), whether it
   needs its own table or is synthesized from existing tables
-  (`subscriptions`, `door_access_logs`, event reservations once that
-  table exists), how read/unread state is tracked, and whether delivery
+  (`subscriptions`, `door_access_logs`, `event_reservations`), how
+  read/unread state is tracked, and whether delivery
   is in-app-only or also push/email — all undecided. The Home bell
   (decision #32) deliberately stays a stub with no unread-count badge
   until this is answered, rather than a schema getting invented to make

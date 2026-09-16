@@ -7,23 +7,20 @@ import '../../services/usage_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/service_hours.dart';
 import '../../widgets/coming_soon_screen.dart';
-import '../membership/choose_membership_screen.dart';
 
 /// Home's membership status card (Figma node 1217:3576), usage progress
 /// cards (1217:3615/3633), and quick-action buttons (1217:3587) -- the
 /// dashboard content this and the two preceding tasks build. Real data
-/// only: plan name/valid-until/limits from
-/// [SubscriptionService.fetchActiveMembership], usage from
-/// [UsageService.fetchCurrentUsage], never hardcoded.
+/// only: plan name/valid-until/limits from [membership] (fetched once by
+/// [MainShell] and shared with the QR Code tab too -- see its own doc
+/// comment for why), usage from [UsageService.fetchCurrentUsage], never
+/// hardcoded.
 ///
-/// If the membership fetch finds nothing (no `active` row with
-/// `valid_until` still in the future), this screen doesn't render a
-/// broken/stale card -- it bounces to Choose Membership immediately.
-/// That's belt-and-suspenders on top of the same check already gating
-/// entry to Home at sign-in/app start; seeing it here would mean a
-/// subscription expired while this session was already sitting on Home,
-/// which decision #27 deliberately leaves for "the next navigation" to
-/// catch rather than reacting live.
+/// This screen no longer fetches or gates on [ActiveMembership] itself
+/// (that moved to `MainShell` in Sprint 4 Task 2, so QR Code could reuse
+/// the same fetch instead of querying it a second time) -- `MainShell`
+/// never builds this widget at all until it has a non-null membership, so
+/// there's nothing to bounce from here anymore.
 ///
 /// The two quick-action buttons don't navigate via `Navigator` -- "Access
 /// Café" and "Reserve Event" are tabs of the same [MainShell] Home lives
@@ -42,21 +39,25 @@ import '../membership/choose_membership_screen.dart';
 /// "Welcome, {name}!" greeting and member ID) -- out of this task's
 /// scope, not overlooked.
 class HomeScreen extends StatefulWidget {
+  final ActiveMembership membership;
   final VoidCallback onGoToQrCode;
   final VoidCallback onGoToEvents;
 
-  const HomeScreen({super.key, required this.onGoToQrCode, required this.onGoToEvents});
+  const HomeScreen({
+    super.key,
+    required this.membership,
+    required this.onGoToQrCode,
+    required this.onGoToEvents,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _subscriptionService = const SubscriptionService();
   final _usageService = const UsageService();
 
   bool _loading = true;
-  ActiveMembership? _membership;
   UsageAllowance _usage = const UsageAllowance(hookahUsed: 0, drinksUsed: 0);
 
   @override
@@ -66,23 +67,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
-    final membership = await _subscriptionService.fetchActiveMembership();
-    if (!mounted) return;
-    if (membership == null) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const ChooseMembershipScreen()),
-        (route) => false,
-      );
-      return;
-    }
     // A missing usage row (shouldn't happen for a genuinely active
     // subscription -- confirm_subscription_payment always creates one --
-    // but this isn't the access-gating check fetchActiveMembership is, so
-    // it degrades to "0 used" instead of bouncing the user anywhere.
+    // but this isn't the access-gating check MainShell's fetch already
+    // did, so it degrades to "0 used" instead of bouncing anywhere.
     final usage = await _usageService.fetchCurrentUsage();
     if (!mounted) return;
     setState(() {
-      _membership = membership;
       _usage = usage ?? const UsageAllowance(hookahUsed: 0, drinksUsed: 0);
       _loading = false;
     });
@@ -90,10 +81,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading || _membership == null) {
+    if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    final membership = _membership!;
+    final membership = widget.membership;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
