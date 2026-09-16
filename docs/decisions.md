@@ -1172,6 +1172,495 @@ No dangling references to the deleted `findPendingSubscription()` /
 `PendingSubscription` (removed in decision #22) were found in either
 routing entry point — both were already re-read in full to confirm this.
 
+### 25. Pre-Sprint-3 — subscription expiry job (built) and usage_allowances renewal (deferred)
+
+Raised before starting Sprint 3 because Home is the first screen that
+actually *reads* `subscriptions`/`usage_allowances` instead of just
+writing them once — two existing gaps become visible the moment it's
+built, rather than staying invisible the way they have been so far.
+
+**Gap 1 — nothing ever flipped `status = 'active'` to `'expired'` once
+`valid_until` passed.** `hasActiveSubscription()` only checked `status =
+'active'`, so a subscription from months ago with no renewal would show
+as active forever. Decided to actually fix this now rather than log it as
+a gap, since it's cheap and Home depends on it being right: two pieces,
+covering two different failure modes.
+
+- **A scheduled job that flips the stored status for real**
+  (`supabase/migrations/20260916090000_expire_subscriptions_cron.sql`):
+  `expire_subscriptions()`, `SECURITY DEFINER` with `search_path` pinned
+  (same pattern as every other function in this project), scheduled via
+  `pg_cron` to run daily at 03:00 (`cron.schedule('expire-subscriptions-
+  daily', '0 3 * * *', ...)`, wrapped in an unschedule-then-schedule `do`
+  block so rerunning the migration doesn't create duplicate jobs). Unlike
+  `start_subscription`/`confirm_subscription_payment`/`cancel_subscription`,
+  this function is **not** a per-user RPC — it updates every user's rows
+  in one pass, not just the caller's — so `EXECUTE` is revoked from
+  `authenticated` as well as `anon`/PUBLIC. No client role should ever be
+  able to invoke it directly; only pg_cron's own scheduled run (as the
+  database owner, outside PostgREST) does.
+- **Defense in depth in `hasActiveSubscription()` itself**
+  (`lib/services/subscription_service.dart`): now checks `status =
+  'active' AND valid_until > now()`, not status alone. A once-a-day cron
+  job means a row can sit with a stale `'active'` status for up to ~24h
+  after its real expiry — the client-side `valid_until` check makes every
+  live read correct immediately regardless of whether the job has run
+  yet. The cron job's own job is to keep the *stored* data honest for
+  anything that reads status directly without this extra check (future
+  admin views, reporting) — the two aren't redundant, they cover different
+  readers.
+
+**Known, accepted limitation:** raw `status` in the `subscriptions` table
+can lag reality by up to ~24h between a subscription's real expiry and
+the next 03:00 cron run. Fine for a training project; dropping to hourly
+is a one-line schedule-string change if it ever needs to be tighter. Any
+code that reads `status` without also checking `valid_until` (there
+isn't any right now, but future admin/reporting screens might) should be
+aware of this lag.
+
+**Applied and verified live** in the Supabase SQL editor (this migration
+doesn't run itself — same as every other migration in this project, it
+had to be pasted into the dashboard and run by hand): `cron.job` now has
+a real row (`jobid = 1`, `jobname = 'expire-subscriptions-daily'`,
+`schedule = '0 3 * * *'`, `command = 'select public.expire_subscriptions()'`,
+`active = true`), and `has_function_privilege()` confirms `expire_subscriptions`
+is `SECURITY DEFINER` (`prosecdef = true`) with both `anon` and
+`authenticated` unable to execute it directly (`anon_can_execute = false`,
+`authenticated_can_execute = false`) — matching the migration file exactly,
+not just written to disk and forgotten.
+
+**The defensive `valid_until` check was additionally proven to work
+independently of the cron job**, not just asserted: inside a single
+`begin; ... rollback;` transaction against a real active subscription
+(never committed, so no live data was actually touched) —
+
+1. Backdated that row's `valid_until` to yesterday, simulating a lapsed
+   subscription the (real, live, correctly-scheduled) daily cron job
+   hasn't run against yet.
+2. Impersonated the owning user (`set local role authenticated; set local
+   request.jwt.claims = '{"sub":"<their-id>","role":"authenticated"}'`).
+3. Ran the OLD status-only shape of the query — confirmed it would still
+   have returned this row as active (the exact bug being fixed).
+4. Ran `hasActiveSubscription()`'s actual NEW query (`status = 'active'
+   and valid_until > now()`) as the same impersonated user — returned
+   `new_defensive_check = 0`, i.e. correctly reports not-active
+   immediately, with zero dependency on whether cron has run yet.
+5. `rollback` — re-queried the same row afterward outside any
+   transaction and confirmed `valid_until` is back to its real original
+   value, so this test left no trace on live data.
+
+This is the proof the acceptance criteria asked for: the defensive check
+is what actually blocks a lapsed member from reaching Home the moment
+`valid_until` passes, not the cron job (which only exists to keep the
+*stored* `status` column honest for anything that reads it without the
+same defensive check).
+
+**Gap 2 — no renewal mechanism exists for `usage_allowances`.** The first
+period's row is created once, inside `confirm_subscription_payment`, at
+initial payment — there is no "start of next 30-day period" job that
+creates period 2. **Deliberately deferred, same bucket as the Stripe gap
+(decision #4/#16), not built:** a renewal job only has meaning once
+something exists for it to serve, and nothing does yet — there's no
+auto-recurring billing (payment here is a one-time manual "Pay" tap, not
+a subscription-with-retries) and no "resubscribe after lapsing" screen or
+flow for an expired member to trigger a new period at all. Building a job
+to silently create period-2 rows now would be inventing data against a
+repurchase flow that hasn't been designed. Logged plainly instead: no
+mechanism exists yet for a lapsed member to resubscribe, and therefore no
+`usage_allowances` renewal job exists either; building one is premature
+until a resubscribe flow is designed. Revisit together when that flow is
+built.
+
+### 26. Sprint 3, Task 2 — Bottom nav shell (Home / QR Code / Events / Profile)
+
+Built the persistent 4-tab bottom navigation bar every authenticated
+screen from here on lives inside — `lib/widgets/app_bottom_nav.dart` for
+the bar itself, `lib/screens/home/main_shell.dart` as the `IndexedStack`
+shell that hosts the four tab bodies and owns the selected index.
+
+**Styling pulled directly from the Figma `BottomNav` component (node
+1216:2285)**, via the REST API, the same way decision #20 did for the
+membership screens — not eyeballed: white background, 1px top border
+(`#E5E7EB`, same hex already named `AppColors.membershipCardBorder`), 24px
+outline-style icons, 12px labels, muted gray (`#6A7282`, already named
+`AppColors.membershipPriceSuffix`) for inactive tabs vs. bold + a new
+`AppColors.bottomNavActive` (`#EC003F`) for the active one, and a small
+4px accent-colored dot beneath the active tab's icon — the icon itself
+sits 4px higher on the active tab to make room for it, which is exactly
+why the design's own layout numbers work out (confirmed by measuring the
+active/inactive Button node coordinates directly, not guessed).
+
+Icons are standard Material `_outlined` glyphs chosen to match each Figma
+vector's shape, same approach as every other icon in this app so far (no
+custom SVGs): `home_outlined`, `qr_code_outlined` (the Figma vectors are
+literally a 4-corner-square QR finder pattern), `calendar_today_outlined`,
+`person_outline`.
+
+**One deliberate, documented deviation from the Figma frame:** its tabs
+hug their own label width inside a fixed 375px mock (different width per
+tab, with gaps). Built as `Expanded` equal-width tabs instead — a
+content-hugging nav bar would look wrong the instant a real device isn't
+exactly 375px wide, so this trades exact-pixel match for correctness at
+arbitrary screen widths, the same kind of tradeoff decision #20 already
+established a precedent for elsewhere in this app.
+
+**Sign Out moved from the old flat Home placeholder onto the Profile
+tab.** Every prior destination for "the authenticated app" (`SignInScreen`,
+`AppEntryPoint`, `PaymentSuccessScreen`) pushed a bare
+`ComingSoonScreen(label: 'Home', showSignOut: true)` — that's gone now,
+replaced by `MainShell()` in all three places. Home's own tab is still a
+`ComingSoonScreen` stub this task (Home's real content is next), but
+without Sign Out; Profile's stub tab has it instead
+(`showSignOut: true`), since Profile is the natural interim home for it
+per decision #21 ("sign out belongs on Settings/Profile, not sprinkled
+elsewhere") — closer to the real design intent than a bare Home screen
+ever was, even while Profile itself is still just a stub.
+
+**Verified live**, not just by static analysis: `flutter analyze` (clean,
+same 3 pre-existing unrelated lint infos) and `flutter test` (29/29)
+first, then actually ran the app (`flutter run -d web-server`) and drove
+it through Chrome — created a fresh throwaway test account
+(`task2.bottomnav.20260916@gmail.com`), selected Basic, then fast-forwarded
+its subscription straight to `active` with a direct SQL update (this task
+is only about the nav shell, not re-testing the payment RPCs already
+verified in decisions #16/#22/#23, so skipping ID Upload/Payment's UI here
+was deliberate scope, not a shortcut around something this task actually
+needed to prove). Reloaded to go through the real
+`AppEntryPoint` → `hasActiveSubscription()` → `MainShell` path, then
+clicked all four tabs in sequence (Home → QR Code → Events → Profile →
+back to Home): each switch rendered its stub instantly, no crash, no
+stuck state, Home correctly active by default, Profile correctly showing
+"Sign Out" top-right. Zoomed screenshot confirmed the active-tab dot
+indicator and accent color match the Figma component exactly.
+
+### 27. Sprint 3, Task 3 — Membership status card (real data), and the mid-session-expiry question
+
+Built the real membership status card on Home (`lib/screens/home/home_screen.dart`),
+replacing that tab's `ComingSoonScreen` stub from decision #26. Plan name
+and valid-until date come from a new `SubscriptionService.fetchActiveMembership()`
+— a single query joining `subscriptions` to `membership_plans(name)`,
+using the exact same `status = 'active' AND valid_until > now()` defensive
+check as `hasActiveSubscription()` (decision #25), not a looser one. No
+hardcoded plan data or dates anywhere in this screen.
+
+**Styling pulled directly from the Figma `MemberDashboard` → `Card`
+component (node 1217:3576)**, via the API, same as every other screen
+this sprint: purple gradient (`#C27AFF → #9810FA`, corner radius 14,
+1px border black-at-10%-opacity, the same two-layer drop shadow the node
+itself specifies), a translucent white "Active" badge (white-at-20%-opacity
+fill, white-at-30%-opacity border, radius 8), "Membership Status" label,
+"{Plan} Member" heading, "Valid until: M/D/YYYY" — that exact date format
+(no leading zeros) is what the Figma text itself shows.
+
+**One judgment call worth flagging:** this card's gradient is a fixed
+purple regardless of which plan the member is actually on -- it happens
+to be the exact same hex pair as `membershipPremiumGradient`, reused
+rather than duplicated. The Figma file only has one instance of this
+card to go on (using demo data labeled "premium Member"), so there's no
+second data point to confirm whether a Basic or VIP member's card should
+use a different tier gradient instead. Treated the single instance as the
+intended universal Home-dashboard accent (consistent brand color for
+"you're a member," independent of tier) rather than assuming per-tier
+color-coding was intended but just unshown. Worth confirming if a second
+Figma instance with a different plan ever surfaces.
+
+**The mid-session-expiry question, decided as proposed:** since Task 1
+made expiry a real possibility while a session is already open (not just
+at sign-in), the open question was whether the status card needs to react
+live if a subscription expires while the user is already sitting on
+Home. **Accepted: no** -- "catch it on the next navigation or app reopen"
+is good enough for this project; real-time reactivity would mean wiring
+up Supabase Realtime for a rare edge case with no real cost to the
+business if it lags by one session. Logged here as the decision, not
+defaulted into silently.
+
+That said, Home does not blindly trust it was only ever reached with a
+genuinely active membership: **`HomeScreen` re-runs the same defensive
+check itself** and, if `fetchActiveMembership()` finds nothing, immediately
+`pushAndRemoveUntil`s to `ChooseMembershipScreen` instead of rendering a
+broken or stale card. This is belt-and-suspenders on top of the identical
+check already gating entry to `MainShell` at sign-in and app start
+(decision #25) -- not a substitute for live reactivity, just insurance
+against ever silently showing "Active" when the data underneath says
+otherwise, for any reason.
+
+**Verified live, both paths, through the real UI** (not just SQL):
+using the same test account from decision #26 (`task2.bottomnav.20260916@gmail.com`,
+Basic plan, active) --
+
+- **Happy path:** signed in through the real Sign In screen. Home
+  rendered the real card: "Basic Member", "Active" badge, "Valid until:
+  10/15/2026" -- matching the database exactly, not a placeholder.
+- **Bounce path:** backdated that same account's `valid_until` to
+  yesterday via SQL (simulating expiry), then signed out via the Profile
+  tab's Sign Out button and signed back in through the real form --
+  landed directly on Choose Membership, never showing Home or any stale
+  "Active" data at all. Confirms both the entry gate (decision #25) and
+  this task's own acceptance criterion in one pass.
+
+### 28. Sprint 3, Task 4 — Usage progress (hookah sessions, drinks), and how "Unlimited" is actually stored
+
+Added the two usage stat cards below the membership status card on Home.
+`used` comes from a new `UsageService.fetchCurrentUsage()` (real
+`usage_allowances` row, most recent `period_start`); `limit` comes from
+`ActiveMembership`, extended this task to also carry `hookahLimit`/
+`drinksLimit` from the same `membership_plans` join `fetchActiveMembership()`
+already does for the plan name -- one query, not two, since the plan row
+was already being fetched.
+
+**How "Unlimited" is actually stored, checked directly rather than
+assumed:** `membership_plans.hookah_limit`/`drinks_limit` are nullable
+`integer` columns, and VIP's seed row (`20260912120000_initial_schema.sql`)
+sets both to SQL `NULL` -- not a sentinel like `-1` or `0`. This is the
+same convention `MembershipPlan.featureBullets` already relies on
+(`hookahLimit == null ? 'Unlimited Hookah' : ...`), so Task 4 follows the
+established pattern instead of inventing a second one: `limit == null` is
+checked explicitly before any arithmetic ever touches it, both in
+`ActiveMembership` (typed `int?`, matching `MembershipPlan`) and in the
+card widget itself, which branches on `null` before computing a fraction
+-- there is no code path where `used / limit` can run with a null
+denominator (Dart wouldn't compile that anyway, but the equivalent bug in
+a looser language, or a lazy `limit ?? 0` that then divides by zero, is
+exactly the "15/null" this task called out to guard against). When
+`limit == null`, the card shows "Unlimited" in place of the "{used} /
+{limit}" line and renders no progress bar at all -- not a fake full/empty
+bar, since neither would be true. The "{used} used this month" caption
+still renders either way; that number stays meaningful on its own even
+without a cap to measure it against.
+
+**Styling pulled directly from the Figma `MemberDashboard` usage `Card`
+nodes** (1217:3615 hookah, 1217:3633 drinks), via the API: white-at-90%-
+opacity card, black-at-10%-opacity border, radius 14, a 48px circular icon
+badge per stat (peach `#FFEDD4` bg / orange `#F54900` flame icon for
+hookah, light-blue `#DBEAFE` bg / blue `#155DFC` glass icon for drinks),
+label in `textMuted`, the "{used} / {limit}" value in `textDark` at 24px,
+caption in `membershipPriceSuffix` at 12px. **One thing NOT taken
+literally from the raw Figma data:** the two progress-bar-fill node
+geometries in the file both report a fill width equal to the full track
+width regardless of the demo's own used/limit numbers (5/20 and 2/20) --
+a strong signal this design was imported from a coded (shadcn/ui, given
+the literal `Primitive.div` node names and the exact `#030213` "foreground"
+token showing up as both the track-at-20%-opacity and the solid fill
+color) React app via an HTML-to-Figma plugin, where the fill's true width
+came from an inline CSS percentage the plugin's static bounding-box
+capture didn't reproduce correctly. Trusting that geometry literally
+would have made every bar render at 100% regardless of real usage, which
+would fail this task's own acceptance criterion outright -- so the actual
+fill fraction is computed the only way that could ever be correct,
+`(used / limit).clamp(0.0, 1.0)`, while the colors that *did* extract
+consistently (`#030213` for both track and fill) were kept exactly.
+
+**Verified live, both the proportioned-bar case and the unlimited case,
+through the real UI** (not just SQL), reusing the decision #26/#27 test
+account:
+
+- **Basic plan, real numbers:** inserted a real `usage_allowances` row
+  (this account's subscription had been created via decision #26's SQL
+  shortcut, which bypasses `confirm_subscription_payment` and therefore
+  never created one -- a real payment always would) with
+  `hookah_used = 6, drinks_used = 3` against Basic's `10`/`10` limits.
+  Signed in through the real form: "Hookah Sessions 6 / 10" with its bar
+  visibly ~60% filled, "Drinks 3 / 10" at ~30% filled, both captions
+  correct -- proportion is visibly different between the two bars, not
+  just present.
+- **VIP, unlimited:** switched that same subscription's `plan_id` to VIP
+  via SQL (VIP's `hookah_limit`/`drinks_limit` are the real `NULL`s from
+  the schema, not test-only data) and reloaded. Both cards correctly
+  showed "Unlimited" with no progress bar, and the "used this month"
+  captions still rendered normally (6 / 3, unchanged from the underlying
+  usage row) -- no crash, no "15/null", no fake bar.
+
+### 29. Sprint 3, Task 5 — Quick actions ("Access Café" / "Reserve Event")
+
+Added the two quick-action buttons below the membership status card
+(Figma node 1217:3587, between it and the usage cards -- matching the
+design's own vertical order, which also meant fixing the inter-section
+gap between the status card and what's below it from 16px to the actual
+24px the Figma frame uses throughout, measured directly off the section
+coordinates rather than eyeballed; the two buttons themselves keep their
+own 16px gap).
+
+**Both are stubs this task, exactly as asked:** "Access Café" and
+"Reserve Event" don't push a new screen -- they switch [MainShell] to its
+QR Code / Events tab, which are themselves still `ComingSoonScreen`
+placeholders until Sprint 4 (QR Code) and Events' own task build them for
+real. Getting the user there is this task's entire job.
+
+**How that navigation actually works, since Home is a tab, not a pushed
+route:** `HomeScreen` doesn't reach for a `Navigator` here -- there's
+nothing to push to, QR Code and Events are sibling tabs of the same
+`MainShell` Home already lives inside. `MainShell` now passes `HomeScreen`
+two callbacks (`onGoToQrCode`, `onGoToEvents`) that call the same
+`_goToTab` method its `AppBottomNav.onTap` already used, so tapping a
+quick-action button and tapping the corresponding bottom-nav icon do the
+literal same thing. This is also why `MainShell`'s `_tabs` list stopped
+being `static const`: a bound instance method closure can't be a
+compile-time constant, so it's now built once in `initState` instead --
+still built once, not per rebuild, just no longer eligible for `const`.
+
+**Styling pulled directly from the Figma `Button` nodes**: "Access Café"
+uses this app's real primary gradient (`AppColors.primaryGradient`, the
+same one Sign In's button already uses -- confirmed by exact hex match,
+not a new color), white QR icon and label. "Reserve Event" is white with
+a black-at-10%-opacity border, its calendar icon in `bottomNavActive`
+(`#EC003F`, matching the Events bottom-nav icon's own accent) while its
+label stays `textDark` -- icon and text are deliberately different colors
+here, unlike "Access Café" where both are white, so the widget takes
+separate `iconColor`/`textColor` rather than one shared "content color."
+
+**Verified live** through the real UI, same VIP test account from
+decision #28: tapped "Access Café" from Home -- landed on the QR Code tab,
+its bottom-nav icon highlighted correctly, no crash. Returned to Home,
+tapped "Reserve Event" -- landed on the Events tab, same confirmation.
+`flutter analyze` (clean) and `flutter test` (29/29) both passed before
+this live check.
+
+### 30. Sprint 3, Task 6 — Service Hours card, and how "Current Status" was actually verified
+
+Added the last card on Home (Figma node 1217:3650): static hours (9:00
+AM-11:00 PM full service, 11:00 PM-9:00 AM self-service) -- no database
+involved, these never vary per user, exactly as the task said. The one
+real logic on this card is "Current Status," computed by a new pure
+function, `ServiceHours.isFullServiceAt(DateTime time)`
+(`lib/utils/service_hours.dart`), called as
+`ServiceHours.isFullServiceAt(DateTime.now())` at build time -- not
+hardcoded, not a stored value, recomputed from whatever the device's
+clock actually says whenever this card builds.
+
+**Single-Figma-instance judgment call, same kind as decisions #27/#28:**
+the design only shows the status banner in its full-service state (green
+background/border/text) -- there is no second instance showing what
+self-service looks like. Reused the same green treatment for both states
+rather than invent an unevidenced second color scheme, differing only in
+text. The self-service copy itself ("Self-service hours") isn't literal
+design copy either -- the one FAQ item that would explain the distinction
+has no answer text in the Figma export (the same "only 1 of 4 FAQ answers
+exported" gap the Sprint 2 checkpoint already logged) -- so this is a
+reasonable editorial completion, worth a real answer once real FAQ copy
+exists, not extracted data.
+
+**How both branches were actually verified** -- the task asked for this
+specifically, not just "it happens to work right now":
+
+- **Unit tests** (`test/service_hours_test.dart`, 8 cases, following the
+  same `now`-as-a-parameter pattern `PaymentValidators.expiry` already
+  established for this exact reason): both branches, plus every boundary
+  hour by name -- exactly 9:00 AM (full service starts), 10:59 PM (still
+  full service), exactly 11:00 PM (self-service starts), just after
+  midnight, 8:59 AM (still self-service), and exactly 9:00 AM the next
+  day again. `flutter test` -- 37/37 passing (29 previous + 8 new).
+- **Attempted a live system-clock change**, as the task suggested, before
+  falling back to reasoning: `Set-Date` to 2:00 PM appeared to succeed
+  (`Get-Date` echoed it back immediately after), but a fresh check
+  seconds later showed the real clock already back to the actual time --
+  this VM's host time-sync corrects manual clock changes almost
+  instantly, a normal safeguard in a cloud/VM environment. Forcing past
+  that would mean disabling a system time-sync service to test a cosmetic
+  status string, a disproportionate system change for what it's worth;
+  didn't pursue it, and the momentary change reverted on its own before
+  it could affect anything else (session tokens, etc.).
+- **Live UI verification of the branch matching actual real time**:
+  signed in through the real app at the actual system time (~1:48 AM,
+  inside the self-service window) -- the card rendered "Current Status:
+  Self-service hours" in the green banner, correctly, with the real
+  static hours rows above it. The full-service branch is covered by the
+  unit tests above (which call the exact same function the widget calls,
+  so there's no gap between "logic the tests proved" and "logic the
+  widget runs") plus the code-review reasoning the task explicitly
+  offered as an alternative: `isFullServiceAt` is a two-comparison pure
+  function with no other branching, and the "Full service available"
+  string is copied verbatim from the Figma node, not retyped.
+
+### 31. Sprint 3, Task 7 — Benefits list, reusing `membership_plans.features` for real, and a real browser-automation finding
+
+Added the last card on Home (Figma node 1217:3673). Rather than render
+`plan.features` (the raw column) or hand-copy a curated list like the
+Figma mock's own demo bullets ("Bring up to 2 guests with you",
+"Member-exclusive discounts on guest orders", etc. -- plausible-sounding
+demo copy that doesn't match any real column value), this card calls
+`MembershipPlan.featureBullets` -- the exact same getter Choose
+Membership's cards already call for the exact same plan. That was the
+point of the task ("same data source... can never silently drift out of
+sync"): reusing the identical getter guarantees byte-identical output for
+the same plan on both screens, not just "reads from the same table."
+
+**This required reworking `ActiveMembership`** (decisions #27/#28), which
+had been growing a second, parallel copy of `MembershipPlan`'s fields
+(`hookahLimit`, `drinksLimit`, and now would've needed `features` and
+`maxGuests` too) one task at a time. Re-deriving `featureBullets`'s
+formatting logic a second time on `ActiveMembership` would have created
+exactly the drift risk this task exists to prevent -- two independently
+maintained copies of the same bullet-building logic that could quietly
+diverge. Instead, `ActiveMembership` now wraps a real `MembershipPlan`
+(`fetchActiveMembership()`'s query changed from selecting three named
+columns to `membership_plans(*)`, feeding straight into
+`MembershipPlan.fromJson`), with `planName`/`hookahLimit`/`drinksLimit`
+kept as thin delegating getters so the Task 3/4 call sites in
+`home_screen.dart` didn't need to change.
+
+**A real browser-automation finding worth recording**: verifying this
+card required scrolling Home for the first time this sprint (every
+previous card fit on one screen), and neither mouse-wheel scroll nor a
+click-drag gesture via this session's CDP-based browser tool actually
+moved the page -- screenshots stayed pixel-identical across many
+attempts. Confirmed via `flutter-view`'s own `getBoundingClientRect()`
+that the true viewport (2048x1136) is well over twice the screenshot tool's
+1464x812 frame, and the page's real content (status card + quick actions
++ usage cards + service hours + benefits, ~1450px tall) genuinely
+extends past it -- so this wasn't a rendering bug, it was this specific
+CDP scroll path not reaching Flutter's web pointer/wheel handling.
+Worked around it by dispatching a real `WheelEvent` directly to the
+`flutter-view` element via `javascript_tool` (`deltaY: 600-900`), which
+Flutter's web engine did respond to correctly. Worth remembering for any
+future task that needs to verify content below the first screenful.
+
+**Verified live** with two different real plans on the same test account
+(SQL-switched `plan_id`, same pattern as decisions #26-28), confirming
+the benefits list changes shape correctly, not just cosmetically:
+
+- **VIP** (`hookah_limit`/`drinks_limit` both `NULL`, `features =
+  ['Private booth', '24/7 access', 'Event priority', 'Exclusive menu']`):
+  card showed "Unlimited Hookah", "Unlimited Drinks", "Bring 2 guests",
+  then exactly those four features, in order.
+- **Premium** (`hookah_limit`/`drinks_limit` both `20`, `features =
+  ['Priority seating', 'Weekend access', 'Member discounts']`): card
+  showed "20 Hookah sessions/month", "20 Drinks included", "Bring 2
+  guests", then exactly those three features, in order -- correctly
+  switching from the unlimited phrasing to the numeric one for the same
+  widget, driven entirely by the real `hookah_limit`/`drinks_limit`
+  values, not a hardcoded list.
+
+`flutter analyze` stayed clean (same 3 pre-existing unrelated infos)
+throughout.
+
+### 32. Sprint 3, Task 8 — Notification bell, deliberately a stub only
+
+Added the bell icon (Figma node 1217:3570) top-right on Home. Tapping it
+pushes `ComingSoonScreen(label: 'Notifications')` -- that's the entire
+scope. Deliberately **not** built, per the task's own instruction:
+
+- **No unread-count badge**, even though the Figma mock shows one with a
+  hardcoded "2" on it. A real badge needs a real number, which needs a
+  real notifications table and a definition of what counts as "unread" --
+  none of which exists yet.
+- **No notifications table or schema invented** to make a plausible
+  number appear. Logged instead as a genuinely open question (see the
+  "Genuinely open questions" section above): what a notification even is
+  here, whether it needs its own table or gets synthesized from existing
+  ones, how read/unread state is tracked, and whether delivery is
+  in-app-only or also push/email are all undecided and out of scope for
+  this task.
+- **No Home header rebuild.** The Figma frame this bell sits in also has
+  a "Welcome, {name}!" greeting, member ID, and a Logout button (already
+  handled differently -- see decision #26, Sign Out lives on the Profile
+  tab instead) -- none of that was this task's ask, so Home still doesn't
+  have a header block beyond the bell itself.
+
+**Verified live**: signed in, bell renders top-right with no badge;
+tapped it, landed on the "Notifications — coming in a future task" stub
+with a working back arrow. `flutter analyze` clean, `flutter test`
+37/37 passing.
+
 ---
 
 ## Checkpoint: status of every open item, as of the end of Sprint 2
@@ -1231,6 +1720,16 @@ need to think about them now:
   need to be saved per-user in the database, or can just be a local
   on-device setting — matters only once the Notifications settings
   screen gets built.
+- **Notifications feed and its backing schema** (raised explicitly by
+  Sprint 3, Task 8): what a notification actually is here (payment
+  receipts? event reminders? door-access alerts? some mix?), whether it
+  needs its own table or is synthesized from existing tables
+  (`subscriptions`, `door_access_logs`, event reservations once that
+  table exists), how read/unread state is tracked, and whether delivery
+  is in-app-only or also push/email — all undecided. The Home bell
+  (decision #32) deliberately stays a stub with no unread-count badge
+  until this is answered, rather than a schema getting invented to make
+  a badge number appear.
 
 ---
 

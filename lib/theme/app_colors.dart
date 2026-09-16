@@ -72,6 +72,12 @@ class AppColors {
     end: Alignment.bottomRight,
   );
 
+  // Bottom navigation bar's active-tab accent (icon, label, indicator dot)
+  // -- read directly off the BottomNav component (Figma node 1216:2285).
+  // Same hex as the darker end of membershipVipGradient, but nothing
+  // standalone covered it before now.
+  static const Color bottomNavActive = Color(0xFFEC003F);
+
   static const Color background = Color(0xFFFFF5F7); // soft pink page bg
   static const Color cardWhite = Color(0xFFFFFFFF);
   static const Color textDark = Color(0xFF1E2939);

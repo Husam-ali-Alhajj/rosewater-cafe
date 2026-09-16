@@ -3,8 +3,8 @@ import '../services/onboarding_prefs.dart';
 import '../services/subscription_service.dart';
 import '../services/supabase_client.dart';
 import '../theme/app_colors.dart';
-import '../widgets/coming_soon_screen.dart';
 import 'auth/auth_landing_screen.dart';
+import 'home/main_shell.dart';
 import 'membership/choose_membership_screen.dart';
 import 'onboarding/onboarding_screen.dart';
 
@@ -37,9 +37,7 @@ class _AppEntryPointState extends State<AppEntryPoint> {
     Widget destination;
     if (session != null) {
       final hasActive = await const SubscriptionService().hasActiveSubscription();
-      destination = hasActive
-          ? const ComingSoonScreen(label: 'Home', showSignOut: true)
-          : const ChooseMembershipScreen();
+      destination = hasActive ? const MainShell() : const ChooseMembershipScreen();
     } else {
       final seenOnboarding = await const OnboardingPrefs().hasSeenOnboarding();
       destination = seenOnboarding ? const AuthLandingScreen() : const OnboardingScreen();

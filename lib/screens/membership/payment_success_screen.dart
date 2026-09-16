@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../models/membership_plan.dart';
 import '../../theme/app_colors.dart';
-import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
+import '../home/main_shell.dart';
 
 /// Temporary payment-success confirmation screen — no Figma frame exists
 /// for this specific state (searched the whole file via the API; the only
@@ -25,7 +25,7 @@ class PaymentSuccessScreen extends StatelessWidget {
 
   void _continue(BuildContext context) {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const ComingSoonScreen(label: 'Home', showSignOut: true)),
+      MaterialPageRoute(builder: (_) => const MainShell()),
       (route) => false,
     );
   }

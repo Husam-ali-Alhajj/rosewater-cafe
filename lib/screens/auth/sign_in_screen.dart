@@ -4,8 +4,8 @@ import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
-import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/gradient_button.dart';
+import '../home/main_shell.dart';
 import '../membership/choose_membership_screen.dart';
 import 'create_account_screen.dart';
 import 'forgot_password_screen.dart';
@@ -78,9 +78,7 @@ class _SignInScreenState extends State<SignInScreen> {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => hasActive
-              ? const ComingSoonScreen(label: 'Home', showSignOut: true)
-              : const ChooseMembershipScreen(),
+          builder: (_) => hasActive ? const MainShell() : const ChooseMembershipScreen(),
         ),
       );
     } on SignInFailure catch (e) {
