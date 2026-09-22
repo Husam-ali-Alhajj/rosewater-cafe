@@ -28,8 +28,23 @@ class ResetPasswordFailure implements Exception {
   const ResetPasswordFailure(this.message);
 }
 
+/// Thrown by [AuthService.changePassword] with a message that's already safe
+/// to show the user directly. [field] says which form field it belongs to
+/// (`'current'` or `'new'`) so the UI can show it inline; null means it isn't
+/// tied to a field.
+class ChangePasswordFailure implements Exception {
+  final String message;
+  final String? field;
+  const ChangePasswordFailure(this.message, {this.field});
+}
+
 class AuthService {
-  const AuthService();
+  /// [auth] exists only so tests can substitute a fake auth client; the app
+  /// always uses the real one from the shared Supabase client.
+  const AuthService({GoTrueClient? auth}) : _authOverride = auth;
+
+  final GoTrueClient? _authOverride;
+  GoTrueClient get _auth => _authOverride ?? supabase.auth;
 
   static const _invalidCredentials = SignInFailure('Invalid email or password.');
 
@@ -42,7 +57,7 @@ class AuthService {
   /// must never reveal whether an email is registered at all.
   Future<void> signIn({required String email, required String password}) async {
     try {
-      await supabase.auth.signInWithPassword(email: email, password: password);
+      await _auth.signInWithPassword(email: email, password: password);
     } on AuthException catch (e) {
       throw _signInMessageFor(e);
     }
@@ -74,7 +89,7 @@ class AuthService {
   /// not) and rate limiting.
   Future<void> resetPassword(String email) async {
     try {
-      await supabase.auth.resetPasswordForEmail(email);
+      await _auth.resetPasswordForEmail(email);
     } on AuthException catch (e) {
       switch (e.code) {
         case 'over_email_send_rate_limit':
@@ -85,6 +100,85 @@ class AuthService {
       }
       throw const ResetPasswordFailure('Something went wrong. Check your connection and try again.');
     }
+  }
+
+  /// Changes the signed-in user's password -- and only after proving they know
+  /// the CURRENT one.
+  ///
+  /// Supabase's `updateUser(password:)` does not ask for the current password:
+  /// anyone holding a live session could change it. That's the risk here -- a
+  /// phone left unlocked and open could have its password silently changed by
+  /// someone else, locking the real owner out. So before touching anything, this
+  /// re-authenticates with the user's own email and the password they just typed
+  /// (`signInWithPassword`); if that fails, **`updateUser` is never called**.
+  ///
+  /// After a successful change it also signs out every OTHER session (other
+  /// devices), best effort -- a stolen session shouldn't survive the password
+  /// that was changed to lock it out. The current session stays signed in.
+  ///
+  /// Every failure is a [ChangePasswordFailure] with a user-safe message; a raw
+  /// auth error never reaches the UI.
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+    final email = _auth.currentUser?.email;
+    if (email == null) {
+      throw const ChangePasswordFailure('Your session expired. Please sign in again.');
+    }
+
+    // 1. Re-authenticate with the current password. Nothing is changed unless this succeeds.
+    try {
+      await _auth.signInWithPassword(email: email, password: currentPassword);
+    } on AuthException catch (e) {
+      switch (e.code) {
+        case 'over_request_rate_limit':
+        case 'over_email_send_rate_limit':
+          throw const ChangePasswordFailure('Too many attempts. Please wait a moment and try again.');
+        case 'invalid_credentials':
+          throw const ChangePasswordFailure('Current password is incorrect.', field: 'current');
+      }
+      // Older/self-hosted versions don't always set `code`.
+      if (e.message.toLowerCase().contains('invalid login credentials')) {
+        throw const ChangePasswordFailure('Current password is incorrect.', field: 'current');
+      }
+      throw const ChangePasswordFailure(
+        "Couldn't verify your current password. Check your connection and try again.",
+      );
+    } catch (_) {
+      throw const ChangePasswordFailure(
+        "Couldn't verify your current password. Check your connection and try again.",
+      );
+    }
+
+    // 2. Only now change it.
+    try {
+      await _auth.updateUser(UserAttributes(password: newPassword));
+    } on AuthException catch (e) {
+      switch (e.code) {
+        case 'same_password':
+          throw const ChangePasswordFailure(
+            'Choose a password different from your current one.',
+            field: 'new',
+          );
+        case 'weak_password':
+          throw const ChangePasswordFailure(
+            'That password is too weak. Use at least 8 characters with upper and lower case letters and a number.',
+            field: 'new',
+          );
+        case 'over_request_rate_limit':
+        case 'over_email_send_rate_limit':
+          throw const ChangePasswordFailure('Too many attempts. Please wait a moment and try again.');
+      }
+      throw const ChangePasswordFailure("Couldn't update your password. Please try again.");
+    } catch (_) {
+      throw const ChangePasswordFailure(
+        "Couldn't update your password. Check your connection and try again.",
+      );
+    }
+
+    // 3. Best effort: end every other session. Failing to is not a failure of
+    // the password change, which has already happened.
+    try {
+      await _auth.signOut(scope: SignOutScope.others);
+    } catch (_) {}
   }
 
   static const _emailInUseFailure = SignUpFailure(
@@ -109,7 +203,7 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final response = await supabase.auth.signUp(
+      final response = await _auth.signUp(
         email: email,
         password: password,
         data: {'full_name': fullName, 'phone': phone},

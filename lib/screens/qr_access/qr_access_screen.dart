@@ -3,7 +3,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../models/profile.dart';
 import '../../services/door_access_service.dart';
-import '../../services/profile_service.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/gradient_button.dart';
@@ -26,40 +25,33 @@ import '../../widgets/gradient_button.dart';
 /// forgotten either.
 class QrAccessScreen extends StatefulWidget {
   final ActiveMembership membership;
+
+  /// The member's profile, fetched once by [MainShell] and shared with the
+  /// other tabs (its `memberId` is the QR payload). Null if that fetch
+  /// failed, in which case the QR area shows "Unable to load your member
+  /// ID" instead of a code.
+  final Profile? profile;
   final VoidCallback onBackToDashboard;
 
-  const QrAccessScreen({super.key, required this.membership, required this.onBackToDashboard});
+  const QrAccessScreen({
+    super.key,
+    required this.membership,
+    required this.profile,
+    required this.onBackToDashboard,
+  });
 
   @override
   State<QrAccessScreen> createState() => _QrAccessScreenState();
 }
 
 class _QrAccessScreenState extends State<QrAccessScreen> {
-  final _profileService = const ProfileService();
   final _doorAccessService = const DoorAccessService();
 
-  bool _loadingProfile = true;
-  Profile? _profile;
   int _guestCount = 0;
   bool _isOpening = false;
   String? _errorMessage;
 
   int get _maxGuests => widget.membership.plan.maxGuests;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    final profile = await _profileService.fetchCurrentProfile();
-    if (!mounted) return;
-    setState(() {
-      _profile = profile;
-      _loadingProfile = false;
-    });
-  }
 
   void _decrement() {
     if (_guestCount <= 0) return;
@@ -176,29 +168,27 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
           ),
-          child: _loadingProfile
-              ? const SizedBox(width: 199, height: 199, child: Center(child: CircularProgressIndicator()))
-              : (_profile?.memberId == null)
-                  ? const SizedBox(
-                      width: 199,
-                      height: 199,
-                      child: Center(
-                        child: Text(
-                          'Unable to load your member ID',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                        ),
-                      ),
-                    )
-                  : QrImageView(
-                      // See this file's class-level doc comment: a plain
-                      // member_id is a training-project simplification,
-                      // not something to reuse in production as-is.
-                      data: _profile!.memberId!,
-                      version: QrVersions.auto,
-                      size: 199,
-                      backgroundColor: Colors.white,
+          child: (widget.profile?.memberId == null)
+              ? const SizedBox(
+                  width: 199,
+                  height: 199,
+                  child: Center(
+                    child: Text(
+                      'Unable to load your member ID',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                     ),
+                  ),
+                )
+              : QrImageView(
+                  // See this file's class-level doc comment: a plain
+                  // member_id is a training-project simplification,
+                  // not something to reuse in production as-is.
+                  data: widget.profile!.memberId!,
+                  version: QrVersions.auto,
+                  size: 199,
+                  backgroundColor: Colors.white,
+                ),
         ),
         const SizedBox(height: 24),
         const Text(

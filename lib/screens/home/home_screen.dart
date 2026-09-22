@@ -1,51 +1,60 @@
 import 'package:flutter/material.dart';
 
 import '../../models/membership_plan.dart';
+import '../../models/profile.dart';
 import '../../models/usage_allowance.dart';
 import '../../services/subscription_service.dart';
 import '../../services/usage_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/service_hours.dart';
 import '../../widgets/coming_soon_screen.dart';
+import '../auth/sign_out.dart';
 
-/// Home's membership status card (Figma node 1217:3576), usage progress
-/// cards (1217:3615/3633), and quick-action buttons (1217:3587) -- the
-/// dashboard content this and the two preceding tasks build. Real data
-/// only: plan name/valid-until/limits from [membership] (fetched once by
-/// [MainShell] and shared with the QR Code tab too -- see its own doc
-/// comment for why), usage from [UsageService.fetchCurrentUsage], never
-/// hardcoded.
+// Exact values read from the Figma `MemberDashboard` frame (node 1217:3554)
+// via the REST API, same method as decisions #20/#40. Kept private to this
+// file, like the other exact-Figma screens' one-off literals.
+const _iconGrey = Color(0xFF4A5565);
+const _mutedText = Color(0xFF6A7282);
+const _rowFill = Color(0xFFF9FAFB);
+const _rowLabel = Color(0xFF364153);
+const _rowValue = Color(0xFF101828);
+const _statusFill = Color(0xFFF0FDF4);
+const _statusBorder = Color(0xFFB9F8CF);
+const _statusInk = Color(0xFF016630);
+
+// Figma's hairline stroke width on cards / badges (a fractional value from
+// the design export, kept exactly).
+const _hairline = 0.515;
+
+/// Home tab (Figma frame "MemberDashboard", node 1217:3554).
 ///
-/// This screen no longer fetches or gates on [ActiveMembership] itself
-/// (that moved to `MainShell` in Sprint 4 Task 2, so QR Code could reuse
-/// the same fetch instead of querying it a second time) -- `MainShell`
-/// never builds this widget at all until it has a non-null membership, so
-/// there's nothing to bounce from here anymore.
+/// `membership` and `profile` come from [MainShell]'s single shared fetch
+/// (the same objects the QR Code and Profile tabs get), so nothing they
+/// already have is re-queried here; the only thing this screen loads itself
+/// is the current period's usage, via [UsageService.fetchCurrentUsage].
+/// Real data only -- never hardcoded.
 ///
 /// The two quick-action buttons don't navigate via `Navigator` -- "Access
 /// Café" and "Reserve Event" are tabs of the same [MainShell] Home lives
-/// in, not separate pushed screens, so `MainShell` passes down the same
-/// tab-switch callback its bottom nav uses ([onGoToQrCode]/[onGoToEvents])
-/// rather than this screen reaching for a Navigator that doesn't lead
-/// there.
+/// in, so `MainShell` passes down the same tab-switch callback its bottom
+/// nav uses ([onGoToQrCode]/[onGoToEvents]).
 ///
-/// The notification bell (Figma node 1217:3570) is a stub only, on
-/// purpose: icon + navigation to a `ComingSoonScreen`, no unread-count
-/// logic and no badge, even though the Figma mock shows one with a "2" on
-/// it. Building that would mean inventing a notifications table/schema
-/// that hasn't been decided on -- logged as an open question in
-/// docs/decisions.md rather than guessed at here. This screen also
-/// doesn't build the rest of the Figma header around the bell (a
-/// "Welcome, {name}!" greeting and member ID) -- out of this task's
-/// scope, not overlooked.
+/// The notification bell is a stub on purpose (decision #32): it opens a
+/// `ComingSoonScreen`, with no unread-count badge -- the design's "2" is
+/// demo data, and notifications aren't built yet.
 class HomeScreen extends StatefulWidget {
   final ActiveMembership membership;
+
+  /// Null if the profile couldn't be loaded; the header then falls back to
+  /// a plain "Welcome!" and omits the Member ID line.
+  final Profile? profile;
   final VoidCallback onGoToQrCode;
   final VoidCallback onGoToEvents;
 
   const HomeScreen({
     super.key,
     required this.membership,
+    required this.profile,
     required this.onGoToQrCode,
     required this.onGoToEvents,
   });
@@ -59,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _loading = true;
   UsageAllowance _usage = const UsageAllowance(hookahUsed: 0, drinksUsed: 0);
+  bool _isSigningOut = false;
 
   @override
   void initState() {
@@ -79,27 +89,79 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _logout() async {
+    if (_isSigningOut) return;
+    setState(() => _isSigningOut = true);
+    final ok = await signOutAndShowLanding(context);
+    if (!ok && mounted) setState(() => _isSigningOut = false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    final membership = widget.membership;
+    return Container(
+      // The Figma frame's own fill: the same soft 3-stop page wash used on
+      // every other screen.
+      decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+      child: SafeArea(
+        bottom: false, // the bottom nav in MainShell handles its own inset
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : HomeContent(
+                profile: widget.profile,
+                membership: widget.membership,
+                usage: _usage,
+                onGoToQrCode: widget.onGoToQrCode,
+                onGoToEvents: widget.onGoToEvents,
+                onNotifications: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ComingSoonScreen(label: 'Notifications')),
+                ),
+                onLogout: _isSigningOut ? null : _logout,
+              ),
+      ),
+    );
+  }
+}
+
+/// The dashboard's content, separated from data loading so the data mapping
+/// (greeting, member ID, usage, unlimited plans, service-hours status) can
+/// be widget-tested without a Supabase connection.
+class HomeContent extends StatelessWidget {
+  final Profile? profile;
+  final ActiveMembership membership;
+  final UsageAllowance usage;
+  final VoidCallback onGoToQrCode;
+  final VoidCallback onGoToEvents;
+  final VoidCallback onNotifications;
+  final VoidCallback? onLogout;
+
+  /// "Now" for the service-hours status banner; defaults to the real clock.
+  /// A parameter only so both banner states are testable.
+  final DateTime? now;
+
+  const HomeContent({
+    super.key,
+    required this.profile,
+    required this.membership,
+    required this.usage,
+    required this.onGoToQrCode,
+    required this.onGoToEvents,
+    required this.onNotifications,
+    required this.onLogout,
+    this.now,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      // Figma's frame padding: 16 sides, 32 top. Bottom 16 is the gap the
+      // design leaves above the bottom nav (which sits outside this scroll
+      // view in MainShell).
+      padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: IconButton(
-              icon: const Icon(Icons.notifications_outlined, color: AppColors.textMuted),
-              tooltip: 'Notifications',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ComingSoonScreen(label: 'Notifications')),
-              ),
-            ),
-          ),
+          _HomeHeader(profile: profile, onNotifications: onNotifications, onLogout: onLogout),
+          const SizedBox(height: 32),
           _MembershipStatusCard(membership: membership),
           const SizedBox(height: 24),
           _QuickActionButton(
@@ -108,17 +170,17 @@ class _HomeScreenState extends State<HomeScreen> {
             gradient: AppColors.primaryGradient,
             iconColor: Colors.white,
             textColor: Colors.white,
-            onTap: widget.onGoToQrCode,
+            onTap: onGoToQrCode,
           ),
           const SizedBox(height: 16),
           _QuickActionButton(
             icon: Icons.calendar_today_outlined,
             label: 'Reserve Event',
             backgroundColor: AppColors.cardWhite,
-            border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 1.545),
             iconColor: AppColors.bottomNavActive,
             textColor: AppColors.textDark,
-            onTap: widget.onGoToEvents,
+            onTap: onGoToEvents,
           ),
           const SizedBox(height: 24),
           _UsageCard(
@@ -126,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
             iconBackground: const Color(0xFFFFEDD4),
             iconColor: const Color(0xFFF54900),
             label: 'Hookah Sessions',
-            used: _usage.hookahUsed,
+            used: usage.hookahUsed,
             limit: membership.hookahLimit,
           ),
           const SizedBox(height: 24),
@@ -135,15 +197,129 @@ class _HomeScreenState extends State<HomeScreen> {
             iconBackground: const Color(0xFFDBEAFE),
             iconColor: const Color(0xFF155DFC),
             label: 'Drinks',
-            used: _usage.drinksUsed,
+            used: usage.drinksUsed,
             limit: membership.drinksLimit,
           ),
           const SizedBox(height: 24),
-          const _ServiceHoursCard(),
+          _ServiceHoursCard(now: now ?? DateTime.now()),
           const SizedBox(height: 24),
           _BenefitsCard(plan: membership.plan),
         ],
       ),
+    );
+  }
+}
+
+/// White-at-90% card with the design's hairline black-at-10% border and
+/// 14px radius, shared by the usage, service-hours and benefits cards.
+BoxDecoration _whiteCardDecoration() {
+  return BoxDecoration(
+    color: Colors.white.withValues(alpha: 0.9),
+    borderRadius: BorderRadius.circular(14),
+    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+  );
+}
+
+/// "Welcome, {first name}!" + "Member ID: …" on the left, the notification
+/// bell and Logout on the right (Figma nodes 1217:3557-3575).
+///
+/// Everything is real data: the first name comes from the profile's full
+/// name, the member ID from `profiles.member_id`. If the profile couldn't be
+/// loaded (or has no name) the greeting is a plain "Welcome!" and a missing
+/// member ID hides its line -- never a placeholder name or number.
+///
+/// The bell is the design's 40x36 button without its unread badge (see the
+/// class doc on [HomeScreen]).
+class _HomeHeader extends StatelessWidget {
+  final Profile? profile;
+  final VoidCallback onNotifications;
+  final VoidCallback? onLogout;
+
+  const _HomeHeader({required this.profile, required this.onNotifications, required this.onLogout});
+
+  static String? _firstName(String? fullName) {
+    final trimmed = fullName?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    return trimmed.split(RegExp(r'\s+')).first;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final firstName = _firstName(profile?.fullName);
+    final memberId = profile?.memberId;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                firstName == null ? 'Welcome!' : 'Welcome, $firstName!',
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w500,
+                  height: 40 / 36,
+                  letterSpacing: 0.369,
+                  color: AppColors.textDark,
+                ),
+              ),
+              if (memberId != null && memberId.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Member ID: $memberId',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 24 / 16,
+                    letterSpacing: -0.3125,
+                    color: _iconGrey,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Tooltip(
+          message: 'Notifications',
+          child: InkWell(
+            onTap: onNotifications,
+            borderRadius: BorderRadius.circular(8),
+            child: const SizedBox(
+              width: 40,
+              height: 36,
+              child: Center(child: Icon(Icons.notifications_none, size: 16, color: _iconGrey)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        InkWell(
+          onTap: onLogout,
+          borderRadius: BorderRadius.circular(8),
+          child: const SizedBox(
+            height: 36,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.logout, size: 16, color: _iconGrey),
+                  SizedBox(width: 16),
+                  Text(
+                    'Logout',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 20 / 14,
+                      letterSpacing: -0.15,
+                      color: _iconGrey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -167,7 +343,7 @@ class _MembershipStatusCard extends StatelessWidget {
         // reused here rather than duplicated -- see docs/decisions.md #27.
         gradient: AppColors.membershipPremiumGradient,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 0.5),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 8), spreadRadius: -6),
           BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 25, offset: const Offset(0, 20), spreadRadius: -5),
@@ -183,27 +359,55 @@ class _MembershipStatusCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Membership Status',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, letterSpacing: -0.15, color: Colors.white),
-                    ),
                     Text(
-                      '${membership.planName} Member',
-                      style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w500, letterSpacing: 0.4, color: Colors.white),
+                      'Membership Status',
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 20 / 14,
+                        letterSpacing: -0.15,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // The design's title box is one line (36) tall inside a
+                    // fixed-height card; at 375 wide "Premium Member" wraps
+                    // and its second line spills into the 40px gap above
+                    // "Valid until" (Figma exports the text as 72 tall in
+                    // a 36 tall frame). Reproduced here -- the box keeps
+                    // its one-line height and the wrapped line overflows
+                    // visibly -- so the card stays 169.03 tall, as designed.
+                    SizedBox(
+                      height: 36,
+                      child: OverflowBox(
+                        alignment: Alignment.topLeft,
+                        minHeight: 0,
+                        maxHeight: double.infinity,
+                        child: Text(
+                          '${membership.planName} Member',
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w500,
+                            height: 36 / 30,
+                            letterSpacing: 0.4,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 6.1),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 0.5),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: _hairline),
                 ),
                 child: const Text(
                   'Active',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 16 / 12, color: Colors.white),
                 ),
               ),
             ],
@@ -211,7 +415,12 @@ class _MembershipStatusCard extends StatelessWidget {
           const SizedBox(height: 40),
           Text(
             'Valid until: ${d.month}/${d.day}/${d.year}',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, letterSpacing: -0.15, color: Colors.white),
+            style: TextStyle(
+              fontSize: 14,
+              height: 20 / 14,
+              letterSpacing: -0.15,
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
           ),
         ],
       ),
@@ -219,18 +428,20 @@ class _MembershipStatusCard extends StatelessWidget {
   }
 }
 
-/// One usage stat card (Figma nodes 1217:3615/3633, the two usage
-/// `Card`s inside `MemberDashboard`) -- real `used` from
+/// One usage stat card (Figma nodes 1217:3615/3633) -- real `used` from
 /// [UsageService.fetchCurrentUsage], real `limit` from the active plan.
+///
+/// Layout, top to bottom, exactly as exported: the icon + label/value row,
+/// the progress bar (40 below), then the "used this month" caption (32
+/// below the bar).
 ///
 /// `limit == null` is this app's established "unlimited" sentinel (see
 /// [MembershipPlan.hookahLimit]/`drinksLimit`, which VIP's seed row sets to
 /// SQL `NULL`, not a magic number like -1 or 0) -- so there is no limit to
 /// divide by and no fraction to show. Rendered as "Unlimited" with no
-/// progress bar at all, rather than computing `used / null` (a compile
-/// error in Dart, but the equivalent bug in a looser language is exactly
-/// the "15/null" this task called out to guard against) or inventing a
-/// fake 100%-full bar that would misleadingly suggest a cap exists.
+/// progress bar at all, rather than computing `used / null` or inventing a
+/// fake full bar that would suggest a cap exists. The design has no
+/// unlimited variant, so the caption simply follows the header row at 16.
 class _UsageCard extends StatelessWidget {
   final IconData icon;
   final Color iconBackground;
@@ -253,11 +464,7 @@ class _UsageCard extends StatelessWidget {
     final planLimit = limit;
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
-      ),
+      decoration: _whiteCardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -275,23 +482,28 @@ class _UsageCard extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textMuted),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 20 / 14,
+                      letterSpacing: -0.15,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                   Text(
                     planLimit == null ? 'Unlimited' : '$used / $planLimit',
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w400, color: AppColors.textDark),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      height: 32 / 24,
+                      letterSpacing: 0.07,
+                      color: AppColors.textDark,
+                    ),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            '$used used this month',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.membershipPriceSuffix),
-          ),
           if (planLimit != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 40),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
@@ -301,7 +513,13 @@ class _UsageCard extends StatelessWidget {
                 valueColor: const AlwaysStoppedAnimation(Color(0xFF030213)),
               ),
             ),
-          ],
+            const SizedBox(height: 32),
+          ] else
+            const SizedBox(height: 16),
+          Text(
+            '$used used this month',
+            style: const TextStyle(fontSize: 12, height: 16 / 12, color: _mutedText),
+          ),
         ],
       ),
     );
@@ -310,12 +528,8 @@ class _UsageCard extends StatelessWidget {
 
 /// One quick-action button (Figma node 1217:3587's two `Button`s) --
 /// "Access Café" (filled, the app's real primary gradient -- same
-/// `primaryGradient` the Sign In button already uses, not a separate
-/// per-screen color) and "Reserve Event" (white/outlined). Both are stubs
-/// this task: they switch [MainShell] to the QR Code / Events tab, which
-/// are themselves still `ComingSoonScreen`s until Sprint 4/their own task
-/// builds them for real -- this task's job is only that tapping actually
-/// gets you there.
+/// `primaryGradient` the Sign In button already uses) and "Reserve Event"
+/// (white/outlined). They switch [MainShell] to the QR Code / Events tab.
 class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -358,7 +572,16 @@ class _QuickActionButton extends StatelessWidget {
               children: [
                 Icon(icon, size: 16, color: iconColor),
                 const SizedBox(height: 8),
-                Text(label, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: textColor)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    height: 28 / 18,
+                    letterSpacing: -0.44,
+                    color: textColor,
+                  ),
+                ),
               ],
             ),
           ),
@@ -369,68 +592,80 @@ class _QuickActionButton extends StatelessWidget {
 }
 
 /// Service Hours card (Figma node 1217:3650) -- static hours from the
-/// design, no database involved (these never vary per user or change at
-/// runtime, unlike everything else on this dashboard). The one real piece
-/// of logic here is "Current Status," computed live from
-/// [ServiceHours.isFullServiceAt] against `DateTime.now()` at build time
-/// -- not hardcoded, and not a stored value that could ever drift from
-/// the actual time.
+/// design, no database involved. The one real piece of logic is "Current
+/// Status," computed from [ServiceHours.isFullServiceAt] against [now] --
+/// not hardcoded, and not a stored value that could drift from the clock.
 ///
-/// **Single-Figma-instance judgment call**, same kind decisions #27/#28
-/// already flagged for this dashboard: the design only shows the
-/// "Current Status" banner in its full-service state (green background,
-/// green border, green text) -- there's no second instance showing what
-/// self-service looks like. Rather than invent an unevidenced second
-/// color scheme, both states reuse the same green treatment and differ
-/// only in text. The self-service copy itself ("Self-service hours") is
-/// also not literally from the design -- the FAQ item that would explain
-/// the distinction ("What's the difference between full service and
-/// self-service hours?") has no answer text in the Figma export (the
-/// same "only 1 of 4 FAQ answers exported" gap already logged in the
-/// Sprint 2 checkpoint) -- so this is a reasonable editorial completion,
-/// not extracted data, worth a real answer once real FAQ copy exists.
+/// **Single-Figma-instance judgment call**: the design only shows the
+/// status banner in its full-service state (green). Both states reuse the
+/// same green treatment and differ only in text; the self-service copy
+/// ("Self-service hours") isn't literal design copy (decision #30).
 class _ServiceHoursCard extends StatelessWidget {
-  const _ServiceHoursCard();
+  final DateTime now;
+
+  const _ServiceHoursCard({required this.now});
 
   @override
   Widget build(BuildContext context) {
-    final isFullService = ServiceHours.isFullServiceAt(DateTime.now());
+    final isFullService = ServiceHours.isFullServiceAt(now);
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
-      ),
+      decoration: _whiteCardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(Icons.access_time, size: 24, color: AppColors.textMuted),
+              Icon(Icons.access_time, size: 24, color: _iconGrey),
               SizedBox(width: 12),
               Text(
                 'Service Hours',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: AppColors.textDark),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  height: 28 / 20,
+                  letterSpacing: -0.45,
+                  color: AppColors.textDark,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          const _ServiceHoursRow(label: 'Full Service Hours', value: '9:00 AM - 11:00 PM'),
+          const SizedBox(height: 40),
+          // The flex weights are the label/value box widths Figma lays out
+          // (128.83:141.13 and 131.48:138.48), so on a 375-wide screen the
+          // text wraps exactly where the design does instead of
+          // overflowing; on wider screens the rows stay on one line with
+          // the value pushed to the right.
+          const _ServiceHoursRow(
+            label: 'Full Service Hours',
+            value: '9:00 AM - 11:00 PM',
+            labelFlex: 12883,
+            valueFlex: 14113,
+          ),
           const SizedBox(height: 12),
-          const _ServiceHoursRow(label: 'Self-Service Hours', value: '11:00 PM - 9:00 AM'),
-          const SizedBox(height: 24),
+          const _ServiceHoursRow(
+            label: 'Self-Service Hours',
+            value: '11:00 PM - 9:00 AM',
+            labelFlex: 13148,
+            valueFlex: 13848,
+          ),
+          const SizedBox(height: 40),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              border: Border.all(color: const Color(0xFFB9F8CF)),
+              color: _statusFill,
+              border: Border.all(color: _statusBorder, width: _hairline),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(fontSize: 14, color: Color(0xFF016630)),
+            child: Text.rich(
+              TextSpan(
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 20 / 14,
+                  letterSpacing: -0.15,
+                  color: _statusInk,
+                ),
                 children: [
                   const TextSpan(text: 'Current Status: ', style: TextStyle(fontWeight: FontWeight.w700)),
                   TextSpan(
@@ -450,22 +685,27 @@ class _ServiceHoursCard extends StatelessWidget {
 class _ServiceHoursRow extends StatelessWidget {
   final String label;
   final String value;
+  final int labelFlex;
+  final int valueFlex;
 
-  const _ServiceHoursRow({required this.label, required this.value});
+  const _ServiceHoursRow({
+    required this.label,
+    required this.value,
+    required this.labelFlex,
+    required this.valueFlex,
+  });
 
   @override
   Widget build(BuildContext context) {
+    const style = TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.3125);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(10),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(color: _rowFill, borderRadius: BorderRadius.circular(10)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 16, color: AppColors.membershipListText)),
-          Text(value, style: const TextStyle(fontSize: 16, color: AppColors.membershipPriceText)),
+          Flexible(flex: labelFlex, child: Text(label, style: style.copyWith(color: _rowLabel))),
+          Flexible(flex: valueFlex, child: Text(value, style: style.copyWith(color: _rowValue))),
         ],
       ),
     );
@@ -474,11 +714,8 @@ class _ServiceHoursRow extends StatelessWidget {
 
 /// Membership Benefits card (Figma node 1217:3673). Deliberately renders
 /// [MembershipPlan.featureBullets] -- the exact getter Choose Membership's
-/// own cards already call, not a re-derived or hand-copied list -- so
-/// this card and Choose Membership are structurally incapable of drifting
-/// out of sync for the same plan; see docs/decisions.md #31 for why that
-/// meant reworking [ActiveMembership] to wrap a real [MembershipPlan]
-/// instead of copying a few of its fields.
+/// own cards already call, not a hand-copied list -- so this card and
+/// Choose Membership can't drift out of sync for the same plan (#31).
 class _BenefitsCard extends StatelessWidget {
   final MembershipPlan plan;
 
@@ -486,26 +723,34 @@ class _BenefitsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bullets = plan.featureBullets;
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
-      ),
+      decoration: _whiteCardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'Membership Benefits',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: AppColors.textDark),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              height: 28 / 20,
+              letterSpacing: -0.45,
+              color: AppColors.textDark,
+            ),
           ),
-          const SizedBox(height: 24),
-          for (var i = 0; i < plan.featureBullets.length; i++) ...[
+          const SizedBox(height: 40),
+          for (var i = 0; i < bullets.length; i++) ...[
             if (i > 0) const SizedBox(height: 8),
             Text(
-              '• ${plan.featureBullets[i]}',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textMuted),
+              '• ${bullets[i]}',
+              style: const TextStyle(
+                fontSize: 14,
+                height: 20 / 14,
+                letterSpacing: -0.15,
+                color: AppColors.textMuted,
+              ),
             ),
           ],
         ],

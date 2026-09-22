@@ -8,6 +8,7 @@ import '../../utils/payment_validators.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/outlined_secondary_button.dart';
 import 'payment_success_screen.dart';
+import '../../widgets/payment_fields.dart';
 
 /// Real "Complete Payment" screen (Figma node 1213:1281). Card fields are
 /// validated client-side purely for realistic UX (this is a training
@@ -170,7 +171,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ),
                       ),
                       const SizedBox(height: 48),
-                      _PaymentField(
+                      PaymentField(
                         label: 'Card Number',
                         controller: _cardNumberController,
                         hint: '1234 5678 9012 3456',
@@ -183,18 +184,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: _PaymentField(
+                            child: PaymentField(
                               label: 'Expiry Date',
                               controller: _expiryController,
                               hint: 'MM/YY',
                               validator: PaymentValidators.expiry,
                               keyboardType: TextInputType.number,
-                              inputFormatters: [_ExpiryInputFormatter()],
+                              inputFormatters: [ExpiryInputFormatter()],
                             ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: _PaymentField(
+                            child: PaymentField(
                               label: 'CVV',
                               controller: _cvvController,
                               hint: '123',
@@ -240,81 +241,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Digits-only MM/YY formatter — inserts the "/" automatically so typing
-/// stays natural, matching the design's placeholder.
-class _ExpiryInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '').substring(0, newValue.text.replaceAll(RegExp(r'\D'), '').length.clamp(0, 4));
-    final buffer = StringBuffer();
-    for (var i = 0; i < digits.length; i++) {
-      buffer.write(digits[i]);
-      if (i == 1 && digits.length > 2) buffer.write('/');
-    }
-    final text = buffer.toString();
-    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
-  }
-}
-
-class _PaymentField extends StatelessWidget {
-  final String label;
-  final TextEditingController controller;
-  final String hint;
-  final String? Function(String?) validator;
-  final TextInputType keyboardType;
-  final List<TextInputFormatter>? inputFormatters;
-  final bool obscureText;
-
-  const _PaymentField({
-    required this.label,
-    required this.controller,
-    required this.hint,
-    required this.validator,
-    required this.keyboardType,
-    this.inputFormatters,
-    this.obscureText = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: Color(0xFF0A0A0A)),
-        ),
-        const SizedBox(height: 4),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          inputFormatters: inputFormatters,
-          obscureText: obscureText,
-          validator: validator,
-          // Deliberately no autofillHints: this is a mock form with no real
-          // payment behind it — letting the OS/browser offer to save a real
-          // card here would be actively misleading.
-          autofillHints: null,
-          enableSuggestions: false,
-          autocorrect: false,
-          style: const TextStyle(fontSize: 16, color: Color(0xFF717182), letterSpacing: -0.31),
-          decoration: InputDecoration(
-            hintText: hint,
-            filled: true,
-            fillColor: const Color(0xFFF3F3F5),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
-            ),
-            errorStyle: TextStyle(color: AppColors.danger, fontSize: 11),
-          ),
-        ),
-      ],
     );
   }
 }

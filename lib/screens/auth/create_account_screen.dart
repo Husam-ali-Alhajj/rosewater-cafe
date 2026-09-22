@@ -45,51 +45,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     super.dispose();
   }
 
-  String? _validateFullName(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Full name is required';
-    return null;
-  }
+  String? _validateFullName(String? value) => Validators.fullName(value);
 
   String? _validateEmail(String? value) {
     if (_serverEmailError != null) return _serverEmailError;
     return Validators.email(value);
   }
 
-  String? _validatePhone(String? value) {
-    if (value == null || value.trim().isEmpty)
-      return 'Phone number is required';
-    // Strip formatting characters a real number might legitimately contain
-    // (spaces, dashes, parentheses) but keep the leading "+" meaningful —
-    // a phone number with no country code is ambiguous (is "5551234" a
-    // local number, or missing "+1"?) and won't work with any downstream
-    // SMS/calling integration, so we require it explicitly.
-    final cleaned = value.trim().replaceAll(RegExp(r'[\s\-()]'), '');
-    if (!cleaned.startsWith('+')) {
-      return 'Include your country code, e.g. +1 or +966';
-    }
-    final digits = cleaned.substring(1);
-    if (digits.isEmpty || !RegExp(r'^\d+$').hasMatch(digits)) {
-      return 'Enter a valid phone number';
-    }
-    // E.164 (the international phone number standard) allows at most 15
-    // digits total; 8 is a reasonable floor for country code + a real
-    // subscriber number.
-    if (digits.length < 8 || digits.length > 15) {
-      return 'Enter a valid phone number with country code';
-    }
-    return null;
-  }
+  // Decision #10's rule, shared with Edit Profile via Validators.phone.
+  String? _validatePhone(String? value) => Validators.phone(value);
 
+  // Decision #10's rule, shared with Change Password via Validators.password.
   String? _validatePassword(String? value) {
     if (_serverPasswordError != null) return _serverPasswordError;
-    if (value == null || value.isEmpty) return 'Password is required';
-    if (value.length < 8) return 'Must be at least 8 characters';
-    if (!RegExp(r'[A-Z]').hasMatch(value))
-      return 'Add at least one uppercase letter';
-    if (!RegExp(r'[a-z]').hasMatch(value))
-      return 'Add at least one lowercase letter';
-    if (!RegExp(r'[0-9]').hasMatch(value)) return 'Add at least one number';
-    return null;
+    return Validators.password(value);
   }
 
   String? _validateConfirmPassword(String? value) {

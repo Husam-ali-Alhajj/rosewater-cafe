@@ -2097,6 +2097,500 @@ No code changed for this task — it's a documentation pass confirming
 the sprint's decisions are traceable in this file, not just in chat
 history that won't survive past this conversation.
 
+### 40. Sprint 5, Task 1 -- Profile screen (read), built to exact Figma values
+
+Built the real Profile tab (`lib/screens/profile/profile_screen.dart`,
+Figma frame `1216:2169`), replacing the `ComingSoonScreen` stub `MainShell`
+had in that slot. Every number below came from the Figma REST API's node
+data for that frame (fills, radii, shadows, padding, gaps, font
+size/weight/line-height/letter-spacing), not from eyeballing the PDF -- the
+same method as decision #20. (The first personal access token supplied
+came back `Invalid token`; a second one with the file-content read scope
+worked. Neither is stored anywhere in the repo.)
+
+**Data, all real, none re-fetched that already existed:**
+- `ActiveMembership` is handed in from `MainShell` (decisions #27/#31/#35):
+  plan name, valid-until, and max guests. Valid Until uses the same
+  `M/d/yyyy` (no leading zeros) and the same `DateTime` as Home's status
+  card, so the two screens always agree.
+- Name / email / phone / member ID come from
+  `ProfileService.fetchCurrentProfile()` (decision #18).
+- The "PREMIUM Member" badge is `'${planName.toUpperCase()} Member'` from the
+  real plan name -- Basic shows "BASIC Member", VIP "VIP Member".
+
+**Where the screen deliberately differs from, or adds to, the Figma frame:**
+- **Plan row text.** The design's demo data is the lowercase string
+  `premium`, shown as "Premium" via Figma's Title-Case text setting. The real
+  `membership_plans.name` is already "Premium"/"Basic"/"VIP", so it's shown
+  as stored -- no casing transform (applying Title Case would turn "VIP" into
+  "Vip").
+- **Empty fields hide their row** (phone, member ID are nullable columns)
+  instead of showing a placeholder, per "zero placeholder data".
+- **A load-failure state** ("Couldn't load your profile." + Try again) that
+  the design doesn't have. Without it a failed fetch would leave a blank
+  screen with no way to reach Sign Out; the sections that don't depend on
+  the profile (Membership Details, Settings, Sign Out) still render.
+- **Icons are Material outlined glyphs**, not Figma's exact Lucide vectors --
+  the same trade-off decision #26 already made for the bottom nav that sits
+  right under this screen, so the two match each other. Swapping in exported
+  SVGs would need a new dependency; not done.
+- **Version line** ("Version 1.0.0 • Rosewater Café") is a constant matching
+  `pubspec.yaml`, not read from the platform (would need a new package).
+- The screen uses the design's own page-wash gradient as its background.
+  Home currently uses the flat scaffold colour instead; worth aligning
+  whichever way is right if the two look inconsistent side by side.
+
+**Every row/button except Sign Out opens `ComingSoonScreen`** (Edit Profile,
+Upgrade Membership, Payment Methods, Notifications, Privacy & Security, Help &
+Support, App Settings) -- their real screens are later Sprint 5 tasks, and
+there is no upgrade flow at all yet (decision #25). **Sign Out is real and
+permanent** (decisions #21/#26): it ends the session, clears the whole nav
+stack to Auth Landing, guards against a double tap, and shows a SnackBar if
+the sign-out call itself fails.
+
+**Verified:**
+- `flutter analyze` -- same 3 pre-existing lint infos, nothing new.
+- `flutter test` -- 44/44 (37 existing + 7 new in
+  `test/profile_content_test.dart`: real data shown, badge follows the plan,
+  hidden rows, retry state, every callback fires, Sign Out disabled while in
+  progress). `ProfileContent` is split from the loading widget specifically so
+  this mapping is testable without a Supabase connection.
+- **Layout measured against Figma numerically**, since the app couldn't be
+  launched (memory pressure): rendering at Figma's exact 374.98 width with a
+  real font, the Profile card is 342.98x277.03, Membership Details
+  342.98x361.03, Settings 342.98x353.03, both outlined buttons 342.98x51.09,
+  section gaps 24, name line 32, badge offset 39.15 -- all identical to the
+  design. (Badge width and the button icon's x-offset differ by ~2px only
+  because the probe used Roboto, which is narrower than Inter.)
+
+**Not verified:** the screen has not been looked at running in the app, so
+colours, shadows and icon shapes have not been compared visually against the
+design -- that click-through/eyeball check is the developer's. Also not
+verified against a real account with no phone number.
+
+**Notes for the next Sprint 5 tasks:**
+- Edit Profile: `profiles` allows the client to UPDATE its own `email` column,
+  which is separate from the login email in `auth.users`. Make it read-only
+  there (or change it via `auth.updateUser`) so the two can't drift apart.
+- `QrAccessScreen` and `ProfileScreen` each fetch the same profile row, so two
+  identical queries run when `MainShell` builds. Harmless; could be hoisted
+  into `MainShell` like `ActiveMembership` was.
+- `ComingSoonScreen.showSignOut` is no longer used by anything.
+
+### 41. Home rebuilt to the exact Figma frame -- the missing header, and a shared profile fetch
+
+**Reported by the user:** the screen after sign-in had nothing about
+"Welcome" and didn't look like the Figma design. Both true: decision #32
+had deliberately built only the bell from Home's header, and the rest of
+the dashboard had drifted from the design in spacing and type. Rebuilt
+`lib/screens/home/home_screen.dart` against the Figma REST data for the
+whole frame (node `1217:3554`), the same method as decisions #20/#40.
+
+**What was missing or different, and is now to the design:**
+- **Header** (new): "Welcome, {first name}!" (Inter Medium 36) and
+  "Member ID: ..." on the left; the bell (no badge) and **Logout** on the
+  right, bell first, 8px apart. 32px between the header and the status card.
+- **Frame:** top padding 32 (was 16), the design's page-wash gradient
+  behind the screen, `SafeArea` on top like the Profile tab.
+- **Status card:** "Membership Status" at 80% white and "Valid until" at 90%
+  white (were 100%), the design's line heights/spacing (title 30/36, 4px
+  gap, 40px to "Valid until"), hairline 0.515 borders.
+- **Usage cards:** the design's order is icon+label row, then the progress
+  bar (40 below), then the "used this month" caption (32 below the bar) --
+  the code had the caption first with 16/8 gaps.
+- **Service Hours / Benefits cards:** 40px between the title and the content
+  (was 24); type sizes with the design's line heights and letter spacing;
+  service-hour rows use 12px padding and wrap on narrow screens instead of
+  overflowing (the old rows overflowed a 375-wide phone).
+- **Reserve Event button:** 1.545 border, as designed.
+
+**Decisions made:**
+- **Notification badge stays out**, by the user's call ("skip the
+  notification thing till we build it"): the bell is still a stub that
+  opens `ComingSoonScreen`, with no unread count. The design's "2" is demo
+  data.
+- **Logout is back on Home** (the design has it in the header) and calls the
+  same sign-out as the Profile tab's Sign Out, via a new shared helper
+  (`lib/screens/auth/sign_out.dart`). This supersedes the "Sign Out lives
+  only on Profile" part of #21/#26: the design has both.
+- **First name** = the first word of `profiles.full_name`. With no profile
+  (fetch failed) or a blank name the greeting is a plain "Welcome!"; a
+  missing member ID hides its line. No placeholder name/number ever shows.
+- **Profile is now fetched once**, in `MainShell`, in parallel with the
+  membership, and passed to Home, QR Code and Profile -- replacing the two
+  separate fetches those last two did (the duplicate flagged at the end of
+  #40). A failed profile fetch becomes `null` and each tab degrades on its
+  own (Profile keeps its retry).
+- **The wrapped "Premium Member" title is reproduced:** at 375 wide the
+  design's 30px title wraps, and its second line spills into the 40px gap
+  above "Valid until" while the card stays 169.03 tall. Kept: the title box
+  is one line high with the overflow visible.
+- **Unlimited (VIP) usage card:** the design has no unlimited variant, so
+  with no bar the caption follows the label/value row 16px below (#28).
+- Home gets the gradient background; the QR Code and Events tabs still use
+  the flat scaffold colour. Align them if they look inconsistent next to Home.
+
+**Verified:** `flutter analyze` (same 3 pre-existing infos) and `flutter test`
+55/55 (44 + 11 new in `test/home_content_test.dart`). The layout test renders
+at Figma's 374.98 width with a real font and matches the design: header-to-
+card gap 32, status card 342.98x169.03, quick actions 96 tall 16 apart, usage
+cards 197.03, section gaps 24.
+
+**Not verified:** the screen has not been looked at running in the app. And
+two things depend on Inter's real text widths, which the test font (Roboto,
+narrower) can't reproduce: the design wraps the Member ID line and the two
+service-hours rows to two lines at 375 wide; with Inter on a real device they
+should wrap the same way (the row flex weights are the design's own box
+widths), but that needs an eyeball check -- as do the Material icons vs the
+design's exact vectors (same trade-off as #26/#40).
+
+### 42. Sprint 5, Task 2 -- Edit Profile, the `avatars` bucket, and locking `profiles.email`
+
+Built the real Edit Profile screen (`lib/screens/profile/edit_profile_screen.dart`,
+Figma frame `1217:2403`, exact values via the REST API as in #20/#40/#41),
+replacing the stub behind Profile's "Edit Profile" button.
+
+**What's editable, and what isn't**
+- **Editable:** full name, phone, profile photo.
+- **Email is read-only, and genuinely so:** it is plain text, not a `TextField`
+  (it can't be focused or typed into -- there's a widget test for exactly
+  that), with the note "Your email can't be changed in the app." Changing a
+  Supabase Auth email needs its own re-verification flow (a confirmation link to
+  the new address), out of scope this sprint. Member ID and plan are read-only as
+  in the design ("Contact support to change membership type").
+- **Field text colour:** the design shows field values in Figma's muted grey
+  (`#717182`), so all three inputs use it, exactly as designed -- darken it if
+  typed text reads as too faint.
+
+**Validation** (all before any network call)
+- Name required; phone uses `Validators.phone` -- **decision #10's exact rule**
+  (leading `+`, 8-15 digits, formatting characters stripped). It was *moved*, not
+  rewritten, out of `CreateAccountScreen` into `lib/utils/validators.dart` so
+  Create Account and Edit Profile can't disagree; both now call it. A new
+  `test/validators_test.dart` pins the rule (it had no tests before).
+- Widget tests use a fake `ProfileService` and prove an invalid phone (each
+  shape from #10) or a blank name never reaches the service at all.
+
+**Save** -- a plain `profiles` UPDATE, no RPC: exactly the self-owned write
+decision #3 always allowed, scoped by the existing `auth.uid() = id` policy. Only
+`full_name`, `phone` and (when a new photo was uploaded) `avatar_url` are sent;
+`email` never is. The saved row comes back and is handed to `MainShell`, which now
+**owns the profile** and rebuilds the tabs, so a name/photo change shows on the
+Profile tab, Home's greeting and the QR tab immediately. Saving with nothing
+changed makes no request.
+
+**Photo** -- same pattern as ID documents (#18), separate bucket:
+- Migration `20260922100000_avatars_bucket_and_profile_email_lock.sql` adds a
+  **private `avatars` bucket** with the four per-user storage policies
+  (`(storage.foldername(name))[1] = auth.uid()::text`), plus a bucket-level 5 MB
+  cap and PNG/JPEG/WebP-only, so the limits hold even for a direct storage API call.
+- `image_picker` (camera/gallery, capped at 1024px wide), validated by the new
+  `AvatarService` (type + size) right after picking, shown as a local preview, and
+  **uploaded only on Save** -- Cancel uploads nothing. Path
+  `<user_id>/<timestamp>.<ext>` (a fresh name each time so a cached old photo never
+  masks a new one); the replaced photo is deleted afterwards, and an upload whose
+  save then failed is cleaned up.
+- The path lives in the existing `profiles.avatar_url` column. The bucket is
+  private, so `ProfileAvatar` shows it via a 1-hour **signed URL**, falling back to
+  the design's gradient-and-icon circle if it can't load.
+
+**A schema change nobody asked for, flagged on purpose:** the migration also adds
+a `BEFORE UPDATE` trigger on `profiles` that keeps the old `email` whenever the
+request comes from a signed-in user (`auth.uid()` set). Reason: the existing
+UPDATE policy lets a client PATCH *any* column of its own row, so `profiles.email`
+could drift from the real login email in `auth.users` -- the exact risk raised at
+the end of #40. Same idea as the `member_id` lock. A server-side process with no
+user session (e.g. a future email-sync after a verified change) is not affected.
+A CHECK forcing `avatar_url` into the user's own folder was considered and left out
+(an unreadable path is harmless, and a future OAuth avatar URL would break on it).
+
+**Verified live** against the dev Supabase project, driven in the SQL Editor with
+real role impersonation (`set local role` + `request.jwt.claims`), inside one
+`DO` block that ends in a deliberate `RAISE EXCEPTION` so everything rolls back --
+afterwards 0 test files remained in `avatars` and 0 profiles were touched. Two real
+users (A, B):
+- B reading A's file: **0 rows**. B inserting into A's folder: **blocked, 42501**.
+  B updating A's file: **0 rows**. A reading its own file: **1**; A reading B's:
+  **0**. B sees only its own avatars (**1** of 1 in the bucket). `anon` writing:
+  **blocked, 42501**; `anon` reading: **0 rows**.
+- B writing + reading its own folder: **1 row** (allowed).
+- **Profiles:** B updating its own row with name, phone, avatar path *and*
+  `email = 'hacked@example.com'` -> 1 row updated, name/phone changed, **email
+  unchanged**. B updating A's profile: **0 rows**. A server-side update with no user
+  session **can** change the email (not blocked).
+- Bucket confirmed `public = false`, 5,242,880-byte limit, the three MIME types;
+  all four policies present for `authenticated` only; the trigger enabled.
+- **Not proven by SQL:** B *deleting* A's file. Supabase blocks direct SQL deletes
+  from `storage.objects` for everyone ("Direct deletion from storage tables is not
+  allowed. Use the Storage API instead."), so that statement errored for a platform
+  reason, not the policy. The delete policy has the same `USING` clause as the read
+  and update policies proven above, and it applies through the Storage API the
+  app uses.
+- Dart side: `flutter analyze` (only the pre-existing lints in Create Account), and
+  `flutter test` 81/81 (55 + 26 new: validators, avatar service, Edit Profile with
+  a fake service). Layout measured against Figma at 375 wide with a real font:
+  header 343x40, photo card 343x213.03, Membership Information card 343x253.03,
+  Cancel 163.5x49.03, Save 163.5x48, all section gaps 24. (The Personal Information
+  card is taller than the design by exactly the email note.)
+
+**Not verified:** the screen has not been looked at running in the app, and the
+photo pick -> upload -> display path (camera/gallery, signed URL) has not been
+exercised end to end -- the developer's click-through (and it needs a real image
+file; automated file pickers can't drive it on Flutter web, #18). The Supabase SQL
+Editor also kept two "Untitled query" entries from these runs in its Private list.
+
+### 43. Sprint 5, Task 3 -- Payment Methods (list / add / set default / delete), and making "one default card" a database guarantee
+
+Built the real Payment Methods screen (`lib/screens/profile/payment_methods_screen.dart`,
+Figma frame `1217:2477`, exact values via the REST API as in #20/#40-#42) and an Add
+Payment Method screen, replacing the stub behind Profile's "Payment Methods" row.
+
+**Metadata only, exactly like the real Payment flow.** Only brand, last 4, expiry and
+`is_default` are ever stored; the table has no column for a full number or CVV.
+`PaymentMethodService.add` takes only those four/five values -- there is **no parameter
+for a card number or CVV**, so it can't be passed by accident. On the Add screen the
+number and CVV are validated for shape and then discarded (controllers cleared and
+disposed, no autofill hints, never logged or sent).
+
+**Add reuses Payment's validators (#22).** `PaymentValidators` (16 digits, MM/YY not in the
+past, 3-digit CVV) are used unchanged; the Payment screen's field widgets
+(`PaymentField`, `ExpiryInputFormatter`) were *moved* to `lib/widgets/payment_fields.dart`
+(not rewritten) and the Payment screen now imports them. The Cancel/Save buttons and the
+sub-screen header were likewise shared (`form_buttons.dart`, `screen_header.dart`) between
+Edit Profile, Payment Methods and Add Payment Method.
+
+**Logged plainly, as the same accepted simplification as `confirm_subscription_payment`
+(#4/#16), not a new one:** with no payment processor, the brand and last 4 are
+**derived client-side from the typed number** (`lib/utils/card_brand.dart`: Visa 4..., Mastercard
+51-55 / 2221-2720, Discover 6011 / 644-649 / 65, otherwise a generic "Card") purely so a
+saved card can display as "Visa •••• 4242". It is a display guess, never used to decide
+validity. A real processor returns the true brand and last 4 with a token and this goes away.
+
+**No Figma frame for the add form.** The design has the "Add New Payment Method" button
+but not the form behind it (the only card fields in the file are on Complete Payment,
+`1213:1281`), so Add Payment Method is built to match Complete Payment plus the other
+Profile sub-screens' header/card/buttons -- the same situation as Payment Success (#23). Also
+added, none in the design: an empty state, a failed-load retry, a confirm dialog before
+deleting ("Remove this card?"), error SnackBars, and a "Set as default" checkbox on the add
+form (hidden for a user's first card).
+
+**Plain table access, no RPC** (self-owned rows, same reasoning as Task 2 / decision #3): the
+existing RLS policies (`auth.uid() = user_id` for select/insert/update/delete) already cover
+it. What RLS can't express is the rule *between* rows, so that moved into the database.
+
+**The DB-level enforcement** (migration `20260923100000_payment_methods_default_enforcement.sql`):
+- **The hard guarantee** is a **partial unique index** `unique (user_id) where (is_default)`.
+  The old `AFTER` trigger that cleared the previous default was a convenience with nothing
+  behind it -- two concurrent requests could both end up default.
+- **A BEFORE insert/update trigger** (`enforce_single_default_payment_method`, replacing the old
+  AFTER one) makes "set this default" one atomic step: it clears the user's other default
+  first, then lets the write through -- so the client never unchecks the old default and
+  sends one request. It also makes a user's **first card the default** whatever the client
+  asked for, and rejects an already-expired card on insert (year *and* month).
+- **An AFTER DELETE trigger** (`promote_default_payment_method`): deleting the default
+  promotes the newest remaining card, so a user who has cards always has a default.
+- Considered and left out: forbidding a client from un-defaulting the only default with a
+  direct `is_default = false` update. The app never does it, and it would need a trigger-depth
+  check; noted rather than built.
+- **A latent bug in the original schema, found on the way and fixed:** the table's
+  `CHECK (exp_year >= extract(year from now()))` is re-evaluated on **every** UPDATE of a row,
+  so once a saved card's year had passed, *any* update of it failed -- including the trigger
+  clearing an old default, which would have made "set a new default" fail whenever the old
+  default card had expired. It is replaced by a plain year-range CHECK, with "not already expired"
+  checked once, on insert only.
+- A single statement that sets `is_default = true` on several of one user's rows is refused by
+  Postgres itself (SQLSTATE `27000`, "tuple to be updated was already modified by an operation
+  triggered by the current command") -- a block, never two defaults. The app only ever updates
+  one row at a time.
+
+**Verified live** against the dev Supabase project in the SQL Editor (real role impersonation,
+one `DO` block ending in a deliberate `RAISE EXCEPTION` so it all rolled back; afterwards 0
+cards left, both triggers enabled, the index present), with two real users (A, B):
+- **Cross-user (RLS):** B listing A's card **0 rows**; B deleting it **0 rows**; B updating it
+  **0 rows**; B inserting a card for A **blocked, 42501**. `anon` listing **0 rows**, inserting
+  **blocked, 42501**.
+- **Default rules, as B:** a first card added with `is_default = false` is **stored as default**;
+  adding a 2nd card as default leaves **exactly 1 default** (the new one; the old is cleared by
+  the trigger, not the client); a 3rd non-default card leaves 1; **one** `UPDATE` setting the 3rd
+  as default leaves 1 (the 3rd); the direct-SQL "set every card default in one statement" attempt
+  was **blocked (27000)**; an already-expired card **rejected (`card_expired`)**; a non-digit last4
+  **rejected (23514)**; a full 16-digit number in `last4` **rejected (22001)**; deleting the
+  default **promoted the newest remaining card** (1 default left); deleting every card works.
+- **The index alone, trigger disabled** (simulating a race or a bug, as B): a direct `UPDATE`
+  making a 2nd default **blocked, 23505**; a direct `INSERT` of a 2nd default row **blocked, 23505**.
+- Dart: `flutter analyze` (only the two pre-existing Create Account lints), `flutter test` 106/106
+  (81 + 25 new: card brand, the model, and both screens with a fake service that decides how the
+  "server" reacts -- one test has it promote a *different* card than a client-side "next card"
+  would, to prove the list shows what the server returned). Layout at 375 wide with a real
+  font matches the design: add button 343x48, both cards 343x125.03, 16 between cards.
+
+**Not verified:** the screens have not been looked at running in the app, and the add -> list ->
+set default -> delete flow has not been exercised end to end against the real backend from the
+app (the developer's click-through); the emoji tile (💳) renders with the platform's emoji font.
+The default card's "Expires" line spills into the card's bottom padding by 4px, as the Figma export
+has it. The SQL Editor also kept "Untitled query" entries from these runs in its Private list.
+
+### 44. Sprint 5, Task 4 -- Notification settings, local-only
+
+Built the real Notification settings screen
+(`lib/screens/profile/notification_settings_screen.dart`, Figma frame `1217:2539`,
+exact values via the REST API as in #20/#40-#43), replacing the stub behind Profile's
+"Notifications" row. (The Home bell is a different thing -- the notifications *feed*, still
+a stub, decision #32.)
+
+**Local-only, as decided at the Sprint 2 checkpoint -- and kept that way on purpose.** The
+seven toggles (Push, Email, SMS, Sound & Vibration; Event Reminders, Allowance Alerts,
+Promotions & Offers) are saved to the device with `shared_preferences` through a new
+`NotificationPrefs` (`lib/services/notification_prefs.dart`), the same thin-wrapper style as
+`OnboardingPrefs`. **No table, no RPC, no backend storage.** Whether these preferences ever
+belong in the database is tied to the still-open question of what a notification even is
+(its schema, delivery, unread state -- decision #32 and the open-questions list), so building
+storage for them while that is unresolved would be deciding it by accident. The
+"Notification preferences storage" open question is now closed as *local*.
+
+**No network calls at all.** The screen and `NotificationPrefs` import only
+`flutter/material` and `shared_preferences` (plus pure-UI project widgets). This is not just
+asserted: `test/notification_prefs_test.dart` follows every import of both files
+transitively and fails if anything other than those two packages -- in particular
+Supabase, `http`, or `dart:io` -- appears anywhere in the chain. The user id used to
+namespace the saved keys is read by the *caller* (Profile) from the local session, so the
+screen itself never touches the Supabase client.
+
+**Behaviour**
+- Each flip is shown at once and written to the device immediately -- the design has no Save
+  button, only "Done", which just leaves the screen.
+- **Persists across restart** (proven with a simulated close-and-reopen, below).
+- Defaults are the states drawn in Figma: **SMS off, the other six on** -- nothing is written
+  until the user changes a toggle, so a fresh install stores nothing.
+- Keys are `notification_settings.<user id>.<toggle>`, so on a phone shared by two people one
+  person's choices don't become the other's. (With no user, they belong to "the device".)
+- If a write fails (storage full/unavailable), the switch goes back to what is actually stored
+  and a SnackBar says so, rather than showing a value that won't be there next time.
+- **The toggles only record preferences.** Nothing in the app sends push, email or SMS yet
+  (and the notifications feed is a stub), so nothing acts on them yet. That is stated on
+  purpose so a working-looking toggle isn't mistaken for a working notification system.
+
+**Design details kept as exported:** the "Notification Types" title sits on a light-grey strip
+(`#F3F4F6`) in the Figma file, unlike the gradient band above it -- reproduced as designed;
+the toggle icons have slightly different sizes (15.31-20px); the switch is a custom 44x24 pill
+(red `#EC003F` on, grey `#D1D5DC` off, 16px white thumb) rather than Material's `Switch`,
+announced to screen readers as a toggle with its label. Icons are Material outlines, the same
+trade-off as #26/#40.
+
+**Verified:** `flutter analyze` (only the two pre-existing Create Account lints) and
+`flutter test` 120/120 (106 + 14 new). The persistence tests write through the real
+`SharedPreferences` API, drop the in-memory cache (`resetStatic`) to simulate closing the app,
+and read the values back; the screen tests do the same through a fresh screen instance. Layout
+at 375 wide with a real font matches Figma: Communication card 343x482.57 (482.59), Notification
+Types card 343x404.06 (404.07), rows 70.51/90.51/70/90, 24 between rows and cards, switch 44x24
+16.5 from the card edge.
+
+**Not verified:** the screen has not been looked at running in the app, and "no network" is
+proven by the import check and by the tests running with the Supabase client never
+initialised -- not by watching the browser's Network tab (the developer can confirm that in one
+click-through: open Profile > Notifications, flip toggles, and watch the tab stay empty).
+
+### 45. Sprint 5, Task 5 -- Privacy & Security: real Change Password, Delete Account as a request queue, disabled placeholders
+
+Built the Privacy & Security screen (`lib/screens/profile/privacy_security_screen.dart`,
+Figma frames `1217:2644` default and `1217:2946` with the password form open),
+replacing the stub behind Profile's "Privacy & Security" row. Three of its decisions
+were put to the project owner before any code was written, and are recorded here as
+**their explicit answers**:
+
+**1. Biometric Authentication and Two-Factor Authentication -> disabled placeholders.**
+The earlier "placeholders" answer was not actually written down anywhere in this log
+(a search for biometric/2FA/auto-lock found nothing), so it was re-confirmed rather than
+assumed to have carried forward. They are drawn as designed but switched **off, dimmed,
+inert and marked "(Coming Soon)"** -- the same way the design already labels Dark Mode --
+instead of working-looking switches that record a value and do nothing: a member could
+believe 2FA was protecting them when it isn't. No storage, no behaviour.
+
+**2. Auto-Lock -> placeholder too.** It shares one toggle between two different
+features -- "lock after inactivity" (an idle timer plus a lock screen that asks for the
+password) and "require biometric to unlock" (needs `local_auth` and Biometric to be real)
+-- and neither is built. Note the design draws Auto-Lock **on**; it is shown **off** here
+so nothing implies the app auto-locks.
+
+**3. Delete Account -> a request queue (option b), not self-service deletion.** Supabase's
+client SDK deliberately can't delete an auth user (an admin/service-role operation). A
+`SECURITY DEFINER` function that deletes the caller's own `auth.users` row was rejected:
+irreversible deletion of auth data through a client-callable function is real risk for
+little training value. Instead (migration `20260924100000_deletion_requests.sql`):
+- A new `deletion_requests` table (status enum `pending`/`cancelled`/`completed`), RLS on.
+- A client can **insert** a request for itself **only as `pending`** and **read its own**.
+  There is **no UPDATE or DELETE policy**: a member can't edit, cancel or hide a request from
+  the app. Cancelling/processing one is a **manual staff step** (dashboard / service role) --
+  deleting the auth user there cascades to the profile, its data, and the request row.
+- A partial unique index allows **one open request per user**, so a double tap or a second
+  device can't queue duplicates (the app then just shows the existing one).
+- **Making a request deletes nothing, deactivates nothing and signs nobody out.** The screen
+  says so plainly ("Deletion requested on M/D/YYYY ... Your account stays active until then").
+  A confirm dialog comes first.
+- There is no tooling to process requests yet -- that is deliberately a human step for now.
+
+**Change Password is real, and asks for the current password first.** Supabase's
+`updateUser(password:)` does not require it: anyone holding a live session could change the
+password. That is the risk -- a phone left unlocked and open, its password silently changed by
+someone else. So `AuthService.changePassword` re-authenticates with the user's own email and the
+password they just typed (`signInWithPassword`) **before doing anything else; if that fails for any
+reason, `updateUser` is never called** (a wrong password, a rate limit, a network error, no
+session -- each has its own message, and a network failure is not misreported as a wrong
+password). Only then does it update. Afterwards it also **signs out every other session**
+(`signOut(scope: others)`, best effort, an unrequested extra: a stolen session should not survive
+the password that was changed to lock it out; the current session stays signed in).
+- **Strength rules are decision #10's, shared not rewritten:** the password rule moved out of
+  Create Account into `Validators.password` (8+ chars, upper + lower + number, each missing rule its
+  own message) and both screens call it -- the same move made for the phone rule in #42. Client-side
+  only; the real enforcement stays Supabase's own password policy. The new password must also differ
+  from the current one.
+- Fields are hidden by default with a show/hide eye per field; nothing typed leaves the screen.
+
+**Other things kept simple:** "View Privacy Policy" and "Terms of Service" open the coming-soon page --
+no policy or terms text exists to show.
+
+**Figma access for this screen.** The Figma REST API returned 429 with `Retry-After` ~58h (starter
+plan, low limit tier -- exhausted by the earlier full-file downloads), so this screen's values were read
+from the Figma app's Design panel in the browser: the card/row/button/input dimensions, paddings, gaps,
+colours and type styles for Password, Privacy and the form; the Security Options card follows the
+identical Notifications toggle pattern (its 364.07 total was confirmed). A few values not read directly
+(the shield icon size in the band, icon sizes for the three toggles, the eye icon's exact offset, the
+"Change Password" icon-to-label gap, which reuses Edit Profile's measured 17) are inferred from the
+shared pattern -- worth a check once the API allows.
+
+**Verified live (the part the task asked for -- Delete Account does exactly what was decided and
+nothing more).** In the Supabase SQL Editor with real role impersonation, in one `DO` block ending in a
+deliberate `RAISE EXCEPTION` so everything rolled back (afterwards the table held 0 rows, RLS on, both
+policies and the unique index present), with two real users (A, B):
+- B files a request for its own account: stored **`pending`**. B files a second: **blocked, 23505**
+  (one open request). B files one for A: **blocked, 42501**. B files one already `completed`: **blocked,
+  42501**. B can see **1** request (its own; A's is hidden). B tries to cancel its own: **0 rows changed**;
+  to delete its own: **0 rows removed**; it is still `pending`. `anon` reading: **0 rows**; `anon` filing:
+  **blocked, 42501**.
+- **"Nothing more":** a snapshot of row counts across `auth.users`, `auth.sessions`, `profiles`,
+  `subscriptions`, `usage_allowances`, `door_access_logs`, `event_reservations`, `payment_methods`,
+  `id_documents`, `notifications` and `storage.objects` was identical before and after the request, and
+  **B's `auth.users` row and profile row were byte-for-byte identical** (compared by hash). The only
+  change anywhere was `deletion_requests` gaining its rows.
+- Dart side: `flutter analyze` **clean (no issues at all)**, `flutter test` **155/155** (120 + 35 new).
+  `test/change_password_test.dart` proves the ORDER with a fake auth client that logs every call
+  (`signIn(current)` -> `updateUser(new)` -> `signOut(others)`) and that a wrong current password, a
+  rate limit, a network failure or a missing session all leave `updateUser` uncalled.
+  `test/privacy_security_screen_test.dart` covers the screen: placeholders inert, empty current
+  password rejected, each #10 rule's message, same-as-current, mismatch (none reach the service), a
+  valid form sends current + new, a wrong current password shown under its field, and Delete Account
+  (one request, "only a request" notice, Cancel sends nothing, an existing request shown on arrival,
+  failure keeps the button).
+- Layout at 375 wide with a real font: Password card 343x209.54, Privacy card 343x249.54 (both
+  identical to Figma), 24 between cards, inputs 309.97x36. The Security Options card is taller than
+  Figma's 364.07 by the "(Coming Soon)" lines added under each placeholder.
+
+**Not verified:** Change Password has **not been exercised against the live Auth API** -- the tests use a
+fake client, so the real `signInWithPassword` -> `updateUser` -> `signOut(others)` sequence needs a
+click-through with a throwaway account (change it, confirm the old password stops working and the new one
+works). The screen has not been looked at running in the app. Deliberately not done: processing a deletion
+request, and any Privacy Policy / Terms text.
+
 ---
 
 ## Checkpoint: status of every open item, as of the end of Sprint 2
@@ -2161,10 +2655,9 @@ need to think about them now:
 - **Full FAQ copy**: only 1 of 4 answers was visible in the design
   export — the other 3 are needed only once the Help & Support screen
   gets built.
-- **Notification preferences storage**: whether push/email/SMS toggles
-  need to be saved per-user in the database, or can just be a local
-  on-device setting — matters only once the Notifications settings
-  screen gets built.
+- **Notification preferences storage** -- **resolved (#44):** local on-device
+  setting only (`shared_preferences`), no table. Moving them to the backend stays
+  tied to the open notifications-feed question below.
 - **Notifications feed and its backing schema** (raised explicitly by
   Sprint 3, Task 8): what a notification actually is here (payment
   receipts? event reminders? door-access alerts? some mix?), whether it
