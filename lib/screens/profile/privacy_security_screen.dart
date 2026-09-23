@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
+import '../../services/account_deletion_service.dart';
 import '../../services/auth_service.dart';
-import '../../services/deletion_request_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/validators.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/form_buttons.dart';
 import '../../widgets/screen_header.dart';
 import '../../widgets/setting_toggle_row.dart';
+import '../auth/sign_out.dart';
 
 // Values read from the Figma `PrivacySecurityScreen` frames (nodes 1217:2644
 // default, 1217:2946 with the password form open) in the Figma app's Design
@@ -17,7 +17,6 @@ import '../../widgets/setting_toggle_row.dart';
 // the frames' measured heights (see docs/decisions.md #45).
 const _rowInk = Color(0xFF364153);
 const _bodyInk = Color(0xFF4A5565);
-const _mutedText = Color(0xFF6A7282);
 const _labelInk = Color(0xFF0A0A0A);
 const _hintInk = Color(0xFF717182);
 const _inputFill = Color(0xFFF3F3F5);
@@ -47,21 +46,33 @@ const _hairline = 0.515; // Figma's fractional hairline stroke width
 /// new password must pass decision #10's rules, [Validators.password], the
 /// same as signup.
 ///
-/// **Delete Account is a request, not a deletion** (decision #45). Supabase's
-/// client SDK can't delete an auth user by design, so confirming only records a
-/// row in `deletion_requests` for a person to process manually; nothing is
-/// deleted, deactivated or signed out, and the account stays active until then.
+/// **Delete Account is real, immediate, self-service deletion** (decision #52,
+/// replacing the request-queue of decision #45 after the user was shown that
+/// tradeoff and explicitly chose self-service instead). Confirming calls the
+/// `delete_own_account` RPC, which deletes exactly the caller's own
+/// `auth.users` row -- cascading through every table of their data -- then
+/// this screen ends the local session and returns to Auth Landing. There is
+/// no undo, and the confirmation dialog says so before anything happens.
 ///
 /// "View Privacy Policy" and "Terms of Service" open a "coming soon" page:
 /// no policy or terms text exists yet to show.
 class PrivacySecurityScreen extends StatefulWidget {
   final AuthService authService;
-  final DeletionRequestService deletionService;
+  final AccountDeletionService accountDeletionService;
+
+  /// What runs right after the account is deleted server-side. Defaults to
+  /// [signOutAndShowLanding] -- the real thing, which needs a live Supabase
+  /// client. Overridable so this can be proven without one (widget tests
+  /// can't initialise Supabase): a test passes a spy here to confirm this
+  /// step would run, the same pattern AppSettingsScreen's onDataCleared
+  /// uses for "Clear All App Data".
+  final Future<void> Function(BuildContext context)? onAccountDeleted;
 
   const PrivacySecurityScreen({
     super.key,
     this.authService = const AuthService(),
-    this.deletionService = const DeletionRequestService(),
+    this.accountDeletionService = const AccountDeletionService(),
+    this.onAccountDeleted,
   });
 
   @override
@@ -83,14 +94,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   String? _serverNewError;
   String? _formError;
 
-  DeletionRequest? _deletionRequest;
-  bool _requestingDeletion = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDeletionRequest();
-  }
+  bool _deletingAccount = false;
 
   @override
   void dispose() {
@@ -99,17 +103,6 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     _newController.dispose();
     _confirmController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadDeletionRequest() async {
-    try {
-      final request = await widget.deletionService.fetchOpenRequest();
-      if (!mounted) return;
-      setState(() => _deletionRequest = request);
-    } catch (_) {
-      // Couldn't check: show the normal Delete Account row. If a request is
-      // already open, asking again just returns that one.
-    }
   }
 
   // ---- Change Password ----
@@ -187,46 +180,51 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     }
   }
 
-  // ---- Delete Account (request queue) ----
+  // ---- Delete Account (real, immediate, self-service) ----
 
   Future<void> _confirmDeleteAccount() async {
-    if (_requestingDeletion) return;
+    if (_deletingAccount) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete your account?'),
         content: const Text(
-          'This sends a request to permanently delete your account and everything in it. '
-          'Your account stays active until we process the request.',
+          'This immediately and permanently deletes your account and everything in it -- '
+          'your profile, membership, payment methods, and reservation history. '
+          'This cannot be undone.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Request deletion', style: TextStyle(color: _deleteInk)),
+            child: const Text('Delete Permanently', style: TextStyle(color: _deleteInk)),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
 
-    setState(() => _requestingDeletion = true);
+    setState(() => _deletingAccount = true);
     try {
-      final request = await widget.deletionService.request();
+      await widget.accountDeletionService.deleteAccount();
       if (!mounted) return;
-      setState(() {
-        _deletionRequest = request;
-        _requestingDeletion = false;
-      });
-    } on DeletionRequestFailure catch (e) {
+      // The account is gone server-side; end the local session too, the
+      // same way App Settings' "Clear All App Data" does -- a device with
+      // no live account shouldn't still look signed in.
+      if (widget.onAccountDeleted != null) {
+        await widget.onAccountDeleted!(context);
+      } else {
+        await signOutAndShowLanding(context);
+      }
+    } on DeleteAccountFailure catch (e) {
       if (!mounted) return;
-      setState(() => _requestingDeletion = false);
+      setState(() => _deletingAccount = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       if (!mounted) return;
-      setState(() => _requestingDeletion = false);
+      setState(() => _deletingAccount = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't send your request. Please try again.")),
+        const SnackBar(content: Text("Couldn't delete your account. Please try again.")),
       );
     }
   }
@@ -380,7 +378,6 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   }
 
   Widget _buildPrivacyRows() {
-    final request = _deletionRequest;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -390,14 +387,11 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
           const SizedBox(height: 12),
           _PrivacyRow(label: 'Terms of Service', onTap: () => _openComingSoon('Terms of Service')),
           const SizedBox(height: 12),
-          if (request == null)
-            _PrivacyRow(
-              label: 'Delete Account',
-              danger: true,
-              onTap: _requestingDeletion ? null : _confirmDeleteAccount,
-            )
-          else
-            _DeletionRequestedNotice(requestedAt: request.requestedAt),
+          _PrivacyRow(
+            label: 'Delete Account',
+            danger: true,
+            onTap: _deletingAccount ? null : _confirmDeleteAccount,
+          ),
         ],
       ),
     );
@@ -660,40 +654,3 @@ class _PrivacyRow extends StatelessWidget {
   }
 }
 
-/// Shown in place of "Delete Account" once a deletion request is open: says
-/// plainly that it's a request, that nothing has been deleted, and that the
-/// account is still active.
-class _DeletionRequestedNotice extends StatelessWidget {
-  final DateTime requestedAt;
-
-  const _DeletionRequestedNotice({required this.requestedAt});
-
-  @override
-  Widget build(BuildContext context) {
-    final date = DateFormat('M/d/yyyy').format(requestedAt.toLocal());
-    return Padding(
-      padding: const EdgeInsets.only(left: 16, top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Deletion requested on $date',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              height: 20 / 14,
-              letterSpacing: -0.15,
-              color: _deleteInk,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            "We'll process your request manually. Your account stays active until then. "
-            'Contact support if you change your mind.',
-            style: TextStyle(fontSize: 12, height: 16 / 12, color: _mutedText),
-          ),
-        ],
-      ),
-    );
-  }
-}

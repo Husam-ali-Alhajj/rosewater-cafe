@@ -7,7 +7,7 @@ made. Written from the actual code and migrations as of the **Sprint 4** commit
 
 > **How this file relates to the others**
 > - `MASTER.md` (this file) — the map. Read it first.
-> - `docs/decisions.md` — the long-form log (50 numbered decisions, with the
+> - `docs/decisions.md` — the long-form log (52 numbered decisions, with the
 >   bugs found, proofs, and trade-offs). This guide cites it as **#N**.
 > - `README.md` — still the untouched Flutter template; ignore it.
 >
@@ -87,7 +87,7 @@ project and swaps one config file (§14).
 | Edit Profile (name, phone, photo; email read-only) | ✅ Built (Sprint 5 Task 2, #42), avatars bucket + storage isolation proven live |
 | App Settings (Sprint 5 Task 7, #47) | ✅ Dark Mode/Language/Animations/Sound/Haptic are visual-only placeholders (decisions #5/#47); **Cache Size/Clear Cache/Clear All App Data are real** — a genuine, computed number, and real clearing (image cache + local preferences + sign-out) |
 | Help & Support (Sprint 5 Task 6, #46) | ✅ Static contact cards (no backend); FAQ accordion with the **one real answer** the design exports, the other three questions shown with a plain placeholder, never invented copy; Resources open coming-soon pages |
-| Privacy & Security (Sprint 5 Task 5, #45) | ✅ **Change Password is real** (re-enter the current password; same strength rules as signup). **Delete Account is a request queue** (nothing is deleted). Biometric / Two-Factor / Auto-Lock are **disabled "Coming soon" placeholders**; Privacy Policy / Terms open a coming-soon page |
+| Privacy & Security (Sprint 5 Task 5, #45; Delete Account made real, #52) | ✅ **Change Password is real** (re-enter the current password; same strength rules as signup). **Delete Account is real, immediate, self-service deletion** (`delete_own_account` RPC, cascades through every table of the user's data; no undo, no request queue). Biometric / Two-Factor / Auto-Lock are **disabled "Coming soon" placeholders**; Privacy Policy / Terms open a coming-soon page |
 | Notification settings (7 toggles, **local-only**) | ✅ Built (Sprint 5 Task 4, #44): saved on the device with `shared_preferences`, no table, no network. The toggles record preferences only — nothing sends push/email/SMS yet |
 | Payment Methods (list / add / set default / delete, metadata only) | ✅ Built (Sprint 5 Task 3, #43); one-default-per-user enforced in the database and proven live. Card brand/last4 are derived client-side for display — still no real processor |
 | **Notifications** (Home bell) | 🟡 Stub screen, no unread badge, table exists but unused (#32, #41) |
@@ -444,10 +444,13 @@ Three cards (Figma frames `1217:2644` / `1217:2946`, #45):
   change it. If verification fails for any reason, the password is never touched. The new password
   uses decision #10's rule (`Validators.password`, shared with signup) and must differ from the
   current one. After a successful change it also signs out every *other* session (best effort).
-- **Privacy → Delete Account (a request, not a deletion).** Confirming records one row in
-  `deletion_requests` (§9.2) for a person to process manually; nothing is deleted, deactivated or
-  signed out, and the account stays active. The row then reads "Deletion requested on M/D/YYYY".
-  View Privacy Policy / Terms of Service open a coming-soon page (no text exists yet).
+- **Privacy → Delete Account (real, immediate, self-service — decision #52).** Confirming (a dialog
+  spelling out that this is permanent and cannot be undone) calls the `delete_own_account` RPC,
+  which deletes exactly the caller's own `auth.users` row — cascading through every table of their
+  data (profile, subscriptions, payment methods, reservations, everything) — then the screen ends
+  the local session and returns to Auth Landing. Replaces the request-queue of decision #45; there
+  is no `deletion_requests` table anymore. View Privacy Policy / Terms of Service open a coming-soon
+  page (no text exists yet).
 
 ### App Settings — `screens/profile/app_settings_screen.dart`
 Appearance → Language → Interactions → Data & Storage → app info footer (#47).
@@ -543,7 +546,7 @@ else in the app calls the database.
 | `auth_service.dart` | `signIn`, `signUp`, `resetPassword`, `changePassword` (verifies the current password first). Maps Supabase errors → `SignInFailure`/`SignUpFailure`/`ResetPasswordFailure`/`ChangePasswordFailure`. | `auth.signInWithPassword`, `auth.signUp`, `auth.resetPasswordForEmail`, `auth.updateUser`, `auth.signOut(others)` |
 | `subscription_service.dart` | Plans, active membership, the whole subscription lifecycle. | `from('membership_plans')`, `from('subscriptions')`, RPCs `start_subscription`, `confirm_subscription_payment`, `cancel_subscription` |
 | `profile_service.dart` | Current user's `profiles` row; `updateProfile` (name, phone, optional photo path — never email). | `from('profiles')` select / update |
-| `deletion_request_service.dart` | Read the caller's open deletion request; file one (idempotent: a second returns the first). Insert-only table access, no RPC, deletes nothing. | `from('deletion_requests')` |
+| `account_deletion_service.dart` | `deleteAccount()` — permanently deletes the signed-in user's account and everything tied to it. No undo. | RPC `delete_own_account` |
 | `app_settings_service.dart` | Real image-cache size/clear; real `shared_preferences` wipe. | `PaintingBinding` image cache, `SharedPreferences` (no network) |
 | `notification_prefs.dart` | Seven notification toggles, saved on the device (per user id). **No backend.** | `SharedPreferences` (no network) |
 | `payment_method_service.dart` | List / add (brand, last4, expiry, default request — no parameter for a number or CVV) / set default / delete. Plain table access, no RPC. | `from('payment_methods')` |
@@ -595,9 +598,10 @@ them into the dashboard's SQL Editor.
 | `20260916090000_expire_subscriptions_cron` | `expire_subscriptions()` + daily `pg_cron` schedule |
 | `20260916100000_log_door_access` | `log_door_access` RPC |
 | `20260916110000_create_event_reservation` | `create_event_reservation` RPC; **drops** the direct-insert policy |
-| `20260924100000_deletion_requests` | `deletion_requests` table (one open request per user; own-row insert-as-pending + select only; no update/delete for clients) |
+| `20260924100000_deletion_requests` | `deletion_requests` table (one open request per user; own-row insert-as-pending + select only; no update/delete for clients). **Superseded and dropped by the migration below (#52)** |
 | `20260923100000_payment_methods_default_enforcement` | Partial unique index (one default per user), BEFORE trigger that swaps the default atomically and makes a first card the default, AFTER DELETE trigger that promotes another card, and replaces the `now()`-based `exp_year` CHECK |
 | `20260922100000_avatars_bucket_and_profile_email_lock` | Private `avatars` bucket (5 MB, PNG/JPEG/WebP) + 4 per-user storage policies; trigger that stops a client changing `profiles.email` |
+| `20260925100000_delete_own_account` | `delete_own_account` RPC (self-delete only, cascades through the user's own data); **drops** `deletion_requests`, its policies, and the `deletion_request_status` type (#52) |
 
 ### 9.2 Tables
 
@@ -610,7 +614,6 @@ them into the dashboard's SQL Editor.
 | `door_access_logs` | Audit trail of door entries + guest count | **read only** (no delete) |
 | `event_reservations` | Private-event bookings incl. server-computed `total_price` | read + update own (INSERT only via RPC) |
 | `id_documents` | Path to an uploaded ID + `verification_status` | read + insert own (forced `pending`); **no UPDATE** |
-| `deletion_requests` | A member's request to have their account deleted (`pending` / `cancelled` / `completed`). **Only staff act on it**: clients can insert a pending row for themselves and read their own, nothing else | insert (pending, own) + read own |
 | `payment_methods` | Card metadata only (brand, last4, expiry, `is_default`) — **never** PAN/CVV (no column for them) | full CRUD on own; at most one default per user is enforced by the database (§9.3) |
 | `notifications` | Per-user notification rows | read/insert/update own — *exists but unused by the app* |
 
@@ -671,6 +674,7 @@ and are executable by `authenticated` only.
 | `cancel_subscription` | `p_subscription_id` | pending → cancelled (**never** an active one) | same as above |
 | `log_door_access` | `p_guest_count` | Re-checks active membership *and* guests ≤ plan `max_guests`, inserts a log row | `not_authenticated`, `no_active_subscription`, `guest_count_exceeds_plan_limit` |
 | `create_event_reservation` | type, date, start time, duration, guests | Guests 5–100, date ≥ today, computes `total_price = duration × 150`, inserts as `confirmed` | `not_authenticated`, `guest_count_out_of_range`, `event_date_in_past` |
+| `delete_own_account` | — | Deletes the caller's own `auth.users` row; cascades through every table of their data. **No undo** (#52) | `not_authenticated` |
 | `expire_subscriptions` | — | Flips lapsed `active` rows to `expired`. **Not callable by any client role** — only `pg_cron` runs it | — |
 
 **Why "active" always means `status = 'active' AND valid_until > now()`:** the
@@ -821,7 +825,7 @@ Figma REST API), not eyeballed (#20).
 | `test/app_settings_screen_test.dart` | Every row/copy shown; Dark Mode/Language/Animations/Sound/Haptic are all off-or-on-as-designed and inert (tapping does nothing); Cache Size shows the real computed number, never the design's fake "12.5 MB"; Clear Cache really clears and updates the shown size; Clear All App Data confirms first, then clears the image cache and local preferences and runs the (injectable) post-clear step, in that order |
 | `test/help_support_screen_test.dart` | Contact cards show their real copy and aren't tappable; all 4 real questions shown; the one real answer starts expanded; the other 3 show the SAME placeholder (never 3 different invented answers — checked by scanning the whole page for phrases a plausible fabricated answer would use); expand/collapse and exclusive-accordion behaviour; Resources open a coming-soon page |
 | `test/change_password_test.dart` | `AuthService.changePassword` against a fake auth client that logs every call: the CURRENT password is verified (`signIn`) BEFORE `updateUser`; a wrong current password, a rate limit, a network failure or no session all mean `updateUser` is never called; server rejections land on the right field; ending other sessions is best-effort |
-| `test/privacy_security_screen_test.dart` | The screen: the three disabled placeholders (off, no handler, Coming Soon, tapping does nothing); the password form (empty current rejected, each #10 rule's own message, same-as-current, mismatch — none reach the service; a valid form sends current + new; wrong current shown under its field); Delete Account (confirm → exactly one request, notice that it is only a request, Cancel sends nothing, pre-existing request shown, failure keeps the button) |
+| `test/privacy_security_screen_test.dart` | The screen: the three disabled placeholders (off, no handler, Coming Soon, tapping does nothing); the password form (empty current rejected, each #10 rule's own message, same-as-current, mismatch — none reach the service; a valid form sends current + new; wrong current shown under its field); Delete Account (confirm → the RPC is called once and the local session ends; Cancel calls nothing; a failure shows a message, leaves the button available, and never ends the session) |
 | `test/notification_prefs_test.dart` | Local preferences: design defaults (SMS off, rest on), values survive a simulated app restart, only changed keys are written, per-user isolation on a shared device — and a **transitive import check** proving the settings screen and its preferences import nothing that can reach the network (only `flutter/material` and `shared_preferences`) |
 | `test/notification_settings_screen_test.dart` | The screen: every label/description, the design's initial state, a flip is shown at once and saved, toggles are as left after "closing and reopening", another user's choices don't show, a failed write reverts the switch, Done/back leave |
 | `test/card_brand_test.dart` | Brand guess from the leading digits (Visa / Mastercard incl. the 2-series and its boundaries / Discover / generic), last four, and the `PaymentMethod` model's masked number and MM/YY label |
@@ -994,3 +998,5 @@ have a separate admin app for ID verification and door scanning.
 | 48 | Sprint 6 Task 1: Change Password + Clear All App Data confirmed live |
 | 49 | Sprint 6 Task 2: dead code audit (stub-era scaffolding + unused deps removed) |
 | 50 | Sprint 6 Task 3: Figma fidelity re-check (hairline card borders fixed on 4 screens) |
+| 51 | Sprint 6 Task 4: migration audit + proven empty-project replay (schema-identical) |
+| 52 | Delete Account made real self-service (replaces decision #45's request queue) |

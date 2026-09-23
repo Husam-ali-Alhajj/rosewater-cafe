@@ -2864,6 +2864,150 @@ on).
 
 ---
 
+### 51. Sprint 6, Task 4 -- Migration file audit, and proving handoff actually works from empty
+
+Two-part task: (1) confirm every schema change in this log has a corresponding
+migration file, correctly ordered; (2) prove -- not assume -- that
+`supabase/migrations/` alone reproduces the real database from nothing, since "the
+dev project has the right state" and "the migration files reproduce that state from
+scratch" are different claims and only the second is what the company will actually
+run on handoff.
+
+**Part 1 -- static audit, clean.** Read all 13 migration files and cross-referenced
+every schema/RLS/RPC/cron/storage change described anywhere in this log. Every one
+has a matching migration file; filenames sort into correct dependency order (e.g. the
+`pending` enum-value migration commits before the migration that uses it, required
+because Postgres forbids using a new enum value in the same transaction that added
+it); no acknowledged "never backported" gap existed in the log's own text --
+including decision #16's `anon` EXECUTE-revoke fix, which explicitly says it went
+into both the live DB and the migration file at the time, and it's there.
+
+**Part 2 -- the real test.** Getting a genuinely empty environment took three tries:
+
+- A second cloud Supabase project was blocked -- the account is capped at 2 free
+  projects total, **account-wide across every org**, not per-org (confirmed by
+  testing: switching from Husam-ali-Alhajj's Org to a different org the same account
+  administers, "Iamma", hit the identical cap).
+- The Docker/Supabase-CLI local-stack route (`supabase start`) was tried next, but
+  the first-run image pull exhausted available system memory badly enough that
+  Claude Code's own background-process monitor killed it, and even `docker ps`
+  was unresponsive afterward.
+- The user's call: since the dev project held no data worth keeping (test accounts
+  and fixtures only), don't spin up a second environment at all -- wipe everything
+  the migrations are responsible for **in the real Rosewater Cafe project itself**,
+  replay all 13 files top-to-bottom, and compare the schema before vs. after. This
+  both tests the claim (does empty + migrations reproduce what was there) and
+  rebuilds a clean workspace in the same action.
+
+**Method:** captured a full schema fingerprint of the live project first (one SQL
+query returning table/column definitions, RLS-enabled flags + policies, full function
+definitions via `pg_get_functiondef` -- which embeds `SECURITY DEFINER` and
+`search_path` -- function EXECUTE grants, the `pg_cron` job, storage buckets +
+their policies, and the `membership_plans` seed rows, as one JSON blob). Then tore
+down everything the migrations own: unscheduled the cron job, deleted both storage
+buckets via the Storage API (raw `DELETE` on `storage.objects` is blocked by
+Supabase's own `protect_delete()` guard trigger -- "Use the Storage API instead" --
+so the dashboard's bucket-delete action was used instead, which goes through that
+API correctly), dropped every table/function/type the migrations create, and cleared
+`auth.users` (confirmed by the user: test accounts only, nothing to preserve). Then
+ran all 13 migration files in exact order via the SQL Editor, pasting each file's own
+committed content unmodified. Then took the same fingerprint again and diffed the
+two, structurally (arrays sorted by stable keys first, so catalog-scan ordering
+differences don't register as false diffs).
+
+**Result: every category matched exactly** -- columns, RLS-enabled flags, RLS
+policies, indexes, enum values, triggers, the cron job, storage buckets, storage
+policies, function grants (the `anon`-revoke hardening, all 52 grant rows), and all 3
+seed rows in `membership_plans` including their `features` arrays. The only
+difference found was in 4 functions' stored body text
+(`cancel_subscription`, `enforce_single_default_payment_method`,
+`lock_profile_email`, `promote_default_payment_method`) -- and stripping comments
+and whitespace from both sides showed the difference is **purely
+formatting/line-endings/comments**, not logic: the live versions had at some point
+been applied with different whitespace than what's in the committed migration files
+(one was squished onto a single line with no comments at all), most likely from an
+earlier SQL Editor paste that predates the final migration file text. No behavioral
+drift found anywhere.
+
+**Also found, not a gap:** `rls_auto_enable()`, an event-trigger function that
+appeared in both the before and after fingerprints identically -- not created by any
+migration in this project. This is Supabase's own platform-level "automatically
+enable RLS on new tables" project feature (the checkbox seen on project creation),
+not something our migrations are responsible for or need to reproduce.
+
+**Net effect:** the live Rosewater Cafe project is now exactly what
+`supabase/migrations/` produces from empty -- no leftover test data, no stale
+accounts, nothing hand-applied and never captured in a file. Handoff is proven to
+work, not assumed.
+
+---
+
+### 52. Sprint 6 -- Delete Account made real self-service, replacing decision #45's request queue
+
+The user asked directly: after a full functional audit of every button/toggle across
+Settings, Notifications, Privacy & Security and Help & Support (which surfaced Delete
+Account's actual behaviour -- files a request for staff to process, deletes nothing
+immediately), they wanted it to actually delete the account, not queue a request.
+
+**The tradeoff decision #45 made was surfaced first, not silently reversed.** Its
+exact reasoning: *"A `SECURITY DEFINER` function that deletes the caller's own
+`auth.users` row was rejected: irreversible deletion of auth data through a
+client-callable function is real risk for little training value."* That was this
+assistant's own call at the time, not something the user had weighed in on directly
+-- worth saying so before rebuilding on top of it. Two real implementation paths
+exist (a client-callable Postgres function vs. a Supabase Edge Function calling the
+real Admin API), each with different tradeoffs; put to the user rather than picked
+alone. **Their answers:** a database function (the existing migration-only
+architecture, no new infrastructure), and no audit trail kept after deletion.
+
+**What changed:**
+
+- **New migration** (`20260925100000_delete_own_account.sql`): `delete_own_account()`
+  -- `SECURITY DEFINER`, `search_path` pinned, reads `auth.uid()` itself (never a
+  caller-supplied id, the same rule every RPC in this project follows), and does
+  exactly `delete from auth.users where id = v_user_id`. `EXECUTE` revoked from
+  `public`/`anon`, granted only to `authenticated` -- verified live afterward
+  (`pg_proc.prosecdef = true`; grants show only `authenticated`/`postgres`/
+  `service_role`, no `anon`). Deleting the `auth.users` row cascades through the FK
+  chain already in place from decision #3 onward (`profiles.id references
+  auth.users(id) on delete cascade`, and every one of a user's own rows cascades
+  from `profiles` the same way) -- nothing is left behind by construction, not by a
+  follow-up cleanup step.
+- **The `deletion_requests` table, its policies, and the `deletion_request_status`
+  type are dropped** (same migration) -- a request queue has no remaining purpose
+  once deletion is immediate, and the user explicitly chose not to keep a lasting
+  record (which would've needed a separate, non-cascading table anyway, since this
+  one would disappear along with everything else the moment its owning profile
+  does). Verified live: `information_schema.tables` shows zero rows for
+  `deletion_requests`.
+- **`lib/services/deletion_request_service.dart` replaced with
+  `lib/services/account_deletion_service.dart`** (`AccountDeletionService.
+  deleteAccount()`, throwing `DeleteAccountFailure` with an already-safe message --
+  same shape as every other service in this app).
+- **`PrivacySecurityScreen` updated:** the confirmation dialog now says plainly that
+  deletion is immediate and permanent and cannot be undone (previously: "your
+  account stays active until we process the request"); its destructive button reads
+  "Delete Permanently" rather than repeating "Delete Account" verbatim, matching the
+  same distinct-label pattern `AppSettingsScreen`'s "Clear All App Data" dialog
+  already uses (avoids two same-text widgets on screen at once, in the UI and in
+  tests). On success, the screen ends the local session and returns to Auth Landing
+  via `signOutAndShowLanding` -- the account is gone server-side, so a device
+  with no live account shouldn't still look signed in, the identical reasoning
+  `AppSettingsScreen`'s `onDataCleared` already uses. `onAccountDeleted` is
+  injectable the same way, for the same reason: widget tests can't initialise a real
+  Supabase client.
+- All "request queue" UI (the "already requested" notice, the pending-request check
+  on screen load) is removed -- there is no longer a pending state to show.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 178/178 (the old 4-test
+"Delete Account is a request, not a deletion" group became a 3-test "Delete Account
+is real, immediate deletion" group: confirming calls the RPC once and ends the
+session; Cancel calls nothing; a failure shows a message, leaves the button
+available, and never ends the session). Migration applied live and verified as
+described above.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

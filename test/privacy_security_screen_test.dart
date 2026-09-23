@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/screens/profile/privacy_security_screen.dart';
+import 'package:rosewater_cafe/services/account_deletion_service.dart';
 import 'package:rosewater_cafe/services/auth_service.dart';
-import 'package:rosewater_cafe/services/deletion_request_service.dart';
 import 'package:rosewater_cafe/widgets/setting_toggle_row.dart';
 
 /// Records every password change the screen asks for, and lets a test make it
@@ -20,28 +20,24 @@ class _FakeAuthService extends AuthService {
   }
 }
 
-class _FakeDeletionService extends DeletionRequestService {
-  _FakeDeletionService({this.existing, this.failure});
+class _FakeAccountDeletionService extends AccountDeletionService {
+  _FakeAccountDeletionService({this.failure});
 
-  DeletionRequest? existing;
-  final DeletionRequestFailure? failure;
-  int requestCalls = 0;
-
-  @override
-  Future<DeletionRequest?> fetchOpenRequest() async => existing;
+  final DeleteAccountFailure? failure;
+  int deleteCalls = 0;
 
   @override
-  Future<DeletionRequest> request() async {
-    requestCalls++;
+  Future<void> deleteAccount() async {
+    deleteCalls++;
     if (failure != null) throw failure!;
-    return DeletionRequest(id: 'req-1', requestedAt: DateTime(2026, 9, 22, 12));
   }
 }
 
 Future<void> _pump(
   WidgetTester tester, {
   _FakeAuthService? auth,
-  _FakeDeletionService? deletion,
+  _FakeAccountDeletionService? deletion,
+  Future<void> Function(BuildContext)? onAccountDeleted,
 }) async {
   tester.view.physicalSize = const Size(800, 3000);
   tester.view.devicePixelRatio = 1;
@@ -50,7 +46,11 @@ Future<void> _pump(
     MaterialApp(
       home: PrivacySecurityScreen(
         authService: auth ?? _FakeAuthService(),
-        deletionService: deletion ?? _FakeDeletionService(),
+        accountDeletionService: deletion ?? _FakeAccountDeletionService(),
+        // Real default is signOutAndShowLanding, which needs a live Supabase
+        // client -- tests substitute a harmless no-op unless one wants to
+        // prove this step runs (see the "confirming" test below).
+        onAccountDeleted: onAccountDeleted ?? (_) async {},
       ),
     ),
   );
@@ -294,29 +294,33 @@ void main() {
     });
   });
 
-  group('Delete Account is a request, not a deletion', () {
-    testWidgets('confirming sends ONE request and shows that it is only a request; the account stays active', (tester) async {
+  group('Delete Account is real, immediate deletion', () {
+    testWidgets('confirming deletes the account, then ends the local session', (tester) async {
       final auth = _FakeAuthService();
-      final deletion = _FakeDeletionService();
-      await _pump(tester, auth: auth, deletion: deletion);
+      final deletion = _FakeAccountDeletionService();
+      final log = <String>[];
+      await _pump(
+        tester,
+        auth: auth,
+        deletion: deletion,
+        onAccountDeleted: (_) async => log.add('session ended'),
+      );
 
       await tester.tap(find.text('Delete Account'));
       await tester.pumpAndSettle();
       expect(find.text('Delete your account?'), findsOneWidget);
-      expect(find.textContaining('stays active until we process the request'), findsOneWidget);
+      expect(find.textContaining('cannot be undone'), findsOneWidget);
 
-      await tester.tap(find.text('Request deletion'));
+      await tester.tap(find.text('Delete Permanently'));
       await tester.pumpAndSettle();
 
-      expect(deletion.requestCalls, 1);
-      expect(find.text('Deletion requested on 9/22/2026'), findsOneWidget);
-      expect(find.textContaining('Your account stays active until then'), findsOneWidget);
-      expect(find.text('Delete Account'), findsNothing); // can't file a second one from here
+      expect(deletion.deleteCalls, 1);
+      expect(log, ['session ended']); // the local session was ended for real
       expect(auth.calls, isEmpty); // nothing else was touched
     });
 
-    testWidgets('Cancel on the confirmation sends nothing', (tester) async {
-      final deletion = _FakeDeletionService();
+    testWidgets('Cancel on the confirmation deletes nothing', (tester) async {
+      final deletion = _FakeAccountDeletionService();
       await _pump(tester, deletion: deletion);
 
       await tester.tap(find.text('Delete Account'));
@@ -324,33 +328,25 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
-      expect(deletion.requestCalls, 0);
+      expect(deletion.deleteCalls, 0);
       expect(find.text('Delete Account'), findsOneWidget);
     });
 
-    testWidgets('an already-open request is shown on arrival, with no Delete Account button', (tester) async {
-      final deletion = _FakeDeletionService(
-        existing: DeletionRequest(id: 'r', requestedAt: DateTime(2026, 9, 20, 12)),
+    testWidgets('a failed deletion shows a message and leaves Delete Account available', (tester) async {
+      final deletion = _FakeAccountDeletionService(
+        failure: const DeleteAccountFailure("Couldn't delete your account. Please try again."),
       );
-      await _pump(tester, deletion: deletion);
-
-      expect(find.text('Deletion requested on 9/20/2026'), findsOneWidget);
-      expect(find.text('Delete Account'), findsNothing);
-      expect(deletion.requestCalls, 0);
-    });
-
-    testWidgets('a failed request shows a message and leaves Delete Account available', (tester) async {
-      final deletion = _FakeDeletionService(failure: const DeletionRequestFailure("Couldn't send your request. Please try again."));
-      await _pump(tester, deletion: deletion);
+      final log = <String>[];
+      await _pump(tester, deletion: deletion, onAccountDeleted: (_) async => log.add('session ended'));
 
       await tester.tap(find.text('Delete Account'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Request deletion'));
+      await tester.tap(find.text('Delete Permanently'));
       await tester.pumpAndSettle();
 
-      expect(find.text("Couldn't send your request. Please try again."), findsOneWidget);
-      expect(find.text('Delete Account'), findsOneWidget);
-      expect(find.textContaining('Deletion requested'), findsNothing);
+      expect(find.text("Couldn't delete your account. Please try again."), findsOneWidget);
+      expect(find.text('Delete Account'), findsOneWidget); // still tappable, not stuck disabled
+      expect(log, isEmpty); // the local session was never ended -- the account is still real
     });
   });
 
