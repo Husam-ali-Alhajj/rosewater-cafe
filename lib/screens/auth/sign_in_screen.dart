@@ -117,6 +117,10 @@ class _SignInScreenState extends State<SignInScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.cardWhite.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(14),
+                    // Figma's fractional hairline stroke (same value as App
+                    // Settings' _hairline), confirmed in Sprint 6 Task 3 --
+                    // was missing entirely before this fidelity pass.
+                    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 0.515),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.25),

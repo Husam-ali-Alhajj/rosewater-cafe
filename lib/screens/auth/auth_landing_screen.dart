@@ -36,7 +36,10 @@ class AuthLandingScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.cardWhite.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFFFCCD3), width: 1.55),
+                  // Figma's fractional hairline stroke width (same value as
+                  // App Settings' _hairline) -- re-measured in Sprint 6 Task 3
+                  // via the Figma app; the original PDF estimate (1.55) was wrong.
+                  border: Border.all(color: const Color(0xFFFFCCD3), width: 0.515),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.25),

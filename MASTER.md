@@ -7,7 +7,7 @@ made. Written from the actual code and migrations as of the **Sprint 4** commit
 
 > **How this file relates to the others**
 > - `MASTER.md` (this file) — the map. Read it first.
-> - `docs/decisions.md` — the long-form log (45 numbered decisions, with the
+> - `docs/decisions.md` — the long-form log (50 numbered decisions, with the
 >   bugs found, proofs, and trade-offs). This guide cites it as **#N**.
 > - `README.md` — still the untouched Flutter template; ignore it.
 >
@@ -83,8 +83,10 @@ project and swaps one config file (§14).
 | QR / Door Access + `log_door_access` RPC | ✅ Built |
 | Event reservation form + confirmation + `create_event_reservation` RPC | ✅ Built (UI click-through was left to the developer, #37/#38) |
 | Subscription expiry (daily `pg_cron` job + client-side check) | ✅ Built |
-| Profile tab (read-only screen + **Sign Out**) | ✅ Built (Sprint 5 Task 1). Its rows/buttons (Upgrade, Help, App Settings) open `ComingSoonScreen` stubs until their own tasks |
+| Profile tab (read-only screen + **Sign Out**) | ✅ Built (Sprint 5 Task 1). Its only remaining stub row is **Upgrade Membership**, since decision #25 has no re-subscribe flow to send it to yet |
 | Edit Profile (name, phone, photo; email read-only) | ✅ Built (Sprint 5 Task 2, #42), avatars bucket + storage isolation proven live |
+| App Settings (Sprint 5 Task 7, #47) | ✅ Dark Mode/Language/Animations/Sound/Haptic are visual-only placeholders (decisions #5/#47); **Cache Size/Clear Cache/Clear All App Data are real** — a genuine, computed number, and real clearing (image cache + local preferences + sign-out) |
+| Help & Support (Sprint 5 Task 6, #46) | ✅ Static contact cards (no backend); FAQ accordion with the **one real answer** the design exports, the other three questions shown with a plain placeholder, never invented copy; Resources open coming-soon pages |
 | Privacy & Security (Sprint 5 Task 5, #45) | ✅ **Change Password is real** (re-enter the current password; same strength rules as signup). **Delete Account is a request queue** (nothing is deleted). Biometric / Two-Factor / Auto-Lock are **disabled "Coming soon" placeholders**; Privacy Policy / Terms open a coming-soon page |
 | Notification settings (7 toggles, **local-only**) | ✅ Built (Sprint 5 Task 4, #44): saved on the device with `shared_preferences`, no table, no network. The toggles record preferences only — nothing sends push/email/SMS yet |
 | Payment Methods (list / add / set default / delete, metadata only) | ✅ Built (Sprint 5 Task 3, #43); one-default-per-user enforced in the database and proven live. Card brand/last4 are derived client-side for display — still no real processor |
@@ -127,19 +129,15 @@ Git history mirrors the sprints: `first sprint` → `sprint 1` → `sprint 2` �
 | `flutter_lints ^6.0.0` *(dev)* | `analysis_options.yaml` | Recommended lint rules. |
 | `flutter_secure_storage_platform_interface` *(dev)* | `test/secure_local_storage_test.dart` | Lets the test fake the OS storage layer so it runs with no device. |
 
-### Declared but **not used anywhere in the code**
+### Removed as dead weight (Sprint 6, #49)
 
-Verified by searching `lib/` and `test/`:
-
-| Package | Comment in `pubspec.yaml` | Reality |
-|---|---|---|
-| `provider ^6.1.2` | — | Never imported. State management is plain `StatefulWidget` + `setState`. `lib/providers/` is an empty placeholder. |
-| `http ^1.2.0` | — | Never imported. All networking goes through `supabase_flutter`. |
-| `sqflite ^2.3.3+1` / `path ^1.9.0` | "Sprint 4: local persistence for reservations & notifications history" | Never imported. Reservations are stored server-side in Postgres instead. |
-| `cupertino_icons ^1.0.8` | Flutter template default | Never referenced. |
-
-These are safe to delete (or keep if you plan to use them); they add build weight
-but no behaviour.
+`provider`, `http`, `sqflite`, `path` and `cupertino_icons` were declared in
+`pubspec.yaml` but never imported anywhere in `lib/` or `test/` — verified by
+search before removal. State management is plain `StatefulWidget` + `setState`
+(no `provider`); all networking goes through `supabase_flutter` (no `http`);
+reservations live server-side in Postgres, not on-device (no `sqflite`/`path`);
+no Cupertino-styled icon is used anywhere (no `cupertino_icons`). All five were
+dropped from `pubspec.yaml` and `pubspec.lock` regenerated.
 
 ---
 
@@ -203,7 +201,6 @@ rosewater cafe/
 │   ├── services/                ← all backend access (§8)
 │   ├── utils/                   ← pure functions: validators, payment validators, service hours
 │   ├── widgets/                 ← shared UI: buttons, bottom nav, dots, badge, coming-soon stub
-│   ├── providers/               ← empty placeholder (unused)
 │   └── screens/
 │       ├── app_entry_point.dart ← decides the first screen
 │       ├── onboarding/          ← 4-slide carousel
@@ -215,17 +212,13 @@ rosewater cafe/
 │       └── profile/             ← profile_screen.dart (Profile tab)
 │
 ├── supabase/migrations/         ← 9 SQL files = the entire backend definition
-├── test/                        ← 15 test files, 155 tests
+├── test/                        ← 18 test files, 179 tests
 │
 ├── assets/images/               ← declared in pubspec, currently only a README
 ├── android/ ios/ web/ windows/ linux/ macos/   ← Flutter platform runners
 ├── Rosewater Cafe 14012026/     ← 26 PDF exports of the Figma design (source of truth for UI)
-├── example/                     ← 4 screenshots
-└── web_entrypoint.dart          ← empty file at the repo root (leftover; safe to delete)
+└── example/                     ← 4 screenshots
 ```
-
-Leftovers worth knowing: several `.gitkeep.dart.txt` placeholders in `lib/` and
-`test/`, and `lib/providers/` contain nothing real.
 
 ### Why this folder structure
 
@@ -456,6 +449,36 @@ Three cards (Figma frames `1217:2644` / `1217:2946`, #45):
   signed out, and the account stays active. The row then reads "Deletion requested on M/D/YYYY".
   View Privacy Policy / Terms of Service open a coming-soon page (no text exists yet).
 
+### App Settings — `screens/profile/app_settings_screen.dart`
+Appearance → Language → Interactions → Data & Storage → app info footer (#47).
+- **Dark Mode, Language, Animations, Sound Effects, Haptic Feedback are all visual-only.**
+  Dark Mode/Language were already out of scope (decision #5); Animations/Sound/Haptic weren't
+  asked for either, so they're drawn at the design's own state (on) and are inert, for the same
+  "no functionality beyond what's decided in scope" reason. (The Notifications screen's "Sound &
+  Vibration" toggle is a *different* setting — notification sound, not general UI sound — kept
+  deliberately separate, like decision #33's two different "guests" fields.)
+- **Data & Storage is real**, the task's explicit "your call": **Cache Size shows the real,
+  computed number of bytes in Flutter's image cache** — never the design's fabricated "12.5 MB" —
+  and **Clear Cache** really clears it (meaningful: the profile photo's signed URL is the one real
+  user of that cache). **Clear All App Data** really wipes every local preference and then signs
+  the device out for real, after a confirm dialog.
+- The footer shows the real app version from `pubspec.yaml` ("Version 1.0.0", "Build 1") instead
+  of the design's mock "Build 2024.01.14".
+
+### Help & Support — `screens/profile/help_support_screen.dart`
+Built to Figma frame `1217:3158` (#46): three static contact cards (Live Chat / Email Us /
+Call Us — a label and a description only, no real address/number in the design, so **not
+tappable, no backend**) → an FAQ accordion → Resources.
+- **FAQ:** the design exports a real answer for only the first question ("How do I use my QR
+  code…"); the other three questions are real design copy but their answers were never
+  exported (the "1 of 4 FAQ answers exported" gap flagged since Sprint 2). Those three show a
+  plain **"Answer not available yet."** placeholder — never an invented answer standing in for
+  real content. The accordion is exclusive (opening one closes any other) and the first item
+  starts open, matching the one state the design shows.
+- **Resources** (User Guide / Membership Benefits / Community Guidelines) have no content yet,
+  so each opens a coming-soon page, the same pattern as Privacy & Security's Privacy Policy /
+  Terms of Service.
+
 ### Notification settings — `screens/profile/notification_settings_screen.dart`
 Built to Figma frame `1217:2539` (#44). Header → **Communication Preferences** card (gradient
 title band + Push, Email, SMS, Sound & Vibration) → **Notification Types** card (Event
@@ -521,6 +544,7 @@ else in the app calls the database.
 | `subscription_service.dart` | Plans, active membership, the whole subscription lifecycle. | `from('membership_plans')`, `from('subscriptions')`, RPCs `start_subscription`, `confirm_subscription_payment`, `cancel_subscription` |
 | `profile_service.dart` | Current user's `profiles` row; `updateProfile` (name, phone, optional photo path — never email). | `from('profiles')` select / update |
 | `deletion_request_service.dart` | Read the caller's open deletion request; file one (idempotent: a second returns the first). Insert-only table access, no RPC, deletes nothing. | `from('deletion_requests')` |
+| `app_settings_service.dart` | Real image-cache size/clear; real `shared_preferences` wipe. | `PaintingBinding` image cache, `SharedPreferences` (no network) |
 | `notification_prefs.dart` | Seven notification toggles, saved on the device (per user id). **No backend.** | `SharedPreferences` (no network) |
 | `payment_method_service.dart` | List / add (brand, last4, expiry, default request — no parameter for a number or CVV) / set default / delete. Plain table access, no RPC. | `from('payment_methods')` |
 | `avatar_service.dart` | Photo type/size validation, upload to `avatars/<user_id>/…`, signed display URLs, best-effort delete of a replaced photo. | `storage.from('avatars')` |
@@ -756,7 +780,7 @@ Figma REST API), not eyeballed (#20).
   - `AppBottomNav` — 4 equal-width tabs; active tab = bold + accent + 4 px dot.
     (Deliberately `Expanded` rather than Figma's content-hugging tabs so it
     works at any screen width.)
-  - `ComingSoonScreen` — the reusable placeholder; can show Sign Out.
+  - `ComingSoonScreen` — the reusable placeholder for a destination not built yet.
 
 ---
 
@@ -784,7 +808,7 @@ Figma REST API), not eyeballed (#20).
 
 ## 13. Testing
 
-`flutter test` → **155 tests, all passing** (verified after Privacy & Security, #45).
+`flutter test` → **179 tests, all passing** (verified after App Settings, #47 — Sprint 5 complete).
 
 | File | Covers |
 |---|---|
@@ -793,6 +817,9 @@ Figma REST API), not eyeballed (#20).
 | `test/service_hours_test.dart` | Both service-hours branches and every boundary hour (9:00, 22:59, 23:00, midnight, 8:59) |
 | `test/secure_local_storage_test.dart` | write → read → delete goes through the storage platform (fakes the OS layer) |
 | `test/home_content_test.dart` | Home screen data mapping: greeting by first name + member ID (and their no-placeholder fallbacks), status card, usage `used / limit` and Unlimited-with-no-bar, progress fractions, service-hours status by time, benefits from the plan, every callback, and the layout's spacing/card heights against Figma |
+| `test/app_settings_service_test.dart` | Real Flutter image-cache size/clear (a real image is put in the cache via a trivial in-memory `ImageProvider`, no network) and real `shared_preferences` wiping |
+| `test/app_settings_screen_test.dart` | Every row/copy shown; Dark Mode/Language/Animations/Sound/Haptic are all off-or-on-as-designed and inert (tapping does nothing); Cache Size shows the real computed number, never the design's fake "12.5 MB"; Clear Cache really clears and updates the shown size; Clear All App Data confirms first, then clears the image cache and local preferences and runs the (injectable) post-clear step, in that order |
+| `test/help_support_screen_test.dart` | Contact cards show their real copy and aren't tappable; all 4 real questions shown; the one real answer starts expanded; the other 3 show the SAME placeholder (never 3 different invented answers — checked by scanning the whole page for phrases a plausible fabricated answer would use); expand/collapse and exclusive-accordion behaviour; Resources open a coming-soon page |
 | `test/change_password_test.dart` | `AuthService.changePassword` against a fake auth client that logs every call: the CURRENT password is verified (`signIn`) BEFORE `updateUser`; a wrong current password, a rate limit, a network failure or no session all mean `updateUser` is never called; server rejections land on the right field; ending other sessions is best-effort |
 | `test/privacy_security_screen_test.dart` | The screen: the three disabled placeholders (off, no handler, Coming Soon, tapping does nothing); the password form (empty current rejected, each #10 rule's own message, same-as-current, mismatch — none reach the service; a valid form sends current + new; wrong current shown under its field); Delete Account (confirm → exactly one request, notice that it is only a request, Cancel sends nothing, pre-existing request shown, failure keeps the button) |
 | `test/notification_prefs_test.dart` | Local preferences: design defaults (SMS off, rest on), values survive a simulated app restart, only changed keys are written, per-user isolation on a shared device — and a **transitive import check** proving the settings screen and its preferences import nothing that can reach the network (only `flutter/material` and `shared_preferences`) |
@@ -870,7 +897,7 @@ flutter analyze
 8. **`status` can lag reality up to ~24 h**; always check `valid_until` too (§9.5).
 
 ### Known gaps
-- **Biometric login, Two-Factor Authentication and Auto-Lock** are disabled placeholders (#45); **processing** a deletion request is a manual staff step with no tooling; **Privacy Policy / Terms of Service text** doesn't exist. **Help & Support, App Settings, Upgrade Membership, and the Home bell's notifications feed** aren't built (Profile's rows open stubs). Changing the login email isn't built either (needs a re-verification flow).
+- **Biometric login, Two-Factor Authentication and Auto-Lock** are disabled placeholders (#45); **processing** a deletion request is a manual staff step with no tooling; **Privacy Policy / Terms of Service text** doesn't exist. **3 of 4 FAQ answers** are still unwritten (#46). **Dark Mode, Language, Animations, general UI Sound/Haptic** are visual-only (#5/#47). **Upgrade Membership and the Home bell's notifications feed** aren't built — Profile is otherwise fully built out (Profile's rows open stubs). Changing the login email isn't built either (needs a re-verification flow).
 - **`event_reservations` UPDATE policy** still lets a user edit their own row
   (including `total_price`). Deferred until an edit/cancel flow exists (#36).
 - **PKCE code verifier** uses default plain-text storage — low risk until a
@@ -933,7 +960,7 @@ have a separate admin app for ID verification and door scanning.
 | Change plan prices / limits / perks | `membership_plans` rows (DB), not code |
 | Change the event hourly price | `create_event_reservation` (`c_price_per_hour`) **and** `EventReservationService.pricePerHour` |
 | Add a bottom-nav tab | `widgets/app_bottom_nav.dart` + `screens/home/main_shell.dart` |
-| Build a Profile sub-screen (Help, App Settings…) | replace the matching `_openComingSoon('…')` call in `screens/profile/profile_screen.dart` |
+| Build Upgrade Membership (Profile's last stub row) | new screen + a plan-change RPC (none exists yet) | replace the matching `_openComingSoon('…')` call in `screens/profile/profile_screen.dart` |
 | Add a new secured write | New migration with an RPC following §9.5/§10 + a service with a Failure class |
 | Change colors / gradients | `lib/theme/app_colors.dart` |
 | Understand *why* something is the way it is | `docs/decisions.md` (search `#N`) |
@@ -962,3 +989,8 @@ have a separate admin app for ID verification and door scanning.
 | 43 | Sprint 5 Task 3: Payment Methods, DB-enforced default |
 | 44 | Sprint 5 Task 4: Notification settings, local-only |
 | 45 | Sprint 5 Task 5: Privacy & Security, real Change Password, Delete Account as a request |
+| 46 | Sprint 5 Task 6: Help & Support, real FAQ answer + honest placeholders |
+| 47 | Sprint 5 Task 7: App Settings, real cache management, rest visual-only |
+| 48 | Sprint 6 Task 1: Change Password + Clear All App Data confirmed live |
+| 49 | Sprint 6 Task 2: dead code audit (stub-era scaffolding + unused deps removed) |
+| 50 | Sprint 6 Task 3: Figma fidelity re-check (hairline card borders fixed on 4 screens) |

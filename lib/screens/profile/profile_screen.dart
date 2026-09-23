@@ -11,6 +11,8 @@ import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/profile_avatar.dart';
 import '../auth/sign_out.dart';
 import 'edit_profile_screen.dart';
+import 'app_settings_screen.dart';
+import 'help_support_screen.dart';
 import 'notification_settings_screen.dart';
 import 'payment_methods_screen.dart';
 import 'privacy_security_screen.dart';
@@ -56,7 +58,9 @@ const _appVersion = '1.0.0';
 /// profile, so the change shows here, on Home and on the QR tab at once.
 /// Payment Methods opens the real [PaymentMethodsScreen] (Sprint 5 Task 3) and
 /// Notifications the real, local-only [NotificationSettingsScreen] (Task 4),
-/// and Privacy & Security the real [PrivacySecurityScreen] (Task 5).
+/// Privacy & Security the real [PrivacySecurityScreen] (Task 5), and Help &
+/// Support the real [HelpSupportScreen] (Task 6), and App Settings the
+/// real [AppSettingsScreen] (Task 7).
 /// Every other row/button except Sign Out opens a [ComingSoonScreen] for now
 /// -- their real screens are later Sprint 5 tasks. Sign Out is the real,
 /// permanent one (decisions #21/#26): it ends the session and clears the
@@ -101,6 +105,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
     setState(() => _loading = false);
     if (profile != null) widget.onProfileChanged(profile);
+  }
+
+  void _openAppSettings() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AppSettingsScreen()));
+  }
+
+  void _openHelpSupport() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HelpSupportScreen()));
   }
 
   void _openNotificationSettings() {
@@ -168,8 +180,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPaymentMethods: _openPaymentMethods,
                 onNotifications: _openNotificationSettings,
                 onPrivacySecurity: _openPrivacySecurity,
-                onHelpSupport: () => _openComingSoon('Help & Support'),
-                onAppSettings: () => _openComingSoon('App Settings'),
+                onHelpSupport: _openHelpSupport,
+                onAppSettings: _openAppSettings,
                 onSignOut: _isSigningOut ? null : _signOut,
               ),
       ),

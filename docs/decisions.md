@@ -2591,6 +2591,277 @@ click-through with a throwaway account (change it, confirm the old password stop
 works). The screen has not been looked at running in the app. Deliberately not done: processing a deletion
 request, and any Privacy Policy / Terms text.
 
+### 46. Sprint 5, Task 6 -- Help & Support: the one real FAQ answer, honest placeholders for the rest
+
+Built Help & Support (`lib/screens/profile/help_support_screen.dart`, Figma frame
+`1217:3158`), replacing the stub behind Profile's "Help & Support" row.
+
+**Contact cards (Live Chat / Email Us / Call Us) are static, as asked.** The design shows only
+a label and a one-line description -- no real email address, phone number, or chat link exists
+anywhere in the export -- so there is nothing to wire up: no `mailto:`/`tel:` intent, no chat
+integration, not even tappable. A test taps where a card is and confirms nothing happens.
+
+**FAQ accordion: exactly one real answer, three honest placeholders.** The Figma export has
+four real questions but only the first ("How do I use my QR code to enter the café?") has an
+answer -- the same "1 of 4 FAQ answers exported" gap flagged as open since the Sprint 2
+checkpoint (and referenced again in decision #30). The other three show a plain **"Answer not
+available yet."** -- never a plausible-sounding invented answer standing in for real copy. This
+was the task's explicit acceptance bar, and it's checked in the test two ways: the placeholder
+text is the literal same string for all three (not three separately-written fake answers), and
+the whole rendered page is scanned for phrases a plausible fabricated answer would plausibly use
+for each specific question (e.g. "renews"/"billing cycle" for the allowance question, "up to 2
+guests" for the guest-policy question) and asserted absent.
+- The accordion is **exclusive** -- opening one question closes whichever was open -- and the
+  first item **starts open**, matching the one state the Figma export actually shows (there's no
+  second exported state to know whether multiple-open was ever intended).
+- The rows are literally exported as HTML `<details>`/`<summary>` elements (visible in the
+  layer names) -- the widget mirrors that shape (one row's body exists only while its question is
+  the expanded one) rather than just toggling visibility.
+
+**Resources** (User Guide / Membership Benefits / Community Guidelines) have no content behind
+them, so each opens a coming-soon page -- the same pattern as Privacy & Security's Privacy
+Policy / Terms of Service (#45).
+
+**Figma access, same situation as #45.** The REST API was still rate-limited (`Retry-After`
+from the earlier full-file downloads), so this screen's values were read from the Figma app's
+Design panel: contact-card dimensions (342.98x193.03, padding, and critically the internal
+`gap: 36` between icon/title/description -- confirmed by measuring the total card height, which
+was 24px short with a smaller assumed gap and matched exactly once both internal gaps were set
+to 36), the FAQ card/header/row structure (row heights 80 collapsed / 176.51 expanded, question
+16px regular, answer 14px regular, hairline `#F3F4F6` dividers), and the Live Chat icon colour
+(`#EC003F`, confirmed via the panel). **Two colours are not confirmed via the API**: Email Us and
+Call Us are given purple (`#9810FA`) and green (`#00A63E`) respectively, inferred from the
+rendered design rather than measured -- flagged in code and worth a real check once the API
+allows, the same category of caveat as decision #20's early passes before API access existed.
+**One geometry value was judged rather than taken literally**: the card's exported padding read
+as asymmetric (0 on one side), which -- like decision #28's progress-bar-width finding in this
+same export -- reads as an artifact of the original React/shadcn layout rather than a deliberate
+design choice; kept symmetric at 24, matching every other card in this app.
+
+**Verified:** `flutter analyze` clean, `flutter test` **164/164** (155 + 9 new in
+`test/help_support_screen_test.dart`). Layout matches Figma exactly once measured at 375 wide
+with a real font: contact card 343x193.03, 16 between contact cards, 24 before/between/after the
+FAQ and Resources cards.
+
+**Not verified:** the screen has not been looked at running in the app; the two inferred icon
+colours are worth a visual check.
+
+### 47. Sprint 5, Task 7 -- App Settings: real cache management, everything else visual-only (Sprint 5 complete)
+
+Built App Settings (`lib/screens/profile/app_settings_screen.dart`), replacing the last stub
+behind Profile's rows -- Sprint 5 is now fully built out.
+
+**Dark Mode and Language: exactly decision #5, re-applied, not re-litigated.** Both are drawn
+for visual accuracy and are fully inert -- Dark Mode off with the design's own "(Coming Soon)"
+label, the language list always showing English selected with no row tappable. Nothing new was
+decided here; this task just had to not quietly build more than #5 already settled.
+
+**Animations, Sound Effects and Haptic Feedback: the same treatment, for a narrower reason.**
+The task's own acceptance bar is "no functionality built beyond what's decided in scope," and
+only Dark Mode/Language were explicitly in scope (from #5) -- these three weren't asked for
+either, so they're drawn at the design's shown state (on) and are inert, with no
+`AnimatedContainer` global setting, no app-wide `HapticFeedback` calls wired up. **Worth flagging
+explicitly so it isn't "helpfully" merged later:** this screen's "Sound Effects" (general UI
+sound) is a *different* setting from the Notifications screen's real, working "Sound &
+Vibration" toggle (decision #44, notification sound specifically) -- same kind of label overlap,
+different meaning, as decision #33's two different "guests" fields. Kept as separate storage and
+separate widgets on purpose.
+
+**Data & Storage is real -- the task's explicit "your call."** This app has almost nothing to
+manage locally (grep confirms the only real use of Flutter's image cache anywhere in the app is
+`ProfileAvatar`'s `Image.network` for the profile photo's signed URL), so the real feature stays
+proportionate to what the app actually has:
+- **"Cache Size" shows the real, computed number of bytes** in Flutter's image cache
+  (`PaintingBinding.instance.imageCache.currentSizeBytes`, via the new `AppSettingsService`) --
+  **never** the design's fabricated static "12.5 MB". Same principle as #32's notification badge
+  and #46's FAQ answers: a plausible-looking invented number is exactly the kind of fake data
+  this project avoids, even somewhere this low-stakes.
+- **"Clear Cache" really clears it** (`imageCache.clear()` + `clearLiveImages()`) and the shown
+  size updates immediately -- meaningful specifically because it forces the cached profile photo
+  to re-fetch, not a no-op gesture.
+- **"Clear All App Data" really wipes every local `shared_preferences` value** (the onboarding
+  flag, any saved notification settings) after a confirm dialog, **then signs the device out for
+  real** -- a device with no local preferences shouldn't still look signed in. The sign-out step
+  is injectable (`onDataCleared`, defaulting to the real `signOutAndShowLanding`) purely for
+  testing, the same reason Edit Profile/Payment Methods/Privacy & Security inject their services
+  -- widget tests can't initialise a live Supabase client, and this project's own established
+  pattern (ProfileScreen/HomeScreen) is to keep the real sign-out call itself thin and verified by
+  click-through, not by mocking Supabase.
+- The footer shows the **real** app version (`pubspec.yaml`'s `1.0.0+1` → "Version 1.0.0",
+  "Build 1") instead of the design's mock "Build 2024.01.14" -- the same "replace demo data with
+  something real" move as decision #3's member-ID format.
+
+**Verified:** `flutter analyze` clean, `flutter test` **179/179** (164 + 15 new).
+`test/app_settings_service_test.dart` proves the cache claims against Flutter's *real* image
+cache (a trivial in-memory `ImageProvider` puts a real decoded image in it -- no network, no
+fixtures) and against a real `SharedPreferences` instance, not a fake standing in for either.
+`test/app_settings_screen_test.dart` covers the screen: every placeholder is provably inert (its
+`SettingSwitch.onTap` is null, and tapping changes nothing), Cache Size/Clear Cache use an
+injected fake service to prove the real service methods are called and the shown size updates,
+and Clear All App Data is proven end-to-end once with the real `AppSettingsService` (real
+`SharedPreferences` actually ends up empty) and once with a fake to prove the confirm-then-clear-
+then-sign-out ordering. Layout at 375 wide: 24px between all three cards, no overflow.
+
+**Not verified:** the screen has not been looked at running in the app, and the
+Clear-All-App-Data → real sign-out path (via the real `signOutAndShowLanding`, not the injected
+test double) hasn't been exercised against the live Supabase client -- worth one click-through
+with a throwaway account: clear all data, confirm it lands on Auth Landing, and confirm signing
+back in still works normally (nothing server-side was touched).
+
+**Sprint 5 is now complete:** Profile (#40), Edit Profile (#42), Payment Methods (#43),
+Notification settings (#44), Privacy & Security (#45), Help & Support (#46), App Settings (#47).
+Every row on the Profile tab now opens something real except **Upgrade Membership**, which has
+no flow to send it to yet (decision #25's deferred re-subscribe gap).
+
+### 48. Sprint 6, Task 1 -- Closing Sprint 5's live-verification gaps: Change Password and Clear All App Data confirmed live
+
+Sprint 5 shipped Change Password (#45) and Clear All App Data (#47) verified only against a
+fake auth client (proving call order and logic), not the real Supabase Auth API -- flagged at
+the time as open items, and Sprint 6 Task 1 exists specifically to close them. Per the
+established split (decision noted after #36: database/SQL verification is driven directly by the
+assistant, app-level click-through is the user's own), this was the user's click-through, done
+against the real dev project with a throwaway account. **Both confirmed working, all steps as
+expected:**
+
+**Change Password, against the live Auth API:**
+- Wrong current password: rejected inline ("Current password is incorrect."), form stayed open,
+  nothing changed -- confirms `AuthService.changePassword`'s re-authentication step (`signInWithPassword`
+  with the typed current password) genuinely runs against the real API before anything is touched,
+  not just in the fake-client test's call-order check.
+- Correct current password + a new password meeting decision #10's rule: succeeded, form closed,
+  "Password updated." shown.
+- **Signed out and back in with the new password: worked.** Confirms `updateUser(password:)` really
+  took effect server-side, not just that the mocked call was made.
+- Signing in with the old password afterward: failed, as expected -- the old password is genuinely
+  no longer valid.
+
+**Clear All App Data, against the live Auth API:**
+- Cancel on the confirm dialog: no effect, stayed signed in.
+- Confirming ("Clear & Sign Out"): landed on Auth Landing immediately.
+- **Signed back in with the same account afterward: worked normally, active membership intact** --
+  confirms the action only ever touched local device state (preferences + the local session), never
+  anything server-side, matching the design in #47.
+- The one expected side effect flagged ahead of time (wiping the local "seen onboarding" flag along
+  with everything else, so a reload before signing back in can show onboarding again instead of Auth
+  Landing) was not specifically re-checked, but doesn't affect either acceptance point above.
+
+**No bugs found, nothing decided differently.** Both Sprint 5 open items (Sprint 5 report's items 1
+and 2) are now closed. Remaining open items from that same report: item 3 (`ComingSoonScreen`'s dead
+`showSignOut` flag, no remaining callers) is still open, earmarked for a real cleanup pass later in
+Sprint 6 per the user's own note when reviewing the Sprint 5 report; item 4 (Figma REST API rate
+limit) status wasn't rechecked as part of this task; item 5 (leftover Supabase SQL Editor "Untitled
+query" entries / possibly-still-open Chrome tabs from Sprint 5's verification work) is still open,
+manual cleanup on the user's side.
+
+### 49. Sprint 6, Task 2 -- Dead code audit: stub-era scaffolding removed
+
+Audited the repo for leftovers from before every screen route had a real destination
+(the specific gap flagged as item 3 of the Sprint 5 report), and for anything in the
+same spirit found along the way. Every item below was confirmed by grep to have zero
+remaining callers/usages before being removed -- nothing here changed behaviour.
+
+**`ComingSoonScreen.showSignOut`** -- the flag, its default, the `if (showSignOut)`
+button, and the `_signOut` method underneath it that only that button called (and its
+now-unused `auth_landing_screen.dart`/`supabase_client.dart` imports). Added for decision
+#15's task ("a way to actually sign out and verify signing out returns to Landing" while
+Home/Choose Membership were still stubs) and dead since the real screens replaced those
+stubs across Sprint 3-5. No call site anywhere passed `showSignOut: true`.
+
+**`ComingSoonScreen.subtitle`** -- same shape: the field and its `if (subtitle != null)`
+render line, added so ID Upload's subscription id stayed visible while that screen was
+still a stub (decisions #17/#18). Dead since ID Upload became a real screen; no call site
+passes `subtitle:` anymore. The now-pointless `Spacer()` that only existed to push the
+Sign Out button to the right was removed with it.
+
+**Nine `.gitkeep.dart.txt` placeholders** -- `git rm`'d from `lib/models/`,
+`lib/screens/auth/`, `lib/screens/events/`, `lib/screens/home/`,
+`lib/screens/membership/`, `lib/screens/profile/`, `lib/screens/qr_access/`,
+`lib/services/` and `test/`. These existed only so the (then-empty) folder would be
+tracked by git before any real file existed in it; every one of those folders now holds
+real files.
+
+**`lib/providers/`** -- deleted entirely (it held only its own `.gitkeep.dart.txt`) now
+that `provider` is also gone from `pubspec.yaml` (below) -- there is nothing left to
+reserve the folder for.
+
+**`web_entrypoint.dart`** -- an empty (0-byte) file at the repo root, referenced by
+nothing (`pubspec.yaml`, `web/index.html`, build configs) -- deleted. The real entry
+point remains `lib/main.dart`.
+
+**Five unused `pubspec.yaml` dependencies** -- `provider`, `http`, `sqflite`, `path`,
+`cupertino_icons`, none imported anywhere in `lib/` or `test/` (already flagged as such
+in `MASTER.md`'s original audit, decision #40-era). A different category from the four
+items above -- not navigation-stub scaffolding, just dependencies added ahead of
+features that ended up built a different way (`sqflite`/`path` for on-device reservation
+storage, superseded by storing them server-side in Postgres instead -- see decisions
+#37/#38) -- called out to the user separately from the task's literal "screen route"
+wording, and removed with their explicit go-ahead. Removed from `pubspec.yaml`;
+`pubspec.lock` regenerated with `flutter pub get`.
+
+**Not touched, and why:** `findPendingSubscription()`/`PendingSubscription` -- already
+fully removed as part of decision #22's own cleanup; re-checked, nothing remains.
+
+**Verified:** `flutter analyze` -- clean, no issues (confirms no orphaned imports were
+left behind by any of the above). `flutter test` -- 179/179, unchanged, since nothing
+removed was reachable from any live code path. `flutter pub get` succeeded after the
+`pubspec.yaml` edit.
+
+---
+
+### 50. Sprint 6, Task 3 -- Figma fidelity re-check via the Figma app, and decision #20's pattern extended to two more screens
+
+The Figma REST API was still rate-limited (429, ~38h retry-after) when this task
+started, so the user chose the Figma app in browser over waiting. Re-verified all 4
+Onboarding slides, Auth Landing, Sign In, Create Account, and Forgot Password (built
+from PDF-estimated values before real Figma access existed, per the Sprint 3
+checkpoint's explicit deferral) against real, inspected design data for the first time,
+plus re-checked Help & Support's two inferred icon colors and App Settings' spacing.
+
+**Confirmed correct, no changes:** all 4 Onboarding slides' card geometry, shadows, icon
+badge gradients/shadows, heading/body typography, and spacing gaps -- exact matches
+throughout. Help & Support's two inferred icon colors (`#9810FA` Email Us, `#00A63E`
+Call Us) were both exactly right. App Settings' section spacing (24px gaps, 16/32
+padding) matched exactly, and its card border already used the correct Figma hairline
+value (it was Sprint 5 work, done with real Figma access from the start).
+
+**Found and fixed -- a hairline card border, present in Figma but missing from four
+screens:** Sign In, Create Account, and Forgot Password's cards had no border at all
+in code (shadow only); Auth Landing had one, but at the wrong width. Figma specifies
+`Border.all(color: Colors.black @ 10%, width: ~0.515)` on the three form cards and
+`Border.all(color: #FFCCD3, width: ~0.515)` on Auth Landing's -- the same fractional
+hairline value already correctly used by App Settings' `_hairline` constant (Sprint 5).
+Auth Landing's color was already right; only its width (1.55, a PDF-era guess) was
+wrong. Added the missing border to the three form screens and corrected Auth Landing's
+width, all to `0.515`.
+
+**Found, discussed, deliberately left alone -- two copy differences that predate
+security decisions already made:** Figma's Forgot Password copy says "we'll send you a
+**verification code**" / button "Send Verification Code"; the real screen implements a
+magic-link email reset (`resetPasswordForEmail`) with anti-account-enumeration wording,
+by design (see the screen's own code comments). Figma's Create Account password helper
+says "Must be at least 8 characters"; the real rule is stricter
+(`Validators.password`, decision #10: uppercase, lowercase, and a number too). In both
+cases the code's current wording accurately describes what the app actually does and
+Figma's text simply predates the decision -- the user confirmed keeping the current
+wording over changing it to match Figma's now-stale copy.
+
+**Found, not actioned -- a second, unbuilt registration-style Figma frame
+(`RegistrationForm`):** sits near "Choose Membership" / "Complete Payment", structurally
+different from the real, already-matching Create Account screen (`SignUpScreen` in
+Figma) -- no password field, but a Subscription Plan selector and an ID Upload step,
+ending in "Continue to Payment". Doesn't correspond to anything built. Left alone per
+the user -- worth its own scoping discussion if it turns out to represent an intended
+future flow, not something to build as a byproduct of a fidelity check.
+
+**Also noted, not actioned:** Onboarding slide 3's ("Monthly Allowances") icon circle
+has an extra `black @ 20%` fill layer in Figma that slides 1, 2, and 4 don't have --
+almost certainly import noise from the HTML-to-Figma pipeline (same root cause as
+decision #28), not a real design intent; no code change made.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 179/179 passing (border
+additions are visual-only, no widget tree/semantics changes the existing tests assert
+on).
+
 ---
 
 ## Checkpoint: status of every open item, as of the end of Sprint 2
