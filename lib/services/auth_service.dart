@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/supabase_config.dart';
 import 'supabase_client.dart';
 
 /// Thrown for a signup failure with a message that's already safe and
@@ -36,6 +37,24 @@ class ChangePasswordFailure implements Exception {
   final String message;
   final String? field;
   const ChangePasswordFailure(this.message, {this.field});
+}
+
+/// Thrown by [AuthService.verifyCurrentPassword] with a message that's
+/// already safe to show the user directly.
+class ReauthenticationFailure implements Exception {
+  final String message;
+  const ReauthenticationFailure(this.message);
+}
+
+/// Thrown by [AuthService.completePasswordRecovery] with a message that's
+/// already safe to show the user directly. [field] is `'password'` when the
+/// failure belongs specifically to the new-password field (so the UI can
+/// show it inline, the same shape [ChangePasswordFailure] already uses);
+/// null means a general failure not tied to any field.
+class SetNewPasswordFailure implements Exception {
+  final String message;
+  final String? field;
+  const SetNewPasswordFailure(this.message, {this.field});
 }
 
 class AuthService {
@@ -89,7 +108,7 @@ class AuthService {
   /// not) and rate limiting.
   Future<void> resetPassword(String email) async {
     try {
-      await _auth.resetPasswordForEmail(email);
+      await _auth.resetPasswordForEmail(email, redirectTo: SupabaseConfig.passwordRecoveryRedirectUrl);
     } on AuthException catch (e) {
       switch (e.code) {
         case 'over_email_send_rate_limit':
@@ -179,6 +198,75 @@ class AuthService {
     try {
       await _auth.signOut(scope: SignOutScope.others);
     } catch (_) {}
+  }
+
+  /// Re-authenticates the signed-in user with [currentPassword] -- proving
+  /// they actually know it -- without changing anything. This is the same
+  /// re-authentication step [changePassword] does before touching the
+  /// password, pulled out on its own so another irreversible action can
+  /// reuse the exact same check: Delete Account calls this before deleting
+  /// anything, for the same reason -- a phone left unlocked shouldn't let
+  /// anyone silently delete the account any more than it should let them
+  /// silently change the password.
+  Future<void> verifyCurrentPassword(String currentPassword) async {
+    final email = _auth.currentUser?.email;
+    if (email == null) {
+      throw const ReauthenticationFailure('Your session expired. Please sign in again.');
+    }
+    try {
+      await _auth.signInWithPassword(email: email, password: currentPassword);
+    } on AuthException catch (e) {
+      switch (e.code) {
+        case 'over_request_rate_limit':
+        case 'over_email_send_rate_limit':
+          throw const ReauthenticationFailure('Too many attempts. Please wait a moment and try again.');
+        case 'invalid_credentials':
+          throw const ReauthenticationFailure('Current password is incorrect.');
+      }
+      // Older/self-hosted versions don't always set `code`.
+      if (e.message.toLowerCase().contains('invalid login credentials')) {
+        throw const ReauthenticationFailure('Current password is incorrect.');
+      }
+      throw const ReauthenticationFailure(
+        "Couldn't verify your current password. Check your connection and try again.",
+      );
+    } catch (_) {
+      throw const ReauthenticationFailure(
+        "Couldn't verify your current password. Check your connection and try again.",
+      );
+    }
+  }
+
+  /// Sets a new password inside an active password-recovery session -- the
+  /// one Supabase creates automatically the moment a recovery email link is
+  /// opened (see `AuthChangeEvent.passwordRecovery`, listened for in
+  /// `auth_deep_link_listener.dart`). Unlike [changePassword], there's no
+  /// "current password" to re-check here: the recovery token itself, not a
+  /// password the user typed, is what already proved this is really them --
+  /// the whole point of Forgot Password is that they don't remember it.
+  Future<void> completePasswordRecovery(String newPassword) async {
+    if (_auth.currentUser == null) {
+      throw const SetNewPasswordFailure('This reset link has expired. Please request a new one.');
+    }
+    try {
+      await _auth.updateUser(UserAttributes(password: newPassword));
+    } on AuthException catch (e) {
+      switch (e.code) {
+        case 'same_password':
+          throw const SetNewPasswordFailure('Choose a password different from your previous one.', field: 'password');
+        case 'weak_password':
+          throw const SetNewPasswordFailure(
+            'That password is too weak. Use at least 8 characters with upper and lower case letters and a number.',
+            field: 'password',
+          );
+        case 'over_request_rate_limit':
+        case 'over_email_send_rate_limit':
+          throw const SetNewPasswordFailure('Too many attempts. Please wait a moment and try again.');
+      }
+      throw const SetNewPasswordFailure("Couldn't update your password. Please try again.");
+    } catch (_) {
+      throw const SetNewPasswordFailure("Couldn't update your password. Check your connection and try again.");
+    }
   }
 
   static const _emailInUseFailure = SignUpFailure(

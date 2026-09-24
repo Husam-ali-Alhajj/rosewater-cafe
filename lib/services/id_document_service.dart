@@ -19,6 +19,7 @@ class IdDocumentInvalidType implements Exception {
 class IdDocumentService {
   const IdDocumentService();
 
+  static const bucket = 'id-documents';
   static const maxBytes = 10 * 1024 * 1024; // 10MB, per the design's "max 10MB" label
   static const allowedExtensions = {'png', 'jpg', 'jpeg', 'pdf'};
 
@@ -67,7 +68,7 @@ class IdDocumentService {
     final ext = dot == -1 ? 'bin' : fileName.substring(dot + 1).toLowerCase();
     final storagePath = '$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
-    await supabase.storage.from('id-documents').uploadBinary(storagePath, bytes);
+    await supabase.storage.from(bucket).uploadBinary(storagePath, bytes);
 
     await supabase.from('id_documents').insert({
       'user_id': userId,

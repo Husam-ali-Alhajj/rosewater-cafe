@@ -24,11 +24,11 @@ class _FakeAccountDeletionService extends AccountDeletionService {
   _FakeAccountDeletionService({this.failure});
 
   final DeleteAccountFailure? failure;
-  int deleteCalls = 0;
+  final List<String> deleteCalls = [];
 
   @override
-  Future<void> deleteAccount() async {
-    deleteCalls++;
+  Future<void> deleteAccount({required String currentPassword}) async {
+    deleteCalls.add(currentPassword);
     if (failure != null) throw failure!;
   }
 }
@@ -63,6 +63,11 @@ Finder get _confirmField => find.byType(TextFormField).at(2);
 
 Future<void> _openForm(WidgetTester tester) async {
   await tester.tap(find.text('Change Password'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openDeleteForm(WidgetTester tester) async {
+  await tester.tap(find.text('Delete Account'));
   await tester.pumpAndSettle();
 }
 
@@ -294,58 +299,102 @@ void main() {
     });
   });
 
-  group('Delete Account is real, immediate deletion', () {
-    testWidgets('confirming deletes the account, then ends the local session', (tester) async {
-      final auth = _FakeAuthService();
-      final deletion = _FakeAccountDeletionService();
-      final log = <String>[];
-      await _pump(
-        tester,
-        auth: auth,
-        deletion: deletion,
-        onAccountDeleted: (_) async => log.add('session ended'),
-      );
+  group('Delete Account requires current-password re-confirmation', () {
+    testWidgets('tapping the row opens an inline form, not a dialog', (tester) async {
+      await _pump(tester);
+      await _openDeleteForm(tester);
 
-      await tester.tap(find.text('Delete Account'));
-      await tester.pumpAndSettle();
-      expect(find.text('Delete your account?'), findsOneWidget);
+      expect(find.text('Delete your account?'), findsNothing); // no dialog anymore
       expect(find.textContaining('cannot be undone'), findsOneWidget);
+      expect(find.text('Current Password'), findsOneWidget);
+      expect(find.byType(TextFormField), findsOneWidget);
+      expect(find.text('Delete Permanently'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+      // The other Privacy rows are untouched -- only the Delete Account row expands.
+      expect(find.text('View Privacy Policy'), findsOneWidget);
+      expect(find.text('Terms of Service'), findsOneWidget);
+    });
+
+    testWidgets('an empty password is rejected before any request', (tester) async {
+      final deletion = _FakeAccountDeletionService();
+      await _pump(tester, deletion: deletion);
+      await _openDeleteForm(tester);
 
       await tester.tap(find.text('Delete Permanently'));
       await tester.pumpAndSettle();
 
-      expect(deletion.deleteCalls, 1);
-      expect(log, ['session ended']); // the local session was ended for real
-      expect(auth.calls, isEmpty); // nothing else was touched
+      expect(find.text('Enter your current password'), findsOneWidget);
+      expect(deletion.deleteCalls, isEmpty);
     });
 
-    testWidgets('Cancel on the confirmation deletes nothing', (tester) async {
+    testWidgets('Cancel closes the form, clears the password, and deletes nothing', (tester) async {
       final deletion = _FakeAccountDeletionService();
       await _pump(tester, deletion: deletion);
+      await _openDeleteForm(tester);
+      await tester.enterText(find.byType(TextFormField), 'MyPass1');
 
-      await tester.tap(find.text('Delete Account'));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
-      expect(deletion.deleteCalls, 0);
-      expect(find.text('Delete Account'), findsOneWidget);
+      expect(deletion.deleteCalls, isEmpty);
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.text('Delete Account'), findsOneWidget); // row is back
+
+      await _openDeleteForm(tester);
+      final field = tester.widget<TextField>(
+        find.descendant(of: find.byType(TextFormField), matching: find.byType(TextField)),
+      );
+      expect(field.controller!.text, isEmpty);
     });
 
-    testWidgets('a failed deletion shows a message and leaves Delete Account available', (tester) async {
-      final deletion = _FakeAccountDeletionService(
-        failure: const DeleteAccountFailure("Couldn't delete your account. Please try again."),
-      );
+    testWidgets('a correct password deletes the account, then ends the local session', (tester) async {
+      final deletion = _FakeAccountDeletionService();
       final log = <String>[];
       await _pump(tester, deletion: deletion, onAccountDeleted: (_) async => log.add('session ended'));
+      await _openDeleteForm(tester);
 
-      await tester.tap(find.text('Delete Account'));
-      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), 'CorrectPass1');
       await tester.tap(find.text('Delete Permanently'));
       await tester.pumpAndSettle();
 
-      expect(find.text("Couldn't delete your account. Please try again."), findsOneWidget);
-      expect(find.text('Delete Account'), findsOneWidget); // still tappable, not stuck disabled
+      expect(deletion.deleteCalls, ['CorrectPass1']);
+      expect(log, ['session ended']); // the local session was ended for real
+    });
+
+    testWidgets('a wrong password is shown under the field and the form stays open', (tester) async {
+      final deletion = _FakeAccountDeletionService(
+        failure: const DeleteAccountFailure('Current password is incorrect.', field: 'password'),
+      );
+      final log = <String>[];
+      await _pump(tester, deletion: deletion, onAccountDeleted: (_) async => log.add('session ended'));
+      await _openDeleteForm(tester);
+
+      await tester.enterText(find.byType(TextFormField), 'WrongPass1');
+      await tester.tap(find.text('Delete Permanently'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Current password is incorrect.'), findsOneWidget);
+      expect(find.byType(TextFormField), findsOneWidget); // form still open
+      expect(deletion.deleteCalls, ['WrongPass1']);
+      expect(log, isEmpty); // the account was never touched
+    });
+
+    testWidgets('a general failure (e.g. storage cleanup) is shown under the form, and the button works again', (
+      tester,
+    ) async {
+      final deletion = _FakeAccountDeletionService(
+        failure: const DeleteAccountFailure("Couldn't remove your stored files. Please try again."),
+      );
+      final log = <String>[];
+      await _pump(tester, deletion: deletion, onAccountDeleted: (_) async => log.add('session ended'));
+      await _openDeleteForm(tester);
+
+      await tester.enterText(find.byType(TextFormField), 'CorrectPass1');
+      await tester.tap(find.text('Delete Permanently'));
+      await tester.pumpAndSettle();
+
+      expect(find.text("Couldn't remove your stored files. Please try again."), findsOneWidget);
+      expect(find.text('Delete Permanently'), findsOneWidget); // not stuck on "Deleting…"
       expect(log, isEmpty); // the local session was never ended -- the account is still real
     });
   });

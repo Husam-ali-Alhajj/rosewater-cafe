@@ -1869,6 +1869,10 @@ deferred rather than fixed here since no screen updates reservations yet
 and this task's scope was specifically the create path; revisit when an
 edit/cancel flow gets built.
 
+**Resolved (#53):** confirmed live and closed during the consolidated security
+audit -- the `UPDATE` policy is now dropped entirely, since no edit/cancel
+flow was ever built and nothing needed it.
+
 **Two checks this function does not trust the client for:**
 
 1. **Guest count**, 5-100 -- the design's own stated range for a private
@@ -3005,6 +3009,395 @@ is real, immediate deletion" group: confirming calls the RPC once and ends the
 session; Cancel calls nothing; a failure shows a message, leaves the button
 available, and never ends the session). Migration applied live and verified as
 described above.
+
+---
+
+### 53. Sprint 6, Task 5 -- Full RLS/RPC security audit, consolidated: the actual sign-off for handoff
+
+Every role-impersonation check this project ran piecemeal, task by task, across Sprints
+2-6, run as **one** pass against the current, final schema (post decision #51's
+empty-project rebuild and #52's `delete_own_account`) -- this entry is the single
+written record the task asked for, not a pointer back to older scattered ones.
+
+**Note on scope:** the task as given named "the deletion_requests isolation" as one of
+the things to test. That table no longer exists (decision #52 replaced it with
+`delete_own_account`) -- tested that instead, since it's the real current equivalent.
+
+**Method.** Two real accounts were signed up live through the actual Supabase Auth API
+(not synthetic ids -- matching how every earlier live test in this log worked), each
+seeded with one real row in every table via the app's own RPCs and normal inserts
+(a subscription via `start_subscription`/`confirm_subscription_payment`, a payment
+method, a door-access log via `log_door_access`, an event reservation via
+`create_event_reservation`, a notification, an id document). Every check below used
+real role impersonation (`set local role`; `set local request.jwt.claims`) inside
+`begin; ... rollback;` blocks for anything read/write, so nothing touched real data
+except the two accounts' own rows, which were fully deleted via `delete_own_account`
+itself at the end (doubling as its own live test -- see below). One real, unrelated
+account already existed in the project from the user's own testing since decision #51's
+wipe (`husamalhj47@gmail.com`) -- confirmed completely untouched by every check here,
+since every check was scoped to the two audit accounts' specific ids throughout.
+
+**1. Cross-user read isolation -- every table, tested at once.** Impersonated as
+account B, queried account A's row count in all 8 owner-scoped tables in a single
+query: `profiles`, `subscriptions`, `payment_methods`, `usage_allowances`,
+`door_access_logs`, `event_reservations`, `notifications`, `id_documents`.
+**Result: 0 for every one.** B correctly saw only its own profile and payment method
+(1 each) in the same query.
+
+**2. Cross-user write isolation.** As B, attempted to `UPDATE` A's row in every table
+with an UPDATE policy (`profiles.full_name`, `payment_methods.is_default`,
+`event_reservations.total_price`, `notifications.is_read`), then re-read A's actual
+values with role reset to confirm nothing changed. **Result: all four unchanged** --
+A's name stayed "Audit User A", the reservation stayed at its real $450 (3h x $150),
+the notification stayed unread, the payment method's default stayed with its
+original card.
+
+**3. Same-user privilege check on `event_reservations.total_price` -- FOUND AND
+FIXED.** Distinct from #2: does the table's own *owner* have more power over a column
+than they should? As A, updating A's own reservation's `total_price` directly
+**succeeded** -- $450 became $0.01. This is the same gap the Sprint 4 review flagged
+(the UPDATE policy dropped by decision #36's migration was for direct-INSERT only;
+the UPDATE policy was never touched). Checked the app first: nothing in
+`lib/services/event_reservation_service.dart` or `lib/screens/events/` ever calls
+`.update()` on this table -- the policy has zero legitimate use today. Presented to
+the user with that context; **fixed live** (migration
+`20260926100000_close_event_reservations_update_gap.sql`, drops the "Users can
+update own reservations" policy entirely, leaving only the SELECT policy). Re-verified
+with a fresh third throwaway account: the identical tamper attempt on a real $300
+(2h x $150) reservation now leaves it at **$300, unchanged**.
+
+**4. Direct-insert bypass on every RPC-only table.** As A, attempted a raw `INSERT`
+(no RPC) into `subscriptions`, `usage_allowances`, `door_access_logs`, and
+`event_reservations`, plus an `id_documents` insert claiming `verification_status =
+'verified'` instead of the enforced `'pending'`. **All five blocked** -- the first
+four with `42501 insufficient_privilege` (no INSERT policy exists for `authenticated`
+on any of them), the fifth by its `WITH CHECK` clause rejecting a non-`pending` value.
+
+**5. `anon` rejected on every table.** A single query as `anon` across all 9 tables
+(including `membership_plans`, public reference data but `to authenticated` only) --
+**0 rows on every one.**
+
+**6. `anon` rejected on every RPC.** All 7: `start_subscription`,
+`confirm_subscription_payment`, `cancel_subscription`, `log_door_access`,
+`create_event_reservation`, `expire_subscriptions`, `delete_own_account` --
+**every one blocked at the permission level** (`42501`), not merely failing their own
+internal `auth.uid() is null` check (the distinction decision #16 originally found
+mattered: a function `anon` can *invoke* but that then fails internally is a weaker,
+defense-in-depth-only guarantee than one `anon` is refused outright).
+
+**7. `expire_subscriptions` rejects `authenticated` too, not just `anon`.** Confirmed
+separately: a real signed-in user calling it directly also gets `42501` -- only
+`pg_cron`'s own scheduled invocation (as the database owner) can run it, exactly as
+designed.
+
+**8. Payment methods: one-default-per-user, live.** Inserting a second card with
+`is_default = true` correctly cleared the first card's default (exactly 1 remained
+default throughout). Deleting the default card correctly promoted the remaining card
+to default automatically. Matches decision #43's original proof, re-confirmed against
+the current schema.
+
+**9. Storage bucket isolation -- both buckets.** As A: inserting an object into A's own
+folder in `id-documents` and `avatars` succeeded; inserting into B's folder in either
+bucket was **blocked** (`42501`). As B: selecting or updating (renaming) an object in
+A's folder in either bucket affected **0 rows** -- confirmed A's real object was
+byte-for-byte unchanged afterward. (Direct `DELETE` on `storage.objects` itself is
+blocked for every role, including `service_role`, by Supabase's own `protect_delete()`
+guard -- consistent with what decision #51 already found; object cleanup must go
+through the Storage API, not raw SQL.)
+
+**10. `delete_own_account` -- self-only scope and full cascade, live.** As B: called it,
+then confirmed with an unrestricted read: B's `auth.users` row, profile, payment
+method, and notification all gone (0 each) -- **and every one of A's rows was still
+present, unchanged** (profile, subscription, payment method, door log, reservation,
+id document, notification all still 1). Then called it as A too: A's `auth.users` row
+gone, full cascade the same way. Both accounts left the project with zero residue
+except in one place (next item).
+
+**Noted, not a security issue -- informational only:** `storage.objects` rows are
+**not** cleaned up by `delete_own_account`'s cascade (no FK relationship exists
+between `profiles` and `storage.objects` -- Supabase's storage schema tracks
+ownership by folder-path convention, not a real foreign key). A deleted user's old
+files remain in the bucket, inaccessible to anyone (the RLS policies still gate them
+by folder name, and that uid can never sign in again to claim them), but not
+automatically deleted either. Worth a scheduled cleanup job if this project goes to
+production; not something this audit's scope (RLS/RPC correctness) required fixing.
+Two harmless test-metadata storage rows (no real file content) were left over from
+this audit's own setup -- couldn't be removed via the Storage API from this session
+(a `Bucket not found` response despite the buckets definitely existing, not
+investigated further given zero security impact); fine to clear from the Storage tab
+in the dashboard whenever convenient.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 178/178 (unaffected; this
+task's one code change was a pure SQL migration, no Dart touched). The
+`event_reservations` fix was applied live and re-verified live, as described in #3.
+
+**Sign-off:** every table's row-level isolation, every RPC's `anon` rejection, the
+payment-methods default-uniqueness guarantee, and `delete_own_account`'s self-only
+cascade are all confirmed correct against the live project as it exists today. The one
+real gap found (`event_reservations.total_price` self-tampering) was fixed and
+re-verified in the same pass, not just logged. Nothing else in this audit surfaced a
+finding requiring further action.
+
+---
+
+### 54. Hardening real Delete Account: current-password re-check + storage cleanup
+
+Closes the two gaps decision #53 explicitly flagged as out of that audit's scope: no
+re-authentication before the irreversible delete, and `storage.objects` rows never
+getting cleaned up (no FK to `auth.users`, so the RPC's cascade can't reach them).
+The user asked for both directly, in the same terms Change Password already sets: a
+current-password check first, and no files left behind with no owner.
+
+**Two design questions with no Figma frame to follow (the original design never had
+self-service deletion) were put to the user before writing any code:**
+
+1. *How should the password re-check appear?* **Chosen: an inline form** -- tapping
+   "Delete Account" expands the SAME row into a form in place, the exact
+   expand-in-place pattern Change Password already uses on this screen (warning
+   text, a `Current Password` field, Cancel / "Delete Permanently"). Rejected: a
+   password field inside the existing `AlertDialog`, since showing a wrong-password
+   error inline inside a modal dialog is more awkward than a full form.
+2. *If storage cleanup fails partway, what happens?* **Chosen: abort the whole
+   deletion.** The order has to be re-auth -> clean up storage -> delete the account
+   (storage cleanup must run BEFORE the account row is deleted -- storage RLS checks
+   the object's folder against the CURRENT session's `auth.uid()`, which stops
+   working once that account, and the session tied to it, no longer exists). If
+   cleanup fails, `delete_own_account` is never called: account and files stay
+   exactly as they were, the user sees an error and can retry. Rejected: deleting
+   the account anyway and leaving orphaned files, the "best-effort" approach
+   `AvatarService.deleteQuietly` already uses elsewhere -- fine for a routine photo
+   replace, not for a step that's supposed to guarantee no orphans on an
+   irreversible action.
+
+**What changed:**
+
+- **`AuthService.verifyCurrentPassword`** (new): the exact re-authentication step
+  `changePassword` already does (`signInWithPassword` with the caller's own email +
+  the password they typed; nothing proceeds unless it succeeds), pulled out so
+  Delete Account can reuse the identical check without touching `changePassword`'s
+  already-tested internals. Throws `ReauthenticationFailure` with an already-safe
+  message, same error-code mapping as `changePassword` (`invalid_credentials` ->
+  "Current password is incorrect.").
+- **`IdDocumentService.bucket`** (new constant, `'id-documents'`): the same pattern
+  `AvatarService.bucket` already has, added so `AccountDeletionService` can name
+  both buckets to clean up without a hardcoded string literal.
+- **`AccountDeletionService.deleteAccount`** now takes `{required String
+  currentPassword}` and runs three steps, strictly in order: (1) re-verify the
+  password via `AuthService.verifyCurrentPassword` (injected, defaults to the real
+  one); (2) list then remove every object under `<user_id>/` in **both** `avatars`
+  and `id-documents`, aborting the whole call on any failure; (3) only then call
+  `delete_own_account`. `DeleteAccountFailure` gained a `field` (`'password'` vs.
+  general), the same shape `ChangePasswordFailure` already has, so the screen can
+  show a wrong-password error under the field specifically.
+- **`PrivacySecurityScreen`**: the "Delete Account" row's `AlertDialog` confirmation
+  is gone. Tapping it now expands an inline form in the Privacy card (View Privacy
+  Policy / Terms of Service stay visible above it, untouched) -- the warning text,
+  a `Current Password` field (the same `_PasswordField` widget Change Password
+  uses), and Cancel / "Delete Permanently". A wrong password shows inline under the
+  field and the form stays open; any other failure shows below the form; success
+  ends the local session via `onAccountDeleted`/`signOutAndShowLanding`, unchanged
+  from decision #52.
+- **New `_DangerButton` widget** (file-local to this screen): the same shape as
+  `SaveButton` (48 tall, radius 8, Inter Medium 14 white label) but solid
+  `_deleteInk` red instead of the app's primary gradient -- confirming an
+  irreversible destructive action shouldn't look like a normal "Save".
+
+**Also resolved in passing:** decision #53's note that two leftover test storage
+rows "couldn't be removed via the Storage API... a `Bucket not found` response...
+not investigated further" was a **testing mistake, not a product bug** -- that curl
+session was calling `POST /storage/v1/object/remove/{bucket}`, which isn't a real
+Supabase Storage endpoint. The correct one, confirmed live while testing this task
+(and what `supabase_flutter`'s own storage client already calls under the hood, so
+the Dart code was never at risk) is `DELETE /storage/v1/object/{bucket}` with
+`{"prefixes": [...]}` in the body.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 181/181 (net +3 over
+decision #53's 178: the 3-test "Delete Account is real, immediate deletion" group
+became a 6-test "Delete Account requires current-password re-confirmation" group,
+covering the inline form appearing, an empty password rejected client-side, Cancel
+clearing the field, a correct password deleting + ending the session, a wrong
+password showing inline with the form staying open, and a general failure -- e.g.
+storage cleanup -- showing below the form with the button available again).
+
+**Live test, the same before/after snapshot method as decisions #51/#53** (a
+throwaway account created live through the real Auth API, not synthetic):
+uploaded one real file to each bucket (`avatars`, `id-documents`) and inserted the
+matching `id_documents` row, mirroring exactly what the app's own upload flows do,
+so there was something real to lose if cleanup were ever skipped.
+
+- **Before:** 1 row each in `auth.users`, `profiles`, `id_documents`; 1 storage
+  object in each bucket for this user.
+- **Wrong password:** `POST /auth/v1/token?grant_type=password` with the wrong
+  password returned `400 invalid_credentials` -- confirmed server-side rejection,
+  the exact call `verifyCurrentPassword` makes and the exact failure that stops
+  everything after it from ever running.
+- **Correct password:** the same call succeeded (`200`), proving the path forward
+  opens only once the password is actually right.
+- **Storage cleanup:** listed then removed both files via the real Storage API (the
+  same list-then-remove sequence `AccountDeletionService` performs), then
+  re-listed -- both buckets came back empty for this user **while the account still
+  existed**, proving cleanup doesn't depend on the account being gone yet.
+- **`delete_own_account`:** called, returned `204`.
+- **After:** `auth.users`/`profiles`/`id_documents` all **0** for this user;
+  `storage.objects` across the **entire project** had exactly **1** row left -- the
+  one real user's own legitimate ID document, confirming nothing else was touched
+  and nothing was left orphaned.
+
+**Sign-off:** wrong current password blocks deletion, verified against the real
+Auth API, not just the widget layer. Correct password deletes the account with zero
+rows remaining in any table and zero orphaned files in either storage bucket,
+verified with a before/after snapshot against the live project. Decision #53's two
+scope exclusions are now both closed.
+
+---
+
+### 55. Forgot Password: building the missing "set new password" half, and two real deep-link bugs found live
+
+Closes the gap flagged live by the user (recorded in MASTER.md's Known Gaps since
+Task 1's audit): the reset email genuinely sent, but tapping its link had nowhere
+useful to go -- no screen ever finished the flow. This entry is both the feature
+build and, unusually, a live-debugging log: the first two live attempts both
+failed in different ways, and both fixes are recorded here rather than silently
+folded in, since understanding why they failed is most of the value of this task.
+
+**Two decisions with no Figma frame or existing pattern to follow, put to the user
+first:**
+
+1. *Which platform to actually test on?* **Chosen: Flutter Web**, run with a fixed
+   port (`flutter run -d chrome --web-port=5000`) so the redirect URL stays valid
+   across restarts. Rejected: mobile (Android/iOS), which would need a custom URL
+   scheme in `AndroidManifest.xml`/`Info.plist` -- real platform config with no
+   device/emulator in active use to test it against right now. Mobile deep-linking
+   remains unbuilt; `SupabaseConfig.passwordRecoveryRedirectUrl` is written to make
+   that the one place to change later.
+2. *What happens right after the password is set?* **Chosen: sign out of the
+   recovery session and return to Sign In** with a "Password Updated" confirmation
+   screen -- matches the user's own acceptance script (set the password, THEN
+   separately confirm sign-in works with the new one and fails with the old one) by
+   forcing an explicit, ordinary re-authentication rather than silently continuing
+   on the recovery session.
+
+**What was built:**
+
+- **`AuthService.completePasswordRecovery`** (new): calls `updateUser(password:)`
+  inside the active recovery session -- no "current password" field, since the
+  whole point of this flow is the user doesn't remember it; the recovery token
+  itself already proved this is really them. `resetPassword` now passes
+  `redirectTo: SupabaseConfig.passwordRecoveryRedirectUrl`.
+- **`SetNewPasswordScreen`** (new, `lib/screens/auth/`): same card-on-gradient
+  shape as `ForgotPasswordScreen`, new password + confirm with decision #10's
+  rules ([Validators.password], same as signup), a form-to-success-view swap.
+  Reachable ONLY via the deep-link listener below -- no button anywhere links here
+  on purpose.
+- **`auth_deep_link_listener.dart`** (new): listens for
+  `AuthChangeEvent.passwordRecovery` and routes to `SetNewPasswordScreen`.
+- Supabase dashboard: `http://localhost:5000/**` added to Auth -> URL
+  Configuration -> Redirect URLs (otherwise Supabase silently falls back to the
+  project's default Site URL, `http://localhost:3000`, and the link would 404).
+
+**Bug #1, found on the first live attempt: the event fired, but into an empty
+room.** Clicking a real reset link landed on the normal signed-in Home screen, not
+Set New Password -- confirmed by reading `supabase_flutter`'s own source
+(`supabase.dart`/`supabase_auth.dart`, v2.17.2): on Flutter Web,
+`Supabase.initialize()` processes the recovery deep link and fires
+`AuthChangeEvent.passwordRecovery` entirely INSIDE its own awaited chain, before
+returning to `main()` -- which means before `runApp()` builds a single widget. The
+original code did `await Supabase.initialize(...)` and only started listening
+after, so the event had already fired into a stream nobody was subscribed to yet,
+and was lost for good (broadcast streams don't replay past events). **Fix:**
+subscribe in the gap between *calling* `Supabase.initialize()` and *awaiting* it --
+Dart runs an async function's body synchronously up to its own first `await`, and
+`Supabase.instance.client` is constructed synchronously before that point, so this
+is the earliest a listener can exist.
+
+**Bug #2, found on the retest with fix #1 in place: caught the event, still landed
+on the wrong screen.** This time on a fresh throwaway account with no
+subscription, the link landed on Choose Membership -- not Home, but still not Set
+New Password, which gave away what was still wrong. Subscribing earlier was only
+half the fix: the listener tried `navigatorKey.currentState?.pushAndRemoveUntil(...)`,
+but on web the event fires (per Bug #1's finding) before `runApp()` ever runs --
+so `navigatorKey.currentState` was still `null`, and the `?.` silently swallowed
+the whole navigation call. The app just fell through to `AppEntryPoint`'s normal
+session-based routing, which is exactly what a signed-in session with no
+subscription resolves to. **Fix:** the listener now sets a `pendingPasswordRecovery`
+flag when the Navigator isn't ready yet, instead of silently dropping the event;
+`AppEntryPoint._resolve()` checks that flag first, before its normal branching, on
+its very first resolve -- which is guaranteed to run after the recovery exchange
+has already completed, by the same ordering Bug #1 established.
+
+**Verified:** `flutter analyze` -- clean after each fix. `flutter test` -- 188/188
+(7 new: `AuthService.resetPassword` passes the redirect URL; `completePasswordRecovery`
+sets the password with no current-password check, rejects with no active session,
+maps `same_password`/`weak_password` to the password field and rate-limit/network
+failures to a general one -- ForgotPasswordScreen has no widget test either, so
+`SetNewPasswordScreen` follows that same established precedent rather than adding
+one new to this screen family).
+
+**Live test.** A throwaway account was created via the real Auth API using Gmail
+`+` addressing (`husamalhaj45+resettest<timestamp>@gmail.com` -- delivers to a real,
+already-authenticated inbox without touching whatever real test account the bare
+address's existing reset emails belonged to). Both live bugs above were reproduced
+and fixed through real click-throughs against the actual dev project: real signup,
+real "Forgot Password" request, the real email opened, the real link clicked, each
+failure observed directly (Home, then Choose Membership) before its fix. After
+fix #2, the user ran the complete script themselves end to end -- request reset,
+open the email, click the link, land on Set New Password (not a dead end), set a
+new password, confirm sign-in fails with the old password and succeeds with the
+new one -- and confirmed it worked.
+
+**Sign-off:** Forgot Password is now a complete flow, not a dead end. Both bugs
+that blocked it were found and fixed through real, live reproduction rather than
+guessed at from documentation.
+
+---
+
+### 56. "Remember me" made real
+
+Closes the gap Sign In's own code comment already flagged as a placeholder
+(decision #15): the checkbox existed, looked interactive, and did nothing --
+Supabase persisted a session regardless of it. The task's own instructions
+settled the two things that would otherwise need deciding: check at
+`AppEntryPoint`'s existing session check, not "on close" (a mobile OS can kill a
+process with no callback to act on) or at sign-out time; store the checkbox's
+value in `shared_preferences`, device-local, not account data.
+
+**What was built:**
+
+- **`RememberMePrefs`** (new, `lib/services/`): the same thin `shared_preferences`
+  wrapper shape `OnboardingPrefs` already uses. `isRemembered()` defaults to `true`
+  when nothing's been stored yet -- matches decision #15's original, unconditional
+  behavior, and covers every sign-in path with no checkbox at all (Create Account
+  signs up remembered by default, unchanged).
+- **`SignInScreen`**: `initState` now loads the last stored value into the
+  checkbox itself, so it reflects the last choice rather than always resetting to
+  checked. A successful sign-in saves whatever the checkbox was set to -- an
+  unsuccessful attempt saves nothing, since there's no session yet to have an
+  opinion about.
+- **`AppEntryPoint._resolve()`**: right after finding a session and BEFORE the
+  existing Home/Choose Membership branch gets a say, checks
+  `RememberMePrefs.isRemembered()`. If `false`, signs out on the spot (the session
+  was technically still valid; this is the one place that actually ends it) and
+  falls through to the normal signed-out branch below. If `true` (the default),
+  nothing about decision #15's original routing changes at all.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 192/192 (4 new, for
+`RememberMePrefs`: fresh-install default, a value persisting across a simulated
+restart, flipping it back, and that storage is device-local with no account
+scoping -- the same `SharedPreferences.resetStatic()` restart-simulation pattern
+`notification_prefs_test.dart` already established. `SignInScreen`/`AppEntryPoint`
+get no widget test, following the same precedent `ForgotPasswordScreen` already
+set -- neither takes injectable dependencies, so neither can be driven without a
+live Supabase client).
+
+**Live test, run by the user** against the real dev project, the Flutter Web build
+from decision #55's setup (a page reload standing in for force-close-and-reopen,
+same equivalence decision #15's own live test already used): signed in with
+"Remember me" unchecked, reloaded -- landed on Auth Landing despite a real, valid
+session, exactly as required. Signed in again with it checked, reloaded -- landed
+straight back on the signed-in destination, decision #15's original behavior,
+unchanged. Both confirmed working.
+
+**Sign-off:** "Remember me" now does what it has always looked like it does.
 
 ---
 

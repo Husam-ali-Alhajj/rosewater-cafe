@@ -7,7 +7,7 @@ made. Written from the actual code and migrations as of the **Sprint 4** commit
 
 > **How this file relates to the others**
 > - `MASTER.md` (this file) — the map. Read it first.
-> - `docs/decisions.md` — the long-form log (52 numbered decisions, with the
+> - `docs/decisions.md` — the long-form log (53 numbered decisions, with the
 >   bugs found, proofs, and trade-offs). This guide cites it as **#N**.
 > - `README.md` — still the untouched Flutter template; ignore it.
 >
@@ -87,7 +87,7 @@ project and swaps one config file (§14).
 | Edit Profile (name, phone, photo; email read-only) | ✅ Built (Sprint 5 Task 2, #42), avatars bucket + storage isolation proven live |
 | App Settings (Sprint 5 Task 7, #47) | ✅ Dark Mode/Language/Animations/Sound/Haptic are visual-only placeholders (decisions #5/#47); **Cache Size/Clear Cache/Clear All App Data are real** — a genuine, computed number, and real clearing (image cache + local preferences + sign-out) |
 | Help & Support (Sprint 5 Task 6, #46) | ✅ Static contact cards (no backend); FAQ accordion with the **one real answer** the design exports, the other three questions shown with a plain placeholder, never invented copy; Resources open coming-soon pages |
-| Privacy & Security (Sprint 5 Task 5, #45; Delete Account made real, #52) | ✅ **Change Password is real** (re-enter the current password; same strength rules as signup). **Delete Account is real, immediate, self-service deletion** (`delete_own_account` RPC, cascades through every table of the user's data; no undo, no request queue). Biometric / Two-Factor / Auto-Lock are **disabled "Coming soon" placeholders**; Privacy Policy / Terms open a coming-soon page |
+| Privacy & Security (Sprint 5 Task 5, #45; Delete Account made real, #52; hardened, #54) | ✅ **Change Password is real** (re-enter the current password; same strength rules as signup). **Delete Account is real, immediate, self-service deletion, and password-gated**: an inline form (same expand-in-place pattern as Change Password) re-verifies the current password, then removes every stored file in both `avatars`/`id-documents` — aborting the whole deletion if that cleanup fails — before calling `delete_own_account`, which cascades through every table of the user's data; no undo, no request queue. Biometric / Two-Factor / Auto-Lock are **disabled "Coming soon" placeholders**; Privacy Policy / Terms open a coming-soon page |
 | Notification settings (7 toggles, **local-only**) | ✅ Built (Sprint 5 Task 4, #44): saved on the device with `shared_preferences`, no table, no network. The toggles record preferences only — nothing sends push/email/SMS yet |
 | Payment Methods (list / add / set default / delete, metadata only) | ✅ Built (Sprint 5 Task 3, #43); one-default-per-user enforced in the database and proven live. Card brand/last4 are derived client-side for display — still no real processor |
 | **Notifications** (Home bell) | 🟡 Stub screen, no unread badge, table exists but unused (#32, #41) |
@@ -120,7 +120,7 @@ Git history mirrors the sprints: `first sprint` → `sprint 1` → `sprint 2` �
 |---|---|---|
 | `supabase_flutter ^2.8.0` | `main.dart`, every service | Official client: auth, `.from()` queries, `.rpc()`, storage. Initialised once in `main()`. |
 | `flutter_secure_storage ^9.2.2` | `services/secure_local_storage.dart` | Stores the login session in the OS's encrypted vault (Keystore / Keychain / Credential Locker). `supabase_flutter`'s default writes tokens to plain-text `SharedPreferences` (#6). |
-| `shared_preferences ^2.2.3` | `services/onboarding_prefs.dart` | A tiny local boolean: "has this device seen onboarding". Deliberately *not* secure storage and *not* backend — it's a per-device UI flag, not a secret or account data. |
+| `shared_preferences ^2.2.3` | `services/onboarding_prefs.dart`, `services/remember_me_prefs.dart` | Tiny local booleans: "has this device seen onboarding", "was the last sign-in remembered" (#56). Deliberately *not* secure storage and *not* backend — per-device UI flags, not secrets or account data. |
 | `qr_flutter ^4.1.0` | `screens/qr_access/` | Renders the member's QR code. |
 | `image_picker ^1.1.2` | `screens/membership/id_upload_screen.dart` | Camera / gallery capture for the ID photo. |
 | `file_picker ^10.3.4` | same | Picking an existing PNG/JPG/**PDF** — `image_picker` can't do PDFs. |
@@ -281,7 +281,8 @@ Onboarding ─► Auth Landing ─┬─► Create Account ─┬─(session)─
   (once)                    │                   └─(no session, email confirm ON)─► Confirm Email Pending
                             └─► Sign In ────────────(no active sub)──► Choose Membership
                                    │  ▲                                     │ start_subscription RPC
-                                   │  └── Forgot Password                   ▼
+                                   │  └── Forgot Password ─(email link)─► Set New Password ─► Sign In
+                                   │                                     ▼
                                    │                                  ID Upload  ◄─ "Back to Plans"
                                    │                                     │            (cancel_subscription RPC,
                                    │                                     ▼             returns to plan cards)
@@ -336,8 +337,10 @@ no backend. "Skip" and "Get Started" both funnel through one method that calls
   guard and inline server errors under the right field (#8).
 - **`sign_in_screen`** — email + password. **All** credential failures show one
   message ("Invalid email or password.") so the form can't be used to discover
-  which emails are registered (#11). "Remember me" is decorative — Supabase
-  persists the session regardless. After success, routes by subscription state.
+  which emails are registered (#11). "Remember me" is real (#56): unchecked
+  forces a sign-out on the next cold start (checked by `AppEntryPoint`, not
+  here); checked (the default) behaves exactly as before. After success,
+  routes by subscription state.
 - **`forgot_password_screen`** — always shows the same "If an account exists…"
   success state; never reveals whether an email is registered (#12).
 - **`confirm_email_pending_screen`** — no Figma frame existed; built to match
@@ -543,10 +546,10 @@ else in the app calls the database.
 | File | Responsibility | Backend calls |
 |---|---|---|
 | `supabase_client.dart` | Exports the global `supabase` client. | — |
-| `auth_service.dart` | `signIn`, `signUp`, `resetPassword`, `changePassword` (verifies the current password first). Maps Supabase errors → `SignInFailure`/`SignUpFailure`/`ResetPasswordFailure`/`ChangePasswordFailure`. | `auth.signInWithPassword`, `auth.signUp`, `auth.resetPasswordForEmail`, `auth.updateUser`, `auth.signOut(others)` |
+| `auth_service.dart` | `signIn`, `signUp`, `resetPassword` (sends `redirectTo: SupabaseConfig.passwordRecoveryRedirectUrl`, #55), `changePassword` (verifies the current password first), `verifyCurrentPassword` (the same re-auth step, reused by account deletion), `completePasswordRecovery` (sets a new password inside an active recovery session, #55). Maps Supabase errors → `SignInFailure`/`SignUpFailure`/`ResetPasswordFailure`/`ChangePasswordFailure`/`ReauthenticationFailure`/`SetNewPasswordFailure`. | `auth.signInWithPassword`, `auth.signUp`, `auth.resetPasswordForEmail`, `auth.updateUser`, `auth.signOut(others)` |
 | `subscription_service.dart` | Plans, active membership, the whole subscription lifecycle. | `from('membership_plans')`, `from('subscriptions')`, RPCs `start_subscription`, `confirm_subscription_payment`, `cancel_subscription` |
 | `profile_service.dart` | Current user's `profiles` row; `updateProfile` (name, phone, optional photo path — never email). | `from('profiles')` select / update |
-| `account_deletion_service.dart` | `deleteAccount()` — permanently deletes the signed-in user's account and everything tied to it. No undo. | RPC `delete_own_account` |
+| `account_deletion_service.dart` | `deleteAccount(currentPassword:)` — re-verifies the password, removes every stored file in both storage buckets (aborts on any cleanup failure), then permanently deletes the signed-in user's account and everything tied to it. No undo. (#54) | `auth.signInWithPassword` (via `verifyCurrentPassword`), `storage.from('avatars'/'id-documents').list/remove`, RPC `delete_own_account` |
 | `app_settings_service.dart` | Real image-cache size/clear; real `shared_preferences` wipe. | `PaintingBinding` image cache, `SharedPreferences` (no network) |
 | `notification_prefs.dart` | Seven notification toggles, saved on the device (per user id). **No backend.** | `SharedPreferences` (no network) |
 | `payment_method_service.dart` | List / add (brand, last4, expiry, default request — no parameter for a number or CVV) / set default / delete. Plain table access, no RPC. | `from('payment_methods')` |
@@ -556,6 +559,7 @@ else in the app calls the database.
 | `door_access_service.dart` | Log an entry. | RPC `log_door_access` |
 | `event_reservation_service.dart` | Create a reservation; owns the client copy of the hourly price. | RPC `create_event_reservation` |
 | `onboarding_prefs.dart` | Local "seen onboarding" flag. | `SharedPreferences` (no network) |
+| `remember_me_prefs.dart` | Local "was the last sign-in remembered" flag, checked by `AppEntryPoint` (#56). | `SharedPreferences` (no network) |
 | `secure_local_storage.dart` | Encrypted persistence of the auth session. | `flutter_secure_storage` (no network) |
 
 ### Why services look the way they do
@@ -602,6 +606,7 @@ them into the dashboard's SQL Editor.
 | `20260923100000_payment_methods_default_enforcement` | Partial unique index (one default per user), BEFORE trigger that swaps the default atomically and makes a first card the default, AFTER DELETE trigger that promotes another card, and replaces the `now()`-based `exp_year` CHECK |
 | `20260922100000_avatars_bucket_and_profile_email_lock` | Private `avatars` bucket (5 MB, PNG/JPEG/WebP) + 4 per-user storage policies; trigger that stops a client changing `profiles.email` |
 | `20260925100000_delete_own_account` | `delete_own_account` RPC (self-delete only, cascades through the user's own data); **drops** `deletion_requests`, its policies, and the `deletion_request_status` type (#52) |
+| `20260926100000_close_event_reservations_update_gap` | **Drops** the `event_reservations` UPDATE policy — closes a live-confirmed price-tampering gap found in the consolidated security audit (#53) |
 
 ### 9.2 Tables
 
@@ -612,7 +617,7 @@ them into the dashboard's SQL Editor.
 | `subscriptions` | A user's plan + `status` + `started_at`/`valid_until` | **read only** |
 | `usage_allowances` | Per-period `hookah_used` / `drinks_used` | **read only** |
 | `door_access_logs` | Audit trail of door entries + guest count | **read only** (no delete) |
-| `event_reservations` | Private-event bookings incl. server-computed `total_price` | read + update own (INSERT only via RPC) |
+| `event_reservations` | Private-event bookings incl. server-computed `total_price` | **read only** — write only via `create_event_reservation` RPC; the UPDATE policy that let a user edit their own `total_price` was closed live (#53) |
 | `id_documents` | Path to an uploaded ID + `verification_status` | read + insert own (forced `pending`); **no UPDATE** |
 | `payment_methods` | Card metadata only (brand, last4, expiry, `is_default`) — **never** PAN/CVV (no column for them) | full CRUD on own; at most one default per user is enforced by the database (§9.3) |
 | `notifications` | Per-user notification rows | read/insert/update own — *exists but unused by the app* |
@@ -901,9 +906,7 @@ flutter analyze
 8. **`status` can lag reality up to ~24 h**; always check `valid_until` too (§9.5).
 
 ### Known gaps
-- **Biometric login, Two-Factor Authentication and Auto-Lock** are disabled placeholders (#45); **processing** a deletion request is a manual staff step with no tooling; **Privacy Policy / Terms of Service text** doesn't exist. **3 of 4 FAQ answers** are still unwritten (#46). **Dark Mode, Language, Animations, general UI Sound/Haptic** are visual-only (#5/#47). **Upgrade Membership and the Home bell's notifications feed** aren't built — Profile is otherwise fully built out (Profile's rows open stubs). Changing the login email isn't built either (needs a re-verification flow).
-- **`event_reservations` UPDATE policy** still lets a user edit their own row
-  (including `total_price`). Deferred until an edit/cancel flow exists (#36).
+- **Biometric login, Two-Factor Authentication and Auto-Lock** are disabled placeholders (#45); **Privacy Policy / Terms of Service text** doesn't exist. **3 of 4 FAQ answers** are still unwritten (#46). **Dark Mode, Language, Animations, general UI Sound/Haptic** are visual-only (#5/#47). **Upgrade Membership and the Home bell's notifications feed** aren't built — Profile is otherwise fully built out (Profile's rows open stubs). Changing the login email isn't built either (needs a re-verification flow). **Forgot Password is now real, end to end, on Flutter Web** (#55) — request, email, deep-link, Set New Password screen, sign-in with the new password. **Mobile (Android/iOS) deep-linking is not built** — the redirect URL and platform config (`AndroidManifest.xml`/`Info.plist`) are web-only right now; `SupabaseConfig.passwordRecoveryRedirectUrl` is the one place to change when that's built.
 - **PKCE code verifier** uses default plain-text storage — low risk until a
   magic-link/OAuth flow exists (#6).
 - **Accounts created while email confirmation was ON stay unconfirmed** if it's
@@ -912,7 +915,6 @@ flutter analyze
   state.
 - **`member_id` in the QR + `RC-` format** is our own improvement over the Figma
   placeholder (#3).
-- **Sign-in "Remember me" is decorative.**
 - **Fidelity:** Onboarding/Auth screens weren't re-audited against the Figma API;
   the user reports mismatches as found (checkpoint after Sprint 2).
 - **Task 6 conflict:** a requested "pending → Payment" resume on sign-in was
@@ -1000,3 +1002,7 @@ have a separate admin app for ID verification and door scanning.
 | 50 | Sprint 6 Task 3: Figma fidelity re-check (hairline card borders fixed on 4 screens) |
 | 51 | Sprint 6 Task 4: migration audit + proven empty-project replay (schema-identical) |
 | 52 | Delete Account made real self-service (replaces decision #45's request queue) |
+| 53 | Consolidated RLS/RPC security audit (sign-off); fixed event_reservations price-tamper gap |
+| 54 | Hardened Delete Account: current-password re-check + storage cleanup before the RPC |
+| 55 | Forgot Password completed (Set New Password screen, deep-link handling); two real live bugs found and fixed |
+| 56 | "Remember me" made real: unchecked forces sign-out on next cold start (`AppEntryPoint`) |

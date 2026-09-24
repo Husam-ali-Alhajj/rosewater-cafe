@@ -48,11 +48,16 @@ const _hairline = 0.515; // Figma's fractional hairline stroke width
 ///
 /// **Delete Account is real, immediate, self-service deletion** (decision #52,
 /// replacing the request-queue of decision #45 after the user was shown that
-/// tradeoff and explicitly chose self-service instead). Confirming calls the
-/// `delete_own_account` RPC, which deletes exactly the caller's own
-/// `auth.users` row -- cascading through every table of their data -- then
-/// this screen ends the local session and returns to Auth Landing. There is
-/// no undo, and the confirmation dialog says so before anything happens.
+/// tradeoff and explicitly chose self-service instead; hardened afterwards to
+/// require the current password and clean up storage first). Tapping the row
+/// opens an inline form -- the same expand-in-place pattern Change Password
+/// already uses on this screen -- asking for the CURRENT password before
+/// anything happens. Confirming calls [AccountDeletionService.deleteAccount],
+/// which re-verifies that password, removes every file the user ever stored
+/// (avatars + ID documents), and only then deletes the account itself via the
+/// `delete_own_account` RPC -- cascading through every table of their data.
+/// This screen then ends the local session and returns to Auth Landing. There
+/// is no undo, and the form says so before anything happens.
 ///
 /// "View Privacy Policy" and "Terms of Service" open a "coming soon" page:
 /// no policy or terms text exists yet to show.
@@ -94,7 +99,13 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   String? _serverNewError;
   String? _formError;
 
+  final _deleteFormKey = GlobalKey<FormState>();
+  final _deletePasswordController = TextEditingController();
+  bool _deletingAccountForm = false;
+  bool _showDeletePassword = false;
   bool _deletingAccount = false;
+  String? _deletePasswordError;
+  String? _deleteFormError;
 
   @override
   void dispose() {
@@ -102,6 +113,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     _currentController.dispose();
     _newController.dispose();
     _confirmController.dispose();
+    _deletePasswordController.dispose();
     super.dispose();
   }
 
@@ -180,33 +192,37 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     }
   }
 
-  // ---- Delete Account (real, immediate, self-service) ----
+  // ---- Delete Account (real, immediate, self-service, password-gated) ----
 
-  Future<void> _confirmDeleteAccount() async {
+  void _openDeleteForm() => setState(() => _deletingAccountForm = true);
+
+  void _closeDeleteForm() {
+    _deletePasswordController.clear();
+    setState(() {
+      _deletingAccountForm = false;
+      _showDeletePassword = false;
+      _deletePasswordError = null;
+      _deleteFormError = null;
+    });
+  }
+
+  String? _validateDeletePassword(String? value) {
+    if (_deletePasswordError != null) return _deletePasswordError;
+    if (value == null || value.isEmpty) return 'Enter your current password';
+    return null;
+  }
+
+  Future<void> _submitDeleteAccount() async {
     if (_deletingAccount) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete your account?'),
-        content: const Text(
-          'This immediately and permanently deletes your account and everything in it -- '
-          'your profile, membership, payment methods, and reservation history. '
-          'This cannot be undone.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete Permanently', style: TextStyle(color: _deleteInk)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
+    // Clear last attempt's server error so the validator starts clean.
+    _deletePasswordError = null;
+    setState(() => _deleteFormError = null);
+    // Client-side check first: an empty field never reaches the network.
+    if (!_deleteFormKey.currentState!.validate()) return;
 
     setState(() => _deletingAccount = true);
     try {
-      await widget.accountDeletionService.deleteAccount();
+      await widget.accountDeletionService.deleteAccount(currentPassword: _deletePasswordController.text);
       if (!mounted) return;
       // The account is gone server-side; end the local session too, the
       // same way App Settings' "Clear All App Data" does -- a device with
@@ -218,14 +234,21 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
       }
     } on DeleteAccountFailure catch (e) {
       if (!mounted) return;
-      setState(() => _deletingAccount = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      setState(() {
+        _deletingAccount = false;
+        if (e.field == 'password') {
+          _deletePasswordError = e.message;
+        } else {
+          _deleteFormError = e.message;
+        }
+      });
+      if (e.field == 'password') _deleteFormKey.currentState!.validate();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _deletingAccount = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't delete your account. Please try again.")),
-      );
+      setState(() {
+        _deletingAccount = false;
+        _deleteFormError = "Couldn't delete your account. Please try again.";
+      });
     }
   }
 
@@ -387,10 +410,60 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
           const SizedBox(height: 12),
           _PrivacyRow(label: 'Terms of Service', onTap: () => _openComingSoon('Terms of Service')),
           const SizedBox(height: 12),
-          _PrivacyRow(
-            label: 'Delete Account',
-            danger: true,
-            onTap: _deletingAccount ? null : _confirmDeleteAccount,
+          if (_deletingAccountForm)
+            _buildDeleteAccountForm()
+          else
+            _PrivacyRow(label: 'Delete Account', danger: true, onTap: _openDeleteForm),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeleteAccountForm() {
+    return Form(
+      key: _deleteFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'This immediately and permanently deletes your account and everything in it -- '
+            'your profile, membership, payment methods, and reservation history. '
+            'This cannot be undone.',
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _bodyInk),
+          ),
+          const SizedBox(height: 16),
+          _PasswordField(
+            label: 'Current Password',
+            hint: 'Enter current password',
+            controller: _deletePasswordController,
+            visible: _showDeletePassword,
+            onToggleVisible: () => setState(() => _showDeletePassword = !_showDeletePassword),
+            validator: _validateDeletePassword,
+            enabled: !_deletingAccount,
+          ),
+          if (_deleteFormError != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              _deleteFormError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.danger, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 24),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: CancelButton(onTap: _deletingAccount ? null : _closeDeleteForm)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _DangerButton(
+                  label: 'Delete Permanently',
+                  savingLabel: 'Deleting…',
+                  saving: _deletingAccount,
+                  onTap: _deletingAccount ? null : _submitDeleteAccount,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -613,6 +686,51 @@ class _PasswordField extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// The same shape as [SaveButton] (48 tall, radius 8, Inter Medium 14 white
+/// label), but solid `_deleteInk` red instead of the app's primary gradient
+/// -- this confirms a destructive, irreversible action, not a normal save,
+/// and shouldn't look like one. No Figma frame covers this (the original
+/// design never had self-service deletion); the color matches the
+/// already-red "Delete Account" row this button replaces once tapped.
+class _DangerButton extends StatelessWidget {
+  final String label;
+  final String savingLabel;
+  final bool saving;
+  final VoidCallback? onTap;
+
+  const _DangerButton({required this.label, required this.saving, required this.onTap, this.savingLabel = 'Saving…'});
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: onTap == null ? 0.5 : 1,
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(color: _deleteInk, borderRadius: BorderRadius.circular(8)),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Center(
+              child: Text(
+                saving ? savingLabel : label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  height: 20 / 14,
+                  letterSpacing: -0.15,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

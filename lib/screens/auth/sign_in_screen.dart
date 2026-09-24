@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/remember_me_prefs.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
@@ -29,18 +30,24 @@ class _SignInScreenState extends State<SignInScreen> {
   final _subscriptionService = const SubscriptionService();
 
   bool _obscurePassword = true;
-  // "Remember me" is decorative for now — Supabase's session persists
-  // on-device (via our SecureLocalStorage) regardless of this checkbox,
-  // which matches normal mobile-app expectations (unlike a browser, a
-  // signed-in mobile app staying signed in is the default users expect).
-  // Logged as a deliberate decision in docs/decisions.md rather than left
-  // unexplained — if a real distinction is ever wanted (e.g. force
-  // sign-out on app restart when unchecked), that needs its own design,
-  // since mobile OSes can kill an app without any "on close" callback
-  // firing to act on.
+  // "Remember me" is real (decision #56): checked (the default -- see
+  // RememberMePrefs) behaves exactly as decision #15 always did, a
+  // signed-in mobile app stays signed in. Unchecked forces a sign-out on
+  // the NEXT cold app start, checked by AppEntryPoint -- not here, and not
+  // "on close", since a mobile OS can kill a process with no callback to
+  // act on. Loaded from the last-stored value in initState so the checkbox
+  // itself remembers what was last chosen, same as the behavior it drives.
   bool _rememberMe = true;
   bool _isSubmitting = false;
   String? _credentialsError;
+
+  @override
+  void initState() {
+    super.initState();
+    const RememberMePrefs().isRemembered().then((remembered) {
+      if (mounted) setState(() => _rememberMe = remembered);
+    });
+  }
 
   @override
   void dispose() {
@@ -74,6 +81,9 @@ class _SignInScreenState extends State<SignInScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+      // Only stored once a session actually exists -- there's nothing to
+      // remember (or not) about a sign-in attempt that failed.
+      await const RememberMePrefs().setRemembered(_rememberMe);
       final hasActive = await _subscriptionService.hasActiveSubscription();
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
