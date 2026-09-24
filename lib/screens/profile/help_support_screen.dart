@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/screen_header.dart';
 
@@ -8,11 +9,11 @@ import '../../widgets/screen_header.dart';
 // the Figma app's Design panel -- the REST API was rate-limited when this was
 // built (same as Privacy & Security, #45), so a few spacing values not read
 // directly are noted below where they're used.
-const _titleInk = Color(0xFF1E2939);
-const _bodyInk = Color(0xFF4A5565);
-const _chevronInk = Color(0xFF99A1AF);
-const _rowDivider = Color(0xFFF3F4F6);
-const _placeholderInk = Color(0xFF99A1AF);
+//
+// Sprint 8 Task 2 (dark mode rebuild): the neutral ink/divider values above
+// are now sourced from `context.colors`. The three contact-card icon colors
+// (Live Chat pink, Email Us purple, Call Us green) stay fixed brand/accent
+// colors in both themes, same as every other accent in this app.
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
@@ -82,7 +83,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             // Figma's frame padding: 16 sides, 32 top; 32 below the last card.
@@ -153,6 +154,7 @@ class _ContactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       width: double.infinity,
       // Figma: left 24, top 24, bottom 24; right read as 0, which would run
@@ -163,9 +165,9 @@ class _ContactCard extends StatelessWidget {
       // reproduced literally.
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,18 +176,18 @@ class _ContactCard extends StatelessWidget {
           const SizedBox(height: 36),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
               height: 28 / 18,
               letterSpacing: -0.44,
-              color: _titleInk,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 36),
           Text(
             description,
-            style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _bodyInk),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
         ],
       ),
@@ -203,12 +205,13 @@ class _FaqCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -267,9 +270,10 @@ class _FaqRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       decoration: showDivider
-          ? const BoxDecoration(border: Border(bottom: BorderSide(color: _rowDivider, width: _hairline)))
+          ? BoxDecoration(border: Border(bottom: BorderSide(color: colors.border, width: _hairline)))
           : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -287,20 +291,20 @@ class _FaqRow extends StatelessWidget {
                     Expanded(
                       child: Text(
                         item.question,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           height: 24 / 16,
                           letterSpacing: -0.31,
-                          color: _titleInk,
+                          color: colors.textPrimary,
                         ),
                       ),
                     ),
                     AnimatedRotation(
                       duration: const Duration(milliseconds: 150),
                       turns: expanded ? 0.25 : 0, // right-pointing -> down-pointing
-                      child: const Padding(
-                        padding: EdgeInsets.only(left: 8, top: 2),
-                        child: Icon(Icons.chevron_right, size: 20, color: _chevronInk),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8, top: 2),
+                        child: Icon(Icons.chevron_right, size: 20, color: colors.textMuted),
                       ),
                     ),
                   ],
@@ -314,9 +318,9 @@ class _FaqRow extends StatelessWidget {
               child: item.answer != null
                   ? Text(
                       item.answer!,
-                      style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _bodyInk),
+                      style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
                     )
-                  : const Text(
+                  : Text(
                       // Deliberately NOT a fabricated answer -- see the class
                       // doc comment on HelpSupportScreen and decision #46.
                       'Answer not available yet.',
@@ -325,7 +329,7 @@ class _FaqRow extends StatelessWidget {
                         height: 20 / 14,
                         letterSpacing: -0.15,
                         fontStyle: FontStyle.italic,
-                        color: _placeholderInk,
+                        color: colors.textMuted,
                       ),
                     ),
             ),
@@ -345,30 +349,31 @@ class _ResourcesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     const resources = ['User Guide', 'Membership Benefits', 'Community Guidelines'];
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: _rowDivider, width: _hairline)),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: colors.border, width: _hairline)),
             ),
-            child: const Text(
+            child: Text(
               'Resources',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
                 height: 28 / 18,
                 letterSpacing: -0.44,
-                color: _titleInk,
+                color: colors.textPrimary,
               ),
             ),
           ),
@@ -379,23 +384,23 @@ class _ResourcesCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 height: 48,
                 decoration: i < resources.length - 1
-                    ? const BoxDecoration(border: Border(bottom: BorderSide(color: _rowDivider, width: _hairline)))
+                    ? BoxDecoration(border: Border(bottom: BorderSide(color: colors.border, width: _hairline)))
                     : null,
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
                         resources[i],
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                           height: 24 / 16,
                           letterSpacing: -0.31,
-                          color: _titleInk,
+                          color: colors.textPrimary,
                         ),
                       ),
                     ),
-                    const Icon(Icons.chevron_right, size: 20, color: _chevronInk),
+                    Icon(Icons.chevron_right, size: 20, color: colors.textMuted),
                   ],
                 ),
               ),

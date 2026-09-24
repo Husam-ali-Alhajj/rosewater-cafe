@@ -3,17 +3,15 @@ import 'package:flutter/material.dart';
 import '../../models/payment_method.dart';
 import '../../services/payment_method_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/screen_header.dart';
 import 'add_payment_method_screen.dart';
 
 // Exact values read from the Figma `PaymentMethodsScreen` frame (node
 // 1217:2477) via the REST API -- same method as decisions #20/#40/#41/#42.
-const _cardNumberInk = Color(0xFF4A5565);
-const _expiresInk = Color(0xFF6A7282);
-const _defaultBadgeFill = Color(0xFFDCFCE7);
-const _defaultBadgeInk = Color(0xFF016630);
-const _setDefaultInk = Color(0xFF00A63E);
-const _deleteInk = Color(0xFFE7000B);
+// Sprint 8 Task 2 (dark mode rebuild): the neutral greys are now sourced
+// from `context.colors`; the green "Default"/set-default and red delete inks
+// map onto the semantic success/danger tokens, which invert correctly.
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
@@ -113,7 +111,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Remove', style: TextStyle(color: _deleteInk)),
+            child: Text('Remove', style: TextStyle(color: ctx.colors.danger)),
           ),
         ],
       ),
@@ -135,9 +133,10 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             // Figma's frame padding: 16 sides, 32 top; 32 below the list.
@@ -243,12 +242,13 @@ class _PaymentMethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: SizedBox(
         height: 76,
@@ -259,7 +259,10 @@ class _PaymentMethodCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 56px tile, vertically centred in the 76px content.
+                  // 56px tile, vertically centred in the 76px content. Uses
+                  // the theme's own surface tones (rather than the design's
+                  // fixed light-grey pair) so it doesn't go flat/invisible
+                  // against a dark card.
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: Container(
@@ -268,8 +271,8 @@ class _PaymentMethodCard extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFF3F4F6), Color(0xFFE5E7EB)],
+                        gradient: LinearGradient(
+                          colors: [colors.inputFill, colors.surfaceElevated],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -286,7 +289,7 @@ class _PaymentMethodCard extends StatelessWidget {
             if (!method.isDefault) ...[
               _IconAction(
                 icon: Icons.check_circle_outline,
-                color: _setDefaultInk,
+                color: colors.success,
                 tooltip: 'Set as default',
                 onTap: enabled ? onSetDefault : null,
               ),
@@ -294,7 +297,7 @@ class _PaymentMethodCard extends StatelessWidget {
             ],
             _IconAction(
               icon: Icons.delete_outline,
-              color: _deleteInk,
+              color: colors.danger,
               tooltip: 'Delete',
               onTap: enabled ? onDelete : null,
             ),
@@ -312,6 +315,7 @@ class _CardDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     // The design's column is 76 tall on a non-default card; on the default
     // card the extra 4px gap before "Expires" pushes it to 80, spilling into
     // the card's bottom padding. Reproduced: the box stays 76 and the text
@@ -334,11 +338,11 @@ class _CardDetails extends StatelessWidget {
                       method.brand,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         height: 28 / 18,
                         letterSpacing: -0.44,
-                        color: AppColors.textDark,
+                        color: colors.textPrimary,
                       ),
                     ),
                   ),
@@ -346,14 +350,17 @@ class _CardDetails extends StatelessWidget {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: _defaultBadgeFill, borderRadius: BorderRadius.circular(8)),
-                      child: const Text(
+                      decoration: BoxDecoration(
+                        color: colors.success.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
                         'Default',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           height: 16 / 12,
-                          color: _defaultBadgeInk,
+                          color: colors.success,
                         ),
                       ),
                     ),
@@ -364,12 +371,12 @@ class _CardDetails extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               method.maskedNumber,
-              style: const TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.31, color: _cardNumberInk),
+              style: TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.31, color: colors.textMuted),
             ),
             SizedBox(height: method.isDefault ? 4 : 0),
             Text(
               method.expiryLabel,
-              style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _expiresInk),
+              style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
             ),
           ],
         ),
@@ -415,19 +422,20 @@ class _MessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         children: [
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _cardNumberInk),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           if (actionLabel != null) TextButton(onPressed: onAction, child: Text(actionLabel!)),
         ],

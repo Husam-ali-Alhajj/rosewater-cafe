@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/membership_plan.dart';
 import '../../services/subscription_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/payment_validators.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/outlined_secondary_button.dart';
@@ -88,9 +88,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final plan = widget.plan;
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -98,9 +99,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: AppColors.cardWhite,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                  border: Border.all(color: colors.border),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.12),
@@ -118,22 +119,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     children: [
                       const Icon(Icons.credit_card_outlined, size: 64, color: Color(0xFFFF2056)),
                       const SizedBox(height: 12),
-                      const Text(
+                      Text(
                         'Complete Payment',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500, letterSpacing: 0.07, color: AppColors.textDark),
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500, letterSpacing: 0.07, color: colors.textPrimary),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '${plan.name} Plan',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textMuted),
                       ),
                       const SizedBox(height: 48),
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF9FAFB),
+                          color: colors.inputFill,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Column(
@@ -141,29 +142,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   'Monthly Subscription',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: AppColors.textMuted),
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textMuted),
                                 ),
                                 Text(
                                   '\$${plan.priceDollars}',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: AppColors.membershipPriceText),
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textPrimary),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8),
-                            const Divider(color: Colors.black12, height: 1),
+                            Divider(color: colors.border, height: 1),
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   'Total',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: AppColors.membershipPriceText),
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textPrimary),
                                 ),
                                 Text(
                                   '\$${plan.priceDollars}',
-                                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w400, letterSpacing: 0.07, color: AppColors.membershipPriceText),
+                                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w400, letterSpacing: 0.07, color: colors.textPrimary),
                                 ),
                               ],
                             ),
@@ -209,7 +210,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 16),
-                        Text(_errorMessage!, style: TextStyle(color: AppColors.danger, fontSize: 12), textAlign: TextAlign.center),
+                        Text(_errorMessage!, style: TextStyle(color: colors.danger, fontSize: 12), textAlign: TextAlign.center),
                       ],
                       const SizedBox(height: 48),
                       Row(

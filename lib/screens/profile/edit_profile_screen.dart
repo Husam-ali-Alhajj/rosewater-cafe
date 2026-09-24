@@ -7,24 +7,16 @@ import '../../models/profile.dart';
 import '../../services/avatar_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/subscription_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/validators.dart';
 import '../../widgets/form_buttons.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/screen_header.dart';
 
 // Exact values read from the Figma `EditProfileScreen` frame (node 1217:2403)
-// via the REST API -- same method as decisions #20/#40/#41. Kept private to
-// this file.
-const _labelInk = Color(0xFF364153);
-const _iconGrey = Color(0xFF99A1AF);
-const _inputFill = Color(0xFFF3F3F5);
-// The design shows field values in this grey (Figma's muted-foreground).
-const _inputInk = Color(0xFF717182);
-const _rowFill = Color(0xFFF9FAFB);
-const _rowValue = Color(0xFF101828);
-const _mutedText = Color(0xFF6A7282);
-const _cameraButtonBorder = Color(0xFFF3F4F6);
+// via the REST API -- same method as decisions #20/#40/#41. Sprint 8 Task 2
+// (dark mode rebuild): all of these were fixed light-mode neutrals; they now
+// come from `context.colors` instead, so this screen inverts correctly.
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
@@ -210,10 +202,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final memberId = widget.profile.memberId;
+    final colors = context.colors;
     return Scaffold(
       body: Container(
         // The Figma frame's own fill: the same soft 3-stop page wash.
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             // Figma's frame padding: 16 sides, 32 top, and 32 below the
@@ -234,7 +227,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.all(24),
-                  decoration: _cardDecoration(),
+                  decoration: _cardDecoration(colors),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -269,7 +262,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.all(24),
-                  decoration: _cardDecoration(),
+                  decoration: _cardDecoration(colors),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -281,9 +274,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ],
                       _InfoRow(label: 'Subscription Type', value: widget.membership.planName),
                       const SizedBox(height: 12),
-                      const Text(
+                      Text(
                         'Contact support to change membership type',
-                        style: TextStyle(fontSize: 12, height: 16 / 12, color: _mutedText),
+                        style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
                       ),
                     ],
                   ),
@@ -293,7 +286,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Text(
                     _errorMessage!,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.danger, fontSize: 12),
+                    style: TextStyle(color: colors.danger, fontSize: 12),
                   ),
                 ],
                 const SizedBox(height: 24),
@@ -318,11 +311,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 }
 
-BoxDecoration _cardDecoration() {
+BoxDecoration _cardDecoration(AppSemanticColors colors) {
   return BoxDecoration(
-    color: Colors.white.withValues(alpha: 0.9),
+    color: colors.surface,
     borderRadius: BorderRadius.circular(14),
-    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+    border: Border.all(color: colors.border, width: _hairline),
   );
 }
 
@@ -346,9 +339,10 @@ class _PhotoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(colors),
       child: Column(
         children: [
           SizedBox(
@@ -368,17 +362,17 @@ class _PhotoCard extends StatelessWidget {
                   child: Tooltip(
                     message: 'Change photo',
                     child: Material(
-                      color: Colors.white,
-                      shape: const CircleBorder(side: BorderSide(color: _cameraButtonBorder, width: 1.545)),
+                      color: colors.surface,
+                      shape: CircleBorder(side: BorderSide(color: colors.border, width: 1.545)),
                       shadowColor: Colors.black.withValues(alpha: 0.1),
                       elevation: 4,
                       child: InkWell(
                         onTap: onChoosePhoto,
                         customBorder: const CircleBorder(),
-                        child: const SizedBox(
+                        child: SizedBox(
                           width: 40,
                           height: 40,
-                          child: Center(child: Icon(Icons.camera_alt_outlined, size: 20, color: AppColors.textMuted)),
+                          child: Center(child: Icon(Icons.camera_alt_outlined, size: 20, color: colors.textMuted)),
                         ),
                       ),
                     ),
@@ -388,16 +382,16 @@ class _PhotoCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Tap camera icon to change photo',
-            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           if (errorText != null) ...[
             const SizedBox(height: 8),
             Text(
               errorText!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.danger, fontSize: 12),
+              style: TextStyle(color: colors.danger, fontSize: 12),
             ),
           ],
         ],
@@ -415,30 +409,32 @@ class _CardTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w500,
         height: 28 / 18,
         letterSpacing: -0.44,
-        color: AppColors.textDark,
+        color: context.colors.textPrimary,
       ),
     );
   }
 }
 
-const _labelStyle = TextStyle(
+TextStyle _labelStyle(AppSemanticColors colors) => TextStyle(
   fontSize: 14,
   fontWeight: FontWeight.w500,
   height: 1, // the design's 14px line height
   letterSpacing: -0.15,
-  color: _labelInk,
+  color: colors.textMuted,
 );
 
-const _valueStyle = TextStyle(
+// The design shows editable-field text in a muted foreground, distinct from
+// the near-black used for read-only summary values in _InfoRow below.
+TextStyle _valueStyle(AppSemanticColors colors) => TextStyle(
   fontSize: 16,
   height: 19 / 16, // the design's text box is 19 tall, at y=8.5 in a 36 input
   letterSpacing: -0.31,
-  color: _inputInk,
+  color: colors.textMuted,
 );
 
 /// One editable field: a 14px label, 8px gap, then a 36px input with a 20px
@@ -465,6 +461,7 @@ class _EditField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     OutlineInputBorder border([Color? color]) => OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
       borderSide: color == null ? BorderSide.none : BorderSide(color: color),
@@ -472,7 +469,7 @@ class _EditField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: _labelStyle),
+        Text(label, style: _labelStyle(colors)),
         const SizedBox(height: 8),
         Stack(
           children: [
@@ -483,25 +480,25 @@ class _EditField extends StatelessWidget {
               keyboardType: keyboardType,
               textCapitalization: textCapitalization,
               autovalidateMode: AutovalidateMode.onUserInteraction,
-              style: _valueStyle,
+              style: _valueStyle(colors),
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,
-                fillColor: _inputFill,
+                fillColor: colors.inputFill,
                 contentPadding: const EdgeInsets.fromLTRB(44, 8.5, 12, 8.5),
                 border: border(),
                 enabledBorder: border(),
                 disabledBorder: border(),
                 focusedBorder: border(),
-                errorBorder: border(AppColors.danger),
-                focusedErrorBorder: border(AppColors.danger),
-                errorStyle: const TextStyle(fontSize: 12, color: AppColors.danger),
+                errorBorder: border(colors.danger),
+                focusedErrorBorder: border(colors.danger),
+                errorStyle: TextStyle(fontSize: 12, color: colors.danger),
               ),
             ),
             Positioned(
               left: 12,
               top: 8,
-              child: IgnorePointer(child: Icon(icon, size: 20, color: _iconGrey)),
+              child: IgnorePointer(child: Icon(icon, size: 20, color: colors.textMuted)),
             ),
           ],
         ),
@@ -520,10 +517,11 @@ class _ReadOnlyEmailField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Email Address', style: _labelStyle),
+        Text('Email Address', style: _labelStyle(colors)),
         const SizedBox(height: 8),
         Semantics(
           readOnly: true,
@@ -532,20 +530,20 @@ class _ReadOnlyEmailField extends StatelessWidget {
           child: ExcludeSemantics(
             child: Container(
               height: 36,
-              decoration: BoxDecoration(color: _inputFill, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(8)),
               child: Stack(
                 children: [
-                  const Positioned(
+                  Positioned(
                     left: 12,
                     top: 8,
-                    child: Icon(Icons.mail_outline, size: 20, color: _iconGrey),
+                    child: Icon(Icons.mail_outline, size: 20, color: colors.textMuted),
                   ),
                   Padding(
                     // Text starts at x=44, same as the editable inputs.
                     padding: const EdgeInsets.only(left: 44, right: 12),
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(email, maxLines: 1, overflow: TextOverflow.ellipsis, style: _valueStyle),
+                      child: Text(email, maxLines: 1, overflow: TextOverflow.ellipsis, style: _valueStyle(colors)),
                     ),
                   ),
                 ],
@@ -554,9 +552,9 @@ class _ReadOnlyEmailField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           "Your email can't be changed in the app.",
-          style: TextStyle(fontSize: 12, height: 16 / 12, color: _mutedText),
+          style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
         ),
       ],
     );
@@ -571,20 +569,21 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: _rowFill, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _labelInk),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.31, color: _rowValue),
+            style: TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.31, color: colors.textPrimary),
           ),
         ],
       ),

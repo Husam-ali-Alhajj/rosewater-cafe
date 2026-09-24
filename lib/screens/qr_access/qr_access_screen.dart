@@ -5,6 +5,7 @@ import '../../models/profile.dart';
 import '../../services/door_access_service.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/gradient_button.dart';
 
 /// Door Access / QR Code screen (Figma node 1215:1616). `membership` comes
@@ -77,9 +78,9 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
         _guestCount = 0;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Door unlocked! Enjoy your visit.'),
-          backgroundColor: AppColors.success,
+        SnackBar(
+          content: const Text('Door unlocked! Enjoy your visit.'),
+          backgroundColor: context.colors.success,
         ),
       );
     } on LogDoorAccessFailure catch (e) {
@@ -99,6 +100,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -108,10 +110,10 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: widget.onBackToDashboard,
-              icon: const Icon(Icons.arrow_back, size: 16, color: Color(0xFF0A0A0A)),
-              label: const Text(
+              icon: Icon(Icons.arrow_back, size: 16, color: colors.textPrimary),
+              label: Text(
                 'Back to Dashboard',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF0A0A0A)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
               ),
             ),
           ),
@@ -119,24 +121,24 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
+              color: colors.surface.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+              border: Border.all(color: colors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
+                Text(
                   'Door Access',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: AppColors.textDark),
+                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: colors.textPrimary),
                 ),
                 const SizedBox(height: 48),
-                _buildQrSection(),
+                _buildQrSection(colors),
                 const SizedBox(height: 56),
-                _buildGuestCounter(),
+                _buildGuestCounter(colors),
                 const SizedBox(height: 48),
-                _buildNote(),
+                _buildNote(context),
                 const SizedBox(height: 48),
                 GradientButton(
                   label: _isOpening ? 'Opening…' : 'Open Door',
@@ -147,7 +149,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
                   Text(
                     _errorMessage!,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.danger, fontSize: 12),
+                    style: TextStyle(color: colors.danger, fontSize: 12),
                   ),
                 ],
               ],
@@ -158,12 +160,16 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
     );
   }
 
-  Widget _buildQrSection() {
+  Widget _buildQrSection(AppSemanticColors colors) {
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
+            // Deliberately ALWAYS white, in both themes -- not colors.surface.
+            // A QR scanner needs real black-on-white contrast; a dark-mode
+            // card fill behind it would risk it not scanning at all, so this
+            // one element intentionally opts out of the theme.
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
@@ -176,6 +182,8 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
                     child: Text(
                       'Unable to load your member ID',
                       textAlign: TextAlign.center,
+                      // Fixed dark-on-white text to match the QR card's
+                      // always-white fill above, not colors.textMuted.
                       style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                     ),
                   ),
@@ -191,28 +199,28 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
                 ),
         ),
         const SizedBox(height: 24),
-        const Text(
+        Text(
           'Scan this QR code at the entrance to unlock the door',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textMuted),
         ),
       ],
     );
   }
 
-  Widget _buildGuestCounter() {
+  Widget _buildGuestCounter(AppSemanticColors colors) {
     final plan = widget.membership.plan;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'How many people are with you?',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: AppColors.textDark),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colors.textPrimary),
         ),
         const SizedBox(height: 12),
         Text(
           'You can bring up to $_maxGuests guest${_maxGuests == 1 ? '' : 's'} with your ${plan.name} membership',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textMuted),
         ),
         const SizedBox(height: 12),
         Row(
@@ -224,17 +232,17 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.people_outline, size: 20, color: AppColors.textMuted),
+                    Icon(Icons.people_outline, size: 20, color: colors.textMuted),
                     const SizedBox(width: 8),
                     Text(
                       '$_guestCount',
-                      style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w400, color: AppColors.textDark),
+                      style: TextStyle(fontSize: 30, fontWeight: FontWeight.w400, color: colors.textPrimary),
                     ),
                   ],
                 ),
-                const Text(
+                Text(
                   'Guests',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.membershipPriceSuffix),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: colors.textMuted),
                 ),
               ],
             ),
@@ -245,18 +253,27 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
     );
   }
 
-  Widget _buildNote() {
+  // A warning-accented INFO box, not a neutral surface -- same reasoning as
+  // ReserveEventScreen's purple package card: keeps its own brightness-picked
+  // amber tint (the design's exact light-mode colors; a dark amber-tinted
+  // surface with light amber text in dark mode) rather than becoming an
+  // undifferentiated `colors.surface` card.
+  Widget _buildNote(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF3A2E12) : const Color(0xFFFFFBEB);
+    final border = isDark ? const Color(0xFF6B5518) : const Color(0xFFFEE685);
+    final ink = isDark ? const Color(0xFFFFD98A) : const Color(0xFF973C00);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
+        color: bg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFFEE685)),
+        border: Border.all(color: border),
       ),
-      child: const Text.rich(
+      child: Text.rich(
         TextSpan(
-          style: TextStyle(fontSize: 14, color: Color(0xFF973C00)),
-          children: [
+          style: TextStyle(fontSize: 14, color: ink),
+          children: const [
             TextSpan(text: 'Note: ', style: TextStyle(fontWeight: FontWeight.w700)),
             TextSpan(
               text: 'Your monthly allowance covers your orders only. Guest orders will receive '
@@ -277,12 +294,13 @@ class _StepperButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final enabled = onPressed != null;
     return Material(
-      color: Colors.white,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.black.withValues(alpha: enabled ? 0.1 : 0.05)),
+        side: BorderSide(color: colors.border.withValues(alpha: enabled ? 1 : 0.5)),
       ),
       child: InkWell(
         onTap: onPressed,
@@ -296,7 +314,7 @@ class _StepperButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: enabled ? const Color(0xFF0A0A0A) : const Color(0xFF0A0A0A).withValues(alpha: 0.3),
+                color: enabled ? colors.textPrimary : colors.textMuted,
               ),
             ),
           ),

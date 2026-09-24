@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/membership_plan.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 import '../home/main_shell.dart';
@@ -32,9 +32,10 @@ class PaymentSuccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -42,9 +43,9 @@ class PaymentSuccessScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: AppColors.cardWhite,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                  border: Border.all(color: colors.border),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.12),
@@ -70,16 +71,16 @@ class PaymentSuccessScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const Text(
+                    Text(
                       "You're a Member!",
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: AppColors.textDark),
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: colors.textPrimary),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       'Welcome to Rosewater Café. Your ${plan.name} membership is now active.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16, color: AppColors.textMuted, height: 1.4),
+                      style: TextStyle(fontSize: 16, color: colors.textMuted, height: 1.4),
                     ),
                     const SizedBox(height: 32),
                     GradientButton(label: 'Continue', onPressed: () => _continue(context)),

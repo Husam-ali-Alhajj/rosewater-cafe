@@ -3598,6 +3598,110 @@ assumption. No visible or behavioral change to the app yet -- exactly as scoped.
 
 ---
 
+### 59. Sprint 8 Task 2 — Real Dark Mode, rebuilt after live feedback caught what a code review alone didn't
+
+**First pass (a cloud session, reviewed but not merged as-is):** built the
+underlying architecture -- `AppSemanticColors extends ThemeExtension`
+(`surface`/`inputFill`/`border`/`textPrimary`/`textMuted`/`success`/`warning`/
+`danger`/`pageBackgroundGradient`, each with a `.light` and `.dark` instance),
+`AppTheme.dark` registering it, `MaterialApp`'s `themeMode` bound to
+`SettingsProvider.themeMode` via a `Consumer`. This part was sound and kept
+as-is: reviewed the WCAG contrast math by hand (relative-luminance formula, not
+trusting a comment) and it passed AA on every token pair.
+
+**What was wrong, found by the user's own live click-through, not by that code
+review:** two separate problems, reported together --
+
+1. *Incomplete coverage.* The first pass converted some screens to
+   `context.colors` but left others on hardcoded light-mode `AppColors.*`
+   constants -- Events (Reserve an Event, Reservation Confirmed) and QR / Door
+   Access stayed fully light regardless of the toggle. A project-wide
+   `grep -L app_semantic_colors` (run independently, moments around the same
+   time as the user's report) confirmed roughly 15 files were never touched.
+2. *The palette itself was bad.* `AppColors.dark*`'s background and surface
+   colors sat in the same dark-purple hue family as the pink/purple brand accent,
+   so the UI read as flat and "muddy" rather than the accent popping against a
+   neutral backdrop -- a real design defect a contrast-ratio check alone doesn't
+   catch, only looking at it does.
+
+The user pointed at a specific reference (a Figma community banking-app UI kit
+with its own light/dark system) for aesthetic cues -- not to copy its blue
+brand color, but for the *structural* idea of a neutral, sufficiently-dark
+backdrop that a saturated accent color sits on top of, rather than blends into.
+Asked directly whether to keep Rosewater's pink/purple accent given that
+reference: **chose to stay open to a different dark accent** rather than
+preserving pink/purple unconditionally -- in the end the accent
+(`AppColors.primaryGradient`) was left untouched, because the actual problem
+traced to the *background* being too close to the accent's hue, not to the
+accent itself being wrong; changing the backdrop already fixed the "blends in"
+complaint without also re-skinning the app's brand color.
+
+**Rebuilt:**
+
+- **`lib/theme/app_colors.dart`'s dark palette**, redone deeper and more
+  neutral: `darkBackground`/`darkSurface`/`darkSurfaceElevated`/`darkInputFill`
+  near-black with only a faint purple cast (not the previous same-family purple),
+  `darkBorder` a translucent white hairline, `darkTextPrimary`/`darkTextMuted`
+  kept high-contrast off-white/grey. `pageBackgroundGradientDark` re-picked to
+  match. `success`/`warning`/`danger` dark variants unchanged -- they already
+  cleared AA. `primaryGradient` and every membership-tier gradient
+  deliberately untouched, per the task's own "still reads as Rosewater Café"
+  requirement.
+- **Full file-coverage pass**, not just the screens the user named: every
+  remaining screen and shared widget converted to `context.colors`, in this
+  order -- Events (`reserve_event_screen`, `reservation_confirmed_screen`), QR
+  / Door Access (`qr_access_screen`), the rest of Membership
+  (`id_upload_screen`, `payment_screen`, `payment_success_screen`, plus
+  `payment_fields.dart` and `outlined_secondary_button.dart`, the latter's
+  `borderColor`/`textColor` changed from hardcoded-default `Color` to nullable
+  `Color?` resolved via `context.colors` so callers that don't override it get
+  the theme instead of a fixed light value), all seven remaining Profile
+  screens (`profile_screen`, `edit_profile_screen`, `payment_methods_screen`,
+  `add_payment_method_screen`, `notification_settings_screen`,
+  `help_support_screen`, `privacy_security_screen` -- the last one carrying
+  Delete Account / Change Password / Change Email's forms from decisions
+  #54/#57, its `_deleteInk` mapped onto `colors.danger`, the semantic token
+  already re-picked per brightness to clear AA, not a generic color), plus
+  `setting_toggle_row.dart`'s switch off-state and Onboarding
+  (`onboarding_screen.dart`). A handful of decorative colors were deliberately
+  left as fixed literals rather than tokenized, each with a comment explaining
+  why: the QR code's own white background (scanner contrast requirement), the
+  purple/amber info-box tints on Reserve an Event / QR Access (brand-tinted,
+  not neutral, so they get their own light/dark pair via a local brightness
+  check rather than a semantic token), every accent gradient and
+  `AppColors.bottomNavActive`-style brand color (per the architecture's own
+  stated intent, see `app_semantic_colors.dart`'s doc comment), and
+  `DotsIndicator`'s inactive-dot grey (no existing token fits a small solid
+  control sitting directly on the page wash -- `border` is a translucent
+  hairline, `surfaceElevated` is a card fill and, in light mode, pure white --
+  so it picks its own brightness-appropriate pair instead of reusing the wrong
+  token).
+- **`SettingToggleRow`'s switch track**, on closer look during this pass, also
+  had a leftover fixed light-grey "off" state (`0xFFD1D5DC`) that would have
+  stayed nearly invisible against a dark card -- moved to
+  `colors.surfaceElevated` (opaque, a step lighter than the card, reads as
+  solid) rather than the translucent `border` token.
+
+**Verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+222/222 (unchanged; no widget test asserts on a specific hex color, so none
+needed updating for the palette change). Live verification via the running
+Flutter Web dev server was attempted but the browser tab repeatedly froze
+mid-render in this environment (confirmed the dev server itself was fine --
+`curl` got a fast `200` the whole time, so this was a renderer/resource issue
+here, not a build or code problem) -- **the actual "does Events/QR Code look
+right now, and does it look good" check the user asked for is still owed as a
+manual click-through**, same split this project already uses for DB/SQL vs.
+app-level verification.
+
+**Sign-off:** architecture kept from the first pass (it was sound); coverage
+gap and palette both fixed based on the user's direct product-level testing,
+which caught both problems faster and more conclusively than the code-level
+review alone. **Not yet signed off end-to-end** -- pending the user's own
+visual click-through of Dark Mode across Home, Choose Membership, a form
+screen, and specifically Events and QR Code (the two called out as broken).
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

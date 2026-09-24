@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/reservation_summary.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/gradient_button.dart';
 
 /// Reservation Confirmed screen (Figma App-13). Takes the just-created
@@ -25,6 +25,7 @@ class ReservationConfirmedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final dateText = DateFormat('M/d/yyyy').format(reservation.eventDate);
     final time = reservation.startTime;
     final timeText = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
@@ -40,22 +41,22 @@ class ReservationConfirmedScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
+              color: colors.surface.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+              border: Border.all(color: colors.border),
             ),
             child: Row(
               children: [
                 Container(
                   width: 24,
                   height: 24,
-                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF0A0A0A)),
-                  child: const Icon(Icons.check, color: Colors.white, size: 14),
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: colors.textPrimary),
+                  child: Icon(Icons.check, color: colors.surface, size: 14),
                 ),
                 const SizedBox(width: 10),
-                const Text(
+                Text(
                   'Event reservation confirmed!',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textDark),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
                 ),
               ],
             ),
@@ -64,9 +65,9 @@ class ReservationConfirmedScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
+              color: colors.surface.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+              border: Border.all(color: colors.border),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -76,35 +77,35 @@ class ReservationConfirmedScreen extends StatelessWidget {
                   child: Container(
                     width: 88,
                     height: 88,
-                    decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFDCFCE7)),
-                    child: const Icon(Icons.check, color: Color(0xFF16A34A), size: 44),
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: colors.success.withValues(alpha: 0.15)),
+                    child: Icon(Icons.check, color: colors.success, size: 44),
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'Reservation Confirmed!',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: AppColors.textDark),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: colors.textPrimary),
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'Your event has been successfully reserved',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: AppColors.textMuted, height: 1.4),
+                  style: TextStyle(fontSize: 16, color: colors.textMuted, height: 1.4),
                 ),
                 const SizedBox(height: 32),
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: const Color(0xFFF9FAFB), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
                   child: Column(
                     children: [
-                      _detailRow('Date:', dateText),
+                      _detailRow(colors, 'Date:', dateText),
                       const SizedBox(height: 8),
-                      _detailRow('Time:', timeText),
+                      _detailRow(colors, 'Time:', timeText),
                       const SizedBox(height: 8),
-                      _detailRow('Duration:', durationText),
+                      _detailRow(colors, 'Duration:', durationText),
                       const SizedBox(height: 8),
-                      _detailRow('Guests:', guestsText),
+                      _detailRow(colors, 'Guests:', guestsText),
                     ],
                   ),
                 ),
@@ -118,12 +119,12 @@ class ReservationConfirmedScreen extends StatelessWidget {
     );
   }
 
-  Widget _detailRow(String label, String value) {
+  Widget _detailRow(AppSemanticColors colors, String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textMuted)),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: AppColors.textDark)),
+        Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textMuted)),
+        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: colors.textPrimary)),
       ],
     );
   }

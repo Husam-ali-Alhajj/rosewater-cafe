@@ -86,28 +86,34 @@ class AppColors {
   static const Color warning = Color(0xFFF9A825);
   static const Color danger = Color(0xFFD32F2F);
 
-  // --- Dark mode (Sprint 8 Task 2) ---
+  // --- Dark mode (Sprint 8 Task 2, rebuilt after live feedback) ---
   //
-  // Deliberately NOT a generic Material dark (blue-grey surfaces on near-
-  // black) -- these keep the same low-saturation plum/maroon hue family as
-  // [pageBackgroundGradient] and [cardWhite]'s warm undertone, just pushed to
-  // dark-mode luminance, so a card or the page wash still reads as this
-  // brand at night instead of a stock dark theme with pink buttons dropped
-  // on top. Consumed through [AppSemanticColors.dark] (see
-  // app_semantic_colors.dart), never referenced directly by a screen.
-  static const Color darkBackground = Color(0xFF120A10);
-  static const Color darkSurface = Color(0xFF211622);
-  static const Color darkSurfaceElevated = Color(0xFF2B1D2C);
-  static const Color darkInputFill = Color(0xFF2B1D2C);
-  static const Color darkBorder = Color(0x26FFFFFF); // white @ 15%
-  static const Color darkTextPrimary = Color(0xFFF5EDF3);
-  static const Color darkTextMuted = Color(0xFFC3B2C1);
+  // v1 of this palette kept the background itself in the same plum/maroon
+  // hue family as the accent gradient -- on a live device that read as
+  // muddy, not "dark and premium": the pink/purple buttons had nothing to
+  // pop against. Rebuilt against a real reference (a dark-mode fintech UI
+  // kit) for the polish bar: the background/surfaces here are now a true,
+  // NEUTRAL near-black (only the barest whisper of cool violet, not a
+  // saturated plum), with a much bigger raw jump between background ->
+  // surface -> elevated surface so cards visibly float instead of blending
+  // in. [primaryGradient] (buttons, active nav, highlighted cards) is
+  // reused completely unchanged -- keeping the accent exactly as-is is what
+  // makes it actually stand out against a properly neutral backdrop,
+  // instead of fighting a same-family background for attention.
+  static const Color darkBackground = Color(0xFF0D0B10);
+  static const Color darkSurface = Color(0xFF1E1A24);
+  static const Color darkSurfaceElevated = Color(0xFF262029);
+  static const Color darkInputFill = Color(0xFF221D2A);
+  static const Color darkBorder = Color(0x33FFFFFF); // white @ 20% -- more definition against near-black than v1's 15%
+  static const Color darkTextPrimary = Color(0xFFF7F4F8);
+  static const Color darkTextMuted = Color(0xFFA79CAE);
 
-  // Same soft 3-stop wash as [pageBackgroundGradient], re-picked at dark-mode
-  // luminance (deep plum -> near-black-violet) rather than lightening the
-  // light-mode stops, which would have washed out against dark text.
+  // Same soft 3-stop wash as [pageBackgroundGradient], re-picked as a barely-
+  // perceptible near-black movement (not a visible plum wash like v1) --
+  // matches [darkBackground] as its base rather than reading as a separate,
+  // lighter layer.
   static const LinearGradient pageBackgroundGradientDark = LinearGradient(
-    colors: [Color(0xFF1B0F19), Color(0xFF17101F), Color(0xFF120A1C)],
+    colors: [Color(0xFF120F17), Color(0xFF0F0D14), Color(0xFF0B0910)],
     stops: [0, 0.5, 1],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,

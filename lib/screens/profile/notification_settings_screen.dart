@@ -2,13 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../services/notification_prefs.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/form_buttons.dart';
 import '../../widgets/screen_header.dart';
 import '../../widgets/setting_toggle_row.dart';
-
-// Exact values read from the Figma `NotificationsScreen` frame (node
-// 1217:2539) via the REST API -- same method as decisions #20/#40-#43.
-const _typesTitleFill = Color(0xFFF3F4F6);
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
@@ -114,7 +111,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     final settings = _settings;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             // Figma's frame padding: 16 sides, 32 top; 32 below the last button.
@@ -164,13 +161,13 @@ Widget _row(
   );
 }
 
-/// White-at-90% card, 14px radius, hairline black-at-10% border; clips its
-/// children so the gradient band's top corners follow the card's.
-BoxDecoration _cardDecoration() {
+/// Themed card surface, 14px radius, hairline border; clips its children so
+/// the gradient band's top corners follow the card's.
+BoxDecoration _cardDecoration(AppSemanticColors colors) {
   return BoxDecoration(
-    color: Colors.white.withValues(alpha: 0.9),
+    color: colors.surface,
     borderRadius: BorderRadius.circular(14),
-    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+    border: Border.all(color: colors.border, width: _hairline),
   );
 }
 
@@ -186,7 +183,7 @@ class _CommunicationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       clipBehavior: Clip.antiAlias,
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context.colors),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -239,9 +236,10 @@ class _TypesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       clipBehavior: Clip.antiAlias,
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(colors),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -249,16 +247,16 @@ class _TypesCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Container(
               height: 28,
-              color: _typesTitleFill,
+              color: colors.inputFill,
               alignment: Alignment.centerLeft,
-              child: const Text(
+              child: Text(
                 'Notification Types',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
                   height: 28 / 18,
                   letterSpacing: -0.44,
-                  color: AppColors.textDark,
+                  color: colors.textPrimary,
                 ),
               ),
             ),

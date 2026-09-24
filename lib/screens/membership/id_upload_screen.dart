@@ -9,7 +9,7 @@ import '../../models/profile.dart';
 import '../../services/id_document_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/subscription_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/gradient_button.dart';
 import 'payment_screen.dart';
 
@@ -247,9 +247,10 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
@@ -259,18 +260,18 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
                     padding: const EdgeInsets.all(24),
                     child: Text(
                       _loadError!,
-                      style: TextStyle(color: AppColors.danger),
+                      style: TextStyle(color: colors.danger),
                       textAlign: TextAlign.center,
                     ),
                   ),
                 )
-              : _buildForm(),
+              : _buildForm(colors),
         ),
       ),
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildForm(AppSemanticColors colors) {
     final profile = _profile!;
     final plan = _plan!;
     return Column(
@@ -280,10 +281,10 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: _cancelling ? null : _backToPlans,
-            icon: const Icon(Icons.arrow_back, size: 16, color: Color(0xFF0A0A0A)),
+            icon: Icon(Icons.arrow_back, size: 16, color: colors.textPrimary),
             label: Text(
               _cancelling ? 'Cancelling…' : 'Back to Plans',
-              style: const TextStyle(color: Color(0xFF0A0A0A), fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15),
+              style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15),
             ),
           ),
         ),
@@ -293,9 +294,9 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
             child: Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: AppColors.cardWhite,
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                border: Border.all(color: colors.border),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.12),
@@ -308,10 +309,10 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
+                  Text(
                     'Verify Your Membership',
                     textAlign: TextAlign.left,
-                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.w500, letterSpacing: 0.4, color: AppColors.textDark),
+                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.w500, letterSpacing: 0.4, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 48),
                   _ReadOnlyField(label: 'Full Name', value: profile.fullName),
@@ -325,26 +326,26 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
                     value: '${plan.name} — \$${plan.priceDollars}/month',
                   ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Upload ID Document',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: Color(0xFF0A0A0A)),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 4),
                   _UploadBox(pickedFileName: _pickedFile?.name, onTap: _showPickerOptions),
                   if (_pickError != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text(_pickError!, style: TextStyle(color: AppColors.danger, fontSize: 12)),
+                      child: Text(_pickError!, style: TextStyle(color: colors.danger, fontSize: 12)),
                     ),
                   if (_uploadError != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text(_uploadError!, style: TextStyle(color: AppColors.danger, fontSize: 12)),
+                      child: Text(_uploadError!, style: TextStyle(color: colors.danger, fontSize: 12)),
                     ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Required for membership verification and security',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.membershipPriceSuffix),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: colors.textMuted),
                   ),
                   const SizedBox(height: 48),
                   GradientButton(
@@ -370,25 +371,26 @@ class _ReadOnlyField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: Color(0xFF0A0A0A)),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: colors.textPrimary),
         ),
         const SizedBox(height: 4),
         TextFormField(
           initialValue: value,
           enabled: false,
-          style: const TextStyle(fontSize: 16, color: Color(0xFF717182), letterSpacing: -0.31),
+          style: TextStyle(fontSize: 16, color: colors.textMuted, letterSpacing: -0.31),
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xFFF3F3F5),
+            fillColor: colors.inputFill,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
+              borderSide: BorderSide(color: colors.border),
             ),
           ),
         ),
@@ -405,6 +407,7 @@ class _UploadBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final hasFile = pickedFileName != null;
     return InkWell(
       onTap: onTap,
@@ -413,32 +416,32 @@ class _UploadBox extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
+          color: colors.inputFill,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: hasFile ? AppColors.success : const Color(0xFFD1D5DC),
-            width: hasFile ? 1.5 : 1.5,
+            color: hasFile ? colors.success : colors.border,
+            width: 1.5,
           ),
         ),
         child: Column(
           children: [
             Icon(
               hasFile ? Icons.check_circle : Icons.upload_outlined,
-              color: hasFile ? AppColors.success : const Color(0xFF99A1AF),
+              color: hasFile ? colors.success : colors.textMuted,
               size: 32,
             ),
             const SizedBox(height: 8),
             Text(
               hasFile ? pickedFileName! : 'Click to upload ID',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: colors.textMuted),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
             ),
             if (!hasFile) ...[
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'PNG, JPG, PDF (max 10MB)',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF99A1AF)),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: colors.textMuted),
               ),
             ],
           ],

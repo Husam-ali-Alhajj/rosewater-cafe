@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/account_deletion_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/validators.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/form_buttons.dart';
@@ -15,14 +16,12 @@ import '../auth/sign_out.dart';
 // panel -- the REST API was rate-limited when this was built, so a few spacing
 // values not read directly are derived from the shared card/row pattern and
 // the frames' measured heights (see docs/decisions.md #45).
-const _rowInk = Color(0xFF364153);
-const _bodyInk = Color(0xFF4A5565);
-const _labelInk = Color(0xFF0A0A0A);
-const _hintInk = Color(0xFF717182);
-const _inputFill = Color(0xFFF3F3F5);
-const _eyeInk = Color(0xFF99A1AF);
-const _dividerInk = Color(0xFFF3F4F6);
-const _deleteInk = Color(0xFFE7000B);
+//
+// Sprint 8 Task 2 (dark mode rebuild): all of these were fixed light-mode
+// neutrals; they now come from `context.colors` instead (`_deleteInk` maps
+// onto `colors.danger`, the semantic token already re-picked per brightness
+// to clear AA contrast -- not a generic color, the correct one for "this is
+// destructive" in either theme).
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
@@ -364,7 +363,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             // Figma's frame padding: 16 sides, 32 top; 32 below the last card.
@@ -396,32 +395,33 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   }
 
   Widget _buildPasswordPrompt() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Keep your account secure by using a strong password',
-            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _bodyInk),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           const SizedBox(height: 16),
           Material(
-            color: Colors.white,
+            color: colors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: BorderSide(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+              side: BorderSide(color: colors.border, width: _hairline),
             ),
             child: InkWell(
               onTap: _openPasswordForm,
               customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              child: const SizedBox(
+              child: SizedBox(
                 height: 36,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.lock_outline, size: 16, color: _labelInk),
-                    SizedBox(width: 17),
+                    Icon(Icons.lock_outline, size: 16, color: colors.textPrimary),
+                    const SizedBox(width: 17),
                     Text(
                       'Change Password',
                       style: TextStyle(
@@ -429,7 +429,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                         fontWeight: FontWeight.w500,
                         height: 20 / 14,
                         letterSpacing: -0.15,
-                        color: _labelInk,
+                        color: colors.textPrimary,
                       ),
                     ),
                   ],
@@ -484,7 +484,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
               Text(
                 _formError!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.danger, fontSize: 12),
+                style: TextStyle(color: context.colors.danger, fontSize: 12),
               ),
             ],
             const SizedBox(height: 24),
@@ -510,6 +510,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   }
 
   Widget _buildEmailPrompt() {
+    final colors = context.colors;
     final currentEmail = widget.authService.currentUserEmail ?? '';
     final pendingEmail = _justRequestedEmail ?? widget.authService.pendingEmailChange;
     return Padding(
@@ -519,33 +520,33 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
         children: [
           Text(
             currentEmail,
-            style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _labelInk),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textPrimary),
           ),
           if (pendingEmail != null) ...[
             const SizedBox(height: 8),
             Text(
               'Confirmation sent to $pendingEmail -- click the link there to finish. '
               'Your current email still works until then.',
-              style: const TextStyle(fontSize: 12, height: 16 / 12, color: _bodyInk),
+              style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
             ),
           ],
           const SizedBox(height: 16),
           Material(
-            color: Colors.white,
+            color: colors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: BorderSide(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+              side: BorderSide(color: colors.border, width: _hairline),
             ),
             child: InkWell(
               onTap: _openEmailForm,
               customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              child: const SizedBox(
+              child: SizedBox(
                 height: 36,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.mail_outline, size: 16, color: _labelInk),
-                    SizedBox(width: 17),
+                    Icon(Icons.mail_outline, size: 16, color: colors.textPrimary),
+                    const SizedBox(width: 17),
                     Text(
                       'Change Email',
                       style: TextStyle(
@@ -553,7 +554,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                         fontWeight: FontWeight.w500,
                         height: 20 / 14,
                         letterSpacing: -0.15,
-                        color: _labelInk,
+                        color: colors.textPrimary,
                       ),
                     ),
                   ],
@@ -567,6 +568,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   }
 
   Widget _buildEmailForm() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -578,17 +580,17 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
               'Enter your new email address and current password. We\'ll send a '
               'confirmation link to the new address -- your current email keeps '
               'working until you click it.',
-              style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _bodyInk),
+              style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
             ),
             const SizedBox(height: 16),
             Text(
               'New Email Address',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 height: 1,
                 letterSpacing: -0.15,
-                color: _labelInk,
+                color: colors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -618,7 +620,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
               Text(
                 _emailFormError!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.danger, fontSize: 12),
+                style: TextStyle(color: colors.danger, fontSize: 12),
               ),
             ],
             const SizedBox(height: 24),
@@ -663,16 +665,17 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   }
 
   Widget _buildDeleteAccountForm() {
+    final colors = context.colors;
     return Form(
       key: _deleteFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'This immediately and permanently deletes your account and everything in it -- '
             'your profile, membership, payment methods, and reservation history. '
             'This cannot be undone.',
-            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _bodyInk),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           const SizedBox(height: 16),
           _PasswordField(
@@ -689,7 +692,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
             Text(
               _deleteFormError!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.danger, fontSize: 12),
+              style: TextStyle(color: colors.danger, fontSize: 12),
             ),
           ],
           const SizedBox(height: 24),
@@ -725,29 +728,30 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: _dividerInk, width: _hairline)),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: colors.border, width: _hairline)),
             ),
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
                 height: 28 / 18,
                 letterSpacing: -0.44,
-                color: AppColors.textDark,
+                color: colors.textPrimary,
               ),
             ),
           ),
@@ -767,12 +771,13 @@ class _SecurityOptionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -863,6 +868,7 @@ class _PasswordField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     const textStyle = TextStyle(fontSize: 16, height: 19 / 16, letterSpacing: -0.31);
     OutlineInputBorder border([Color? color]) => OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
@@ -873,12 +879,12 @@ class _PasswordField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
             height: 1,
             letterSpacing: -0.15,
-            color: _labelInk,
+            color: colors.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -893,21 +899,21 @@ class _PasswordField extends StatelessWidget {
               enableSuggestions: false,
               autocorrect: false,
               autovalidateMode: AutovalidateMode.onUserInteraction,
-              style: textStyle.copyWith(color: AppColors.textDark),
+              style: textStyle.copyWith(color: colors.textPrimary),
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,
-                fillColor: _inputFill,
+                fillColor: colors.inputFill,
                 hintText: hint,
-                hintStyle: textStyle.copyWith(color: _hintInk),
+                hintStyle: textStyle.copyWith(color: colors.textMuted),
                 contentPadding: const EdgeInsets.fromLTRB(12, 8.5, 44, 8.5),
                 border: border(),
                 enabledBorder: border(),
                 disabledBorder: border(),
                 focusedBorder: border(),
-                errorBorder: border(AppColors.danger),
-                focusedErrorBorder: border(AppColors.danger),
-                errorStyle: const TextStyle(fontSize: 12, color: AppColors.danger),
+                errorBorder: border(colors.danger),
+                focusedErrorBorder: border(colors.danger),
+                errorStyle: TextStyle(fontSize: 12, color: colors.danger),
               ),
             ),
             Positioned(
@@ -921,7 +927,7 @@ class _PasswordField extends StatelessWidget {
                   child: Icon(
                     visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                     size: 16,
-                    color: _eyeInk,
+                    color: colors.textMuted,
                   ),
                 ),
               ),
@@ -953,7 +959,7 @@ class _DangerButton extends StatelessWidget {
       opacity: onTap == null ? 0.5 : 1,
       child: Container(
         height: 48,
-        decoration: BoxDecoration(color: _deleteInk, borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(color: context.colors.danger, borderRadius: BorderRadius.circular(8)),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -989,6 +995,7 @@ class _PrivacyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -1005,7 +1012,7 @@ class _PrivacyRow extends StatelessWidget {
                 fontWeight: FontWeight.w500,
                 height: 20 / 14,
                 letterSpacing: -0.15,
-                color: danger ? _deleteInk : _rowInk,
+                color: danger ? colors.danger : colors.textMuted,
               ),
             ),
           ),

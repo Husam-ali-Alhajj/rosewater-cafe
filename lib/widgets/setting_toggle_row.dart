@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_semantic_colors.dart';
 
-const _comingSoonInk = Color(0xFF99A1AF);
 const _switchOn = Color(0xFFEC003F);
-const _switchOff = Color(0xFFD1D5DC);
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
@@ -89,7 +87,7 @@ class SettingToggleRow extends StatelessWidget {
                       if (note != null)
                         Text(
                           note!,
-                          style: const TextStyle(fontSize: 12, height: 16 / 12, color: _comingSoonInk),
+                          style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
                         ),
                     ],
                   ),
@@ -118,6 +116,10 @@ class SettingSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
+    // A step lighter than the card it sits on (like the bottom nav / an app
+    // bar), not the translucent hairline `border` token -- a switch track
+    // needs to read as solid and visibly distinct from the card surface.
+    final switchOff = context.colors.surfaceElevated;
     return Semantics(
       toggled: value,
       label: label,
@@ -132,7 +134,7 @@ class SettingSwitch extends StatelessWidget {
             width: 44,
             height: 24,
             decoration: BoxDecoration(
-              color: value ? _switchOn : _switchOff,
+              color: value ? _switchOn : switchOff,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Stack(

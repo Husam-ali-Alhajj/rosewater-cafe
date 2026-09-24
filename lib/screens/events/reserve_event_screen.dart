@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../models/reservation_summary.dart';
 import '../../services/event_reservation_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/gradient_button.dart';
 
 /// Reserve an Event screen (Figma node App-12). `eventType`'s four options
@@ -159,6 +160,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -168,10 +170,10 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: widget.onBackToDashboard,
-              icon: const Icon(Icons.arrow_back, size: 16, color: Color(0xFF0A0A0A)),
-              label: const Text(
+              icon: Icon(Icons.arrow_back, size: 16, color: colors.textPrimary),
+              label: Text(
                 'Back to Dashboard',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF0A0A0A)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
               ),
             ),
           ),
@@ -179,9 +181,9 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
+              color: colors.surface.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+              border: Border.all(color: colors.border),
             ),
             child: Form(
               key: _formKey,
@@ -189,14 +191,14 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Reserve an Event',
-                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: AppColors.textDark),
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Book the café for your private event. Perfect for parties, meetings, and special occasions.',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textMuted),
                   ),
                   const SizedBox(height: 32),
                   _FieldLabel('Event Type'),
@@ -206,7 +208,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
                     items: _eventTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
                     onChanged: (value) => setState(() => _eventType = value),
                     validator: (value) => value == null ? 'Please select an event type' : null,
-                    decoration: _fieldDecoration(hint: 'Select event type'),
+                    decoration: _fieldDecoration(colors, hint: 'Select event type'),
                   ),
                   const SizedBox(height: 20),
                   _FieldLabel('Event Date', icon: Icons.calendar_today_outlined, required: true),
@@ -234,7 +236,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
                     validator: _validateDuration,
-                    decoration: _fieldDecoration(hint: 'e.g. 2'),
+                    decoration: _fieldDecoration(colors, hint: 'e.g. 2'),
                   ),
                   const SizedBox(height: 20),
                   _FieldLabel('Number of Guests', icon: Icons.people_outline, required: true),
@@ -244,17 +246,17 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     validator: _validateGuestCount,
-                    decoration: _fieldDecoration(hint: '10'),
+                    decoration: _fieldDecoration(colors, hint: '10'),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Minimum 5 guests, maximum 100 guests',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: colors.textMuted),
                   ),
                   const SizedBox(height: 32),
-                  _buildPackageCard(),
+                  _buildPackageCard(context),
                   const SizedBox(height: 24),
-                  _buildPriceCard(),
+                  _buildPriceCard(colors),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 16),
                     _ErrorText(_errorMessage!),
@@ -290,21 +292,27 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
     return null;
   }
 
-  InputDecoration _fieldDecoration({required String hint}) {
+  InputDecoration _fieldDecoration(AppSemanticColors colors, {required String hint}) {
     return InputDecoration(
       hintText: hint,
       filled: true,
-      fillColor: const Color(0xFFF3F3F5),
+      fillColor: colors.inputFill,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
+        borderSide: BorderSide(color: colors.border),
       ),
-      errorStyle: const TextStyle(color: AppColors.danger, fontSize: 11),
+      errorStyle: TextStyle(color: colors.danger, fontSize: 11),
     );
   }
 
-  Widget _buildPackageCard() {
+  // A purple-accented INFO box, not a neutral surface -- keeps its own
+  // brightness-picked tint (light lavender-on-white in light mode; a dark
+  // purple-tinted surface with light lavender text in dark mode) rather than
+  // becoming an undifferentiated `colors.surface` card, so it still reads as
+  // "the package included with every event" highlight in both modes.
+  Widget _buildPackageCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     const bullets = [
       'Exclusive use of the café',
       'Complimentary hookah for all guests',
@@ -312,51 +320,57 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
       'Dedicated staff service',
       'Sound system and music control',
     ];
+    final bg = isDark ? const Color(0xFF2A2038) : const Color(0xFFFAF5FF);
+    final ink = isDark ? const Color(0xFFDCC2FF) : AppColors.purple;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAF5FF),
+        color: bg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.membershipPremiumBorder.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Event Package Includes:',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.purple),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ink),
           ),
           const SizedBox(height: 8),
           for (final bullet in bullets)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: Text('• $bullet', style: const TextStyle(fontSize: 14, color: AppColors.purple)),
+              child: Text('• $bullet', style: TextStyle(fontSize: 14, color: ink)),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildPriceCard() {
+  Widget _buildPriceCard(AppSemanticColors colors) {
     final total = EventReservationService.estimatedTotal(_durationHours);
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFFF9FAFB), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
       child: Column(
         children: [
-          _priceRow('Base rate (per hour)', '\$${EventReservationService.pricePerHour.toStringAsFixed(0)}'),
+          _priceRow(colors, 'Base rate (per hour)', '\$${EventReservationService.pricePerHour.toStringAsFixed(0)}'),
           const SizedBox(height: 8),
-          _priceRow('Duration', '${_durationController.text.trim().isEmpty ? '0' : _durationController.text.trim()} hours'),
+          _priceRow(
+            colors,
+            'Duration',
+            '${_durationController.text.trim().isEmpty ? '0' : _durationController.text.trim()} hours',
+          ),
           const SizedBox(height: 8),
-          const Divider(color: Colors.black12, height: 1),
+          Divider(color: colors.border, height: 1),
           const SizedBox(height: 8),
-          _priceRow('Estimated Total', '\$${total.toStringAsFixed(2)}', emphasize: true),
+          _priceRow(colors, 'Estimated Total', '\$${total.toStringAsFixed(2)}', emphasize: true),
         ],
       ),
     );
   }
 
-  Widget _priceRow(String label, String value, {bool emphasize = false}) {
+  Widget _priceRow(AppSemanticColors colors, String label, String value, {bool emphasize = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -365,16 +379,12 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
           style: TextStyle(
             fontSize: emphasize ? 16 : 14,
             fontWeight: FontWeight.w400,
-            color: emphasize ? AppColors.membershipPriceText : AppColors.textMuted,
+            color: emphasize ? colors.textPrimary : colors.textMuted,
           ),
         ),
         Text(
           value,
-          style: TextStyle(
-            fontSize: emphasize ? 24 : 14,
-            fontWeight: FontWeight.w400,
-            color: AppColors.membershipPriceText,
-          ),
+          style: TextStyle(fontSize: emphasize ? 24 : 14, fontWeight: FontWeight.w400, color: colors.textPrimary),
         ),
       ],
     );
@@ -390,15 +400,16 @@ class _FieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Row(
       children: [
         if (icon != null) ...[
-          Icon(icon, size: 16, color: AppColors.textMuted),
+          Icon(icon, size: 16, color: colors.textMuted),
           const SizedBox(width: 6),
         ],
         Text(
           required ? '$label *' : label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF0A0A0A)),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
         ),
       ],
     );
@@ -414,6 +425,7 @@ class _PickerField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -421,13 +433,13 @@ class _PickerField extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F3F5),
+          color: colors.inputFill,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+          border: Border.all(color: colors.border),
         ),
         child: Text(
           text ?? hint,
-          style: TextStyle(fontSize: 14, color: text == null ? AppColors.textMuted : AppColors.textDark),
+          style: TextStyle(fontSize: 14, color: text == null ? colors.textMuted : colors.textPrimary),
         ),
       ),
     );
@@ -442,7 +454,7 @@ class _ErrorText extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 4),
-      child: Text(message, style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+      child: Text(message, style: TextStyle(color: context.colors.danger, fontSize: 12)),
     );
   }
 }

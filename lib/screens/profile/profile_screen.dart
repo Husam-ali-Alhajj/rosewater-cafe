@@ -7,6 +7,7 @@ import '../../services/notification_prefs.dart';
 import '../../services/subscription_service.dart';
 import '../../services/supabase_client.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/profile_avatar.dart';
 import '../auth/sign_out.dart';
@@ -21,17 +22,14 @@ import 'privacy_security_screen.dart';
 // the REST API -- see docs/decisions.md. Kept private to this file rather
 // than added to AppColors, the same way the other exact-Figma screens keep
 // their one-off literals local (decision #20).
-const _iconGrey = Color(0xFF4A5565);
-const _chevronGrey = Color(0xFF99A1AF);
-const _rowFill = Color(0xFFF9FAFB);
-const _rowLabel = Color(0xFF364153);
-const _rowValue = Color(0xFF101828);
-const _versionText = Color(0xFF6A7282);
-const _editProfileBorder = Color(0xFFD1D5DC);
-const _editProfileInk = Color(0xFF0A0A0A);
+//
+// Sprint 8 Task 2 (dark mode rebuild): the neutral greys/blacks this frame
+// exported (icon/label/value/border/fill) are now sourced from
+// `context.colors` instead, so they invert correctly. `_upgradeBorder` stays
+// a fixed literal -- it's the brand pink/red accent border on "Upgrade
+// Membership", unchanged between themes like every other accent colour in
+// this app.
 const _upgradeBorder = Color(0xFFFFA1AD);
-const _signOutInk = Color(0xFFE7000B);
-const _signOutBorder = Color(0xFFFFA2A2);
 
 // Figma's own hairline stroke width on the cards / Upgrade button (a
 // fractional value from the design export, kept exactly).
@@ -163,10 +161,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       // The Figma frame's own fill: the same soft 3-stop page wash used on
       // every other screen.
-      decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+      decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
       child: SafeArea(
         bottom: false, // the bottom nav in MainShell handles its own inset
         child: _loading
@@ -226,6 +225,7 @@ class ProfileContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = this.profile;
+    final colors = context.colors;
     return SingleChildScrollView(
       // Figma's frame padding: 16 sides, 32 top. Bottom 16 is the gap the
       // design leaves above the bottom nav (which sits outside this
@@ -234,14 +234,14 @@ class ProfileContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Profile',
             style: TextStyle(
               fontSize: 36,
               fontWeight: FontWeight.w500,
               height: 40 / 36,
               letterSpacing: 0.369,
-              color: AppColors.textDark,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 24),
@@ -253,8 +253,8 @@ class ProfileContent extends StatelessWidget {
           _OutlinedActionButton(
             icon: Icons.person_outline,
             label: 'Edit Profile',
-            ink: _editProfileInk,
-            borderColor: _editProfileBorder,
+            ink: colors.textPrimary,
+            borderColor: colors.border,
             borderWidth: 1.545,
             iconGap: 17,
             onTap: onEditProfile,
@@ -273,17 +273,17 @@ class ProfileContent extends StatelessWidget {
           _OutlinedActionButton(
             icon: Icons.logout,
             label: 'Sign Out',
-            ink: _signOutInk,
-            borderColor: _signOutBorder,
+            ink: colors.danger,
+            borderColor: colors.danger.withValues(alpha: 0.4),
             borderWidth: 1.545,
             iconGap: 16,
             onTap: onSignOut,
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Version $_appVersion • Rosewater Café',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, height: 16 / 12, color: _versionText),
+            style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
           ),
         ],
       ),
@@ -291,13 +291,13 @@ class ProfileContent extends StatelessWidget {
   }
 }
 
-/// White-at-90% card with the design's hairline black-at-10% border and
-/// 14px radius, shared by all three cards on this screen.
-BoxDecoration _cardDecoration({List<BoxShadow>? shadows}) {
+/// Themed card surface with the design's hairline border and 14px radius,
+/// shared by all three cards on this screen.
+BoxDecoration _cardDecoration(AppSemanticColors colors, {List<BoxShadow>? shadows}) {
   return BoxDecoration(
-    color: Colors.white.withValues(alpha: 0.9),
+    color: colors.surface,
     borderRadius: BorderRadius.circular(14),
-    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+    border: Border.all(color: colors.border, width: _hairline),
     boxShadow: shadows,
   );
 }
@@ -310,6 +310,7 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final phone = profile.phone;
     final memberId = profile.memberId;
     final rows = <Widget>[
@@ -321,6 +322,7 @@ class _ProfileCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: _cardDecoration(
+        colors,
         shadows: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -350,12 +352,12 @@ class _ProfileCard extends StatelessWidget {
                   children: [
                     Text(
                       profile.fullName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w500,
                         height: 32 / 24,
                         letterSpacing: 0.07,
-                        color: AppColors.textDark,
+                        color: colors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 7.15),
@@ -413,18 +415,19 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Row(
       children: [
-        Icon(icon, size: 20, color: _iconGrey),
+        Icon(icon, size: 20, color: colors.textMuted),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 20 / 14,
               letterSpacing: -0.15,
-              color: _iconGrey,
+              color: colors.textMuted,
             ),
           ),
         ),
@@ -444,14 +447,15 @@ class _ProfileLoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(colors),
       child: Column(
         children: [
-          const Text(
+          Text(
             "Couldn't load your profile.",
-            style: TextStyle(fontSize: 14, height: 20 / 14, color: _iconGrey),
+            style: TextStyle(fontSize: 14, height: 20 / 14, color: colors.textMuted),
           ),
           TextButton(onPressed: onRetry, child: const Text('Try again')),
         ],
@@ -486,7 +490,7 @@ class _OutlinedActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: context.colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: borderColor, width: borderWidth),
@@ -527,9 +531,10 @@ class _MembershipDetailsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(colors),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -546,7 +551,7 @@ class _MembershipDetailsCard extends StatelessWidget {
           SizedBox(
             height: 36,
             child: Material(
-              color: Colors.white,
+              color: colors.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
                 side: const BorderSide(color: _upgradeBorder, width: _hairline),
@@ -584,12 +589,12 @@ class _CardTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w500,
         height: 28 / 18,
         letterSpacing: -0.44,
-        color: AppColors.textDark,
+        color: context.colors.textPrimary,
       ),
     );
   }
@@ -603,20 +608,21 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: _rowFill, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _rowLabel),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.31, color: _rowValue),
+            style: TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.31, color: colors.textPrimary),
           ),
         ],
       ),
@@ -650,7 +656,7 @@ class _SettingsCard extends StatelessWidget {
     ];
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context.colors),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -675,6 +681,7 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -684,21 +691,21 @@ class _SettingsRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Icon(icon, size: 20, color: _iconGrey),
+              Icon(icon, size: 20, color: colors.textMuted),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     height: 24 / 16,
                     letterSpacing: -0.31,
-                    color: AppColors.textDark,
+                    color: colors.textPrimary,
                   ),
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 20, color: _chevronGrey),
+              Icon(Icons.chevron_right, size: 20, color: colors.textMuted),
             ],
           ),
         ),

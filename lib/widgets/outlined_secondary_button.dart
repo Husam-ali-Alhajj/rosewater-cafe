@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_semantic_colors.dart';
+
 class OutlinedSecondaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final IconData? leadingIcon;
-  final Color borderColor;
-  final Color textColor;
+
+  /// Null uses this theme's own hairline border / primary text (via
+  /// `context.colors`) instead of a fixed light-mode value -- a caller only
+  /// needs to pass these when it wants a specific BRAND accent instead (e.g.
+  /// Auth Landing's pink "Create Account" outline), not for an ordinary
+  /// secondary button like Payment's "Back".
+  final Color? borderColor;
+  final Color? textColor;
   final double fontSize;
   final double height;
   final double letterSpacing;
@@ -21,8 +29,8 @@ class OutlinedSecondaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.leadingIcon,
-    this.borderColor = const Color(0x1A000000),
-    this.textColor = const Color(0xFF0A0A0A),
+    this.borderColor,
+    this.textColor,
     this.fontSize = 14,
     this.height = 20 / 14,
     this.letterSpacing = -0.15,
@@ -32,12 +40,15 @@ class OutlinedSecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final border = borderColor ?? colors.border;
+    final ink = textColor ?? colors.textPrimary;
     return SizedBox(
       height: buttonHeight,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: borderColor, width: borderWidth),
+          side: BorderSide(color: border, width: borderWidth),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -46,13 +57,13 @@ class OutlinedSecondaryButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (leadingIcon != null) ...[
-              Icon(leadingIcon, size: 18, color: textColor),
+              Icon(leadingIcon, size: 18, color: ink),
               const SizedBox(width: 15),
             ],
             Text(
               label,
               style: TextStyle(
-                color: textColor,
+                color: ink,
                 fontWeight: FontWeight.w500,
                 fontSize: fontSize,
                 letterSpacing: letterSpacing,

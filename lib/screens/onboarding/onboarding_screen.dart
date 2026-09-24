@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/onboarding_prefs.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../auth/auth_landing_screen.dart';
 import '../../widgets/dots_indicator.dart';
 import '../../widgets/gradient_button.dart';
@@ -98,10 +98,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final currentGradient = _pages[_currentPage].accentGradient;
+    final colors = context.colors;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -113,10 +114,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ? null
                       : TextButton(
                           onPressed: _goToNextDestination,
-                          child: const Text(
+                          child: Text(
                             'Skip',
                             style: TextStyle(
-                              color: Color(0xFF4A5565),
+                              color: colors.textMuted,
                               fontWeight: FontWeight.w500,
                               fontSize: 14,
                               letterSpacing: -0.15,
@@ -186,13 +187,14 @@ class _OnboardingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: AppColors.cardWhite.withValues(alpha: 0.9),
+          color: colors.surface,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
@@ -211,24 +213,24 @@ class _OnboardingCard extends StatelessWidget {
             Text(
               page.heading,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 30,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0.4,
                 height: 36 / 30,
-                color: Color(0xFF1E2939),
+                color: colors.textPrimary,
               ),
             ),
             const SizedBox(height: 16),
             Text(
               page.body,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w400,
                 letterSpacing: -0.44,
                 height: 29.3 / 18,
-                color: Color(0xFF4A5565),
+                color: colors.textMuted,
               ),
             ),
           ],
