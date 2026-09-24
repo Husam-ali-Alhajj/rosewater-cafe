@@ -3519,6 +3519,85 @@ audit.
 
 ---
 
+### 58. Sprint 8 Task 1 — Shared SettingsProvider (foundation, not wired to any screen yet)
+
+The first task of a sprint whose remaining tasks (Dark Mode, Animations,
+Sound/Haptics, Auto-Lock, Biometric login, real 2FA, English/Arabic i18n) all need
+one thing in common: somewhere real to store the setting they turn on. This task
+is that somewhere, nothing more.
+
+**Audited before writing any code, per the acceptance criterion's "no screen still
+uses its own separate `shared_preferences` call for these":** none did. App
+Settings' Dark Mode/Animations/Sound Effects/Haptic Feedback and Privacy &
+Security's Auto-Lock/Biometric toggles are all still exactly the inert, hardcoded
+placeholders decisions #5/#45/#47 left them as (`value: <hardcoded>, onToggle:
+null`) -- zero prior storage to migrate away from. Confirmed with a project-wide
+grep for `SharedPreferences`/`shared_preferences`, not just by reading the two
+screens.
+
+**Two decisions with no prior art in this project to follow, put to the user
+first:**
+
+1. *What should `themeMode` default to?* **Chosen: `ThemeMode.light`, not
+   `ThemeMode.system`.** `AppTheme.dark` is currently just Flutter's bare
+   `ThemeData.dark()` -- no brand colors, no Inter font, none of this app's
+   custom button/card/input styling (confirmed by reading `app_theme.dart`
+   directly). Defaulting to `system` would mean a fresh install on a device
+   already in dark mode shows that unstyled stub the moment a later task wires
+   `themeMode` into `MaterialApp` -- looking broken, not just unfinished.
+   Matches today's actual behavior exactly: `MaterialApp` currently has no
+   `darkTheme`/`themeMode` argument at all, so it's always light regardless of
+   the device's setting.
+2. *Does this task wire any existing toggle to the new provider?* **Chosen: no
+   -- foundation only.** Every toggle stays exactly as inert as it was before
+   this task; each gets wired to `SettingsProvider`, and made to actually do
+   something, in its own dedicated later Sprint 8 task. Avoids duplicating work
+   each of those tasks would otherwise redo.
+
+**What was built:**
+
+- **`provider: ^6.1.2`** added to `pubspec.yaml` -- this project's first state-
+  management package; everything before this was local `StatefulWidget` state
+  plus direct service calls.
+- **`SettingsProvider`** (new, `lib/services/`): a `ChangeNotifier` wrapping
+  `shared_preferences`, with a typed getter + async setter pair for all seven
+  values the task named (`themeMode`, `animationsEnabled`, `soundEnabled`,
+  `hapticsEnabled`, `autoLockEnabled`, `autoLockTimeoutSeconds`,
+  `biometricEnabled`). Every setter updates the in-memory field, calls
+  `notifyListeners()`, THEN persists -- listeners see the change immediately,
+  not after a disk write completes. Storage keys namespaced `settings.*`.
+  Deliberately device-local (matches `OnboardingPrefs`/`RememberMePrefs`'s
+  scoping, not `NotificationPrefs`'s per-user one) -- these are
+  how-this-device-behaves preferences, not account data.
+- **Async `SettingsProvider.load()` factory**, awaited in `main()` BEFORE
+  `runApp()` -- the same "resolve everything first" ordering decision #15
+  already established for session routing (and decision #55 had to re-learn the
+  hard way for the deep-link listener). Building this synchronously with
+  in-memory defaults and correcting them once the real stored values loaded
+  would mean an actual dark-mode user sees a visible flash of light theme (or
+  vice versa) on every cold start -- not just a technicality, a real visible
+  bug decision #15's pattern already exists specifically to avoid.
+- **`main.dart`**: wraps `MaterialApp` in `ChangeNotifierProvider<SettingsProvider>
+  .value(value: settings, ...)`, above everything else in the tree -- any
+  screen reaches it via `context.watch`/`context.read` without prop-drilling,
+  per the task's own requirement. `RosewaterCafeApp` now takes the
+  already-loaded `settings` as a constructor parameter rather than constructing
+  it itself.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 221/221 (13 new:
+fresh-install defaults for all seven values including the `ThemeMode.light`
+default's reasoning; each of the seven persisting across a simulated restart
+individually; a flipped-back value persisting; changing one setting leaving the
+other six untouched; every setter calling `notifyListeners()` exactly once;
+storage keys namespaced under `settings.*` with no collision against any other
+local preference).
+
+**Sign-off:** every value persists across a restart; no screen has its own
+separate storage for any of these seven settings, confirmed by direct audit, not
+assumption. No visible or behavioral change to the app yet -- exactly as scoped.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'screens/app_entry_point.dart';
 import 'services/auth_deep_link_listener.dart';
 import 'services/secure_local_storage.dart';
+import 'services/settings_provider.dart';
 import 'theme/app_theme.dart';
 
 /// Shared across the app so `listenForPasswordRecovery` can push the "set
@@ -35,20 +37,36 @@ Future<void> main() async {
   // `initialize()` and awaiting it, is the only point early enough.
   listenForPasswordRecovery(navigatorKey);
   await initialization;
-  runApp(const RosewaterCafeApp());
+  // Awaited here, before runApp(), for the same reason `Supabase.initialize()`
+  // is: reading every stored setting first means the first frame is already
+  // correct, instead of showing in-memory defaults that then flip once the
+  // real stored values load a moment later -- see SettingsProvider's own doc
+  // comment for why that flash would actually be visible (theme mode).
+  final settings = await SettingsProvider.load();
+  runApp(RosewaterCafeApp(settings: settings));
 }
 
 class RosewaterCafeApp extends StatelessWidget {
-  const RosewaterCafeApp({super.key});
+  final SettingsProvider settings;
+
+  const RosewaterCafeApp({super.key, required this.settings});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      title: 'Rosewater Café',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      home: const AppEntryPoint(),
+    // Registered once, above MaterialApp, so any screen can reach it via
+    // context.watch<SettingsProvider>()/context.read<SettingsProvider>()
+    // without prop-drilling -- Sprint 8's foundation task. `.value` because
+    // `settings` is already constructed (via the async `load()` above), not
+    // something this widget should create or dispose itself.
+    return ChangeNotifierProvider<SettingsProvider>.value(
+      value: settings,
+      child: MaterialApp(
+        navigatorKey: navigatorKey,
+        title: 'Rosewater Café',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        home: const AppEntryPoint(),
+      ),
     );
   }
 }

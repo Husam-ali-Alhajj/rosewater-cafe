@@ -51,6 +51,10 @@ dependencies:
   # Sprint 2: persist mock session/profile across app restarts
   shared_preferences: ^2.2.3
 
+  # Sprint 8: SettingsProvider, so any screen can read app-wide settings
+  # (theme, animations, sound, haptics, auto-lock, biometric) without prop-drilling
+  provider: ^6.1.2
+
   # Formatting dates (event reservations, membership "valid until")
   intl: ^0.19.0
 

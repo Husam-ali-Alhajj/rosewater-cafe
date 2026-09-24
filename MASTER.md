@@ -120,7 +120,8 @@ Git history mirrors the sprints: `first sprint` → `sprint 1` → `sprint 2` �
 |---|---|---|
 | `supabase_flutter ^2.8.0` | `main.dart`, every service | Official client: auth, `.from()` queries, `.rpc()`, storage. Initialised once in `main()`. |
 | `flutter_secure_storage ^9.2.2` | `services/secure_local_storage.dart` | Stores the login session in the OS's encrypted vault (Keystore / Keychain / Credential Locker). `supabase_flutter`'s default writes tokens to plain-text `SharedPreferences` (#6). |
-| `shared_preferences ^2.2.3` | `services/onboarding_prefs.dart`, `services/remember_me_prefs.dart` | Tiny local booleans: "has this device seen onboarding", "was the last sign-in remembered" (#56). Deliberately *not* secure storage and *not* backend — per-device UI flags, not secrets or account data. |
+| `shared_preferences ^2.2.3` | `services/onboarding_prefs.dart`, `services/remember_me_prefs.dart`, `services/settings_provider.dart` | Tiny local values: "has this device seen onboarding", "was the last sign-in remembered" (#56), and the seven app-wide settings (#58). Deliberately *not* secure storage and *not* backend — per-device UI flags, not secrets or account data. |
+| `provider ^6.1.2` | `main.dart`, `services/settings_provider.dart` | This project's first state-management package (#58) — `SettingsProvider` (a `ChangeNotifier`) is registered once above `MaterialApp` so any screen reaches it via `context.watch`/`context.read` without prop-drilling. |
 | `qr_flutter ^4.1.0` | `screens/qr_access/` | Renders the member's QR code. |
 | `image_picker ^1.1.2` | `screens/membership/id_upload_screen.dart` | Camera / gallery capture for the ID photo. |
 | `file_picker ^10.3.4` | same | Picking an existing PNG/JPG/**PDF** — `image_picker` can't do PDFs. |
@@ -560,6 +561,7 @@ else in the app calls the database.
 | `event_reservation_service.dart` | Create a reservation; owns the client copy of the hourly price. | RPC `create_event_reservation` |
 | `onboarding_prefs.dart` | Local "seen onboarding" flag. | `SharedPreferences` (no network) |
 | `remember_me_prefs.dart` | Local "was the last sign-in remembered" flag, checked by `AppEntryPoint` (#56). | `SharedPreferences` (no network) |
+| `settings_provider.dart` | `ChangeNotifier` for all seven app-wide settings (theme, animations, sound, haptics, auto-lock ×2, biometric) — registered once above `MaterialApp` (#58). Not wired to any screen's toggle yet; that's each setting's own later Sprint 8 task. | `SharedPreferences` (no network) |
 | `secure_local_storage.dart` | Encrypted persistence of the auth session. | `flutter_secure_storage` (no network) |
 
 ### Why services look the way they do
@@ -1019,3 +1021,4 @@ have a separate admin app for ID verification and door scanning.
 | 55 | Forgot Password completed (Set New Password screen, deep-link handling); two real live bugs found and fixed |
 | 56 | "Remember me" made real: unchecked forces sign-out on next cold start (`AppEntryPoint`) |
 | 57 | Change Login Email built: password-gated, Privacy & Security, `profiles.email` sync trigger |
+| 58 | Sprint 8 Task 1: shared `SettingsProvider` foundation (not wired to any screen yet) |
