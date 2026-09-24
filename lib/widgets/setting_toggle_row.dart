@@ -116,10 +116,16 @@ class SettingSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    // A step lighter than the card it sits on (like the bottom nav / an app
-    // bar), not the translucent hairline `border` token -- a switch track
-    // needs to read as solid and visibly distinct from the card surface.
-    final switchOff = context.colors.surfaceElevated;
+    // NOT `context.colors.surfaceElevated`: that token IS the card's own
+    // white in light mode (see `_Card`'s fill in app_settings_screen.dart),
+    // so an off-state track drawn in it -- with a white thumb on top --
+    // was a solid-white pill on a solid-white card: invisible, with nothing
+    // to tap. Same pitfall `DotsIndicator.inactiveColor`'s doc comment
+    // already calls out for the exact same reason; this picks its own
+    // brightness-aware grey pair the same way, rather than reusing a card
+    // fill for a small solid control that sits ON a card.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final switchOff = isDark ? const Color(0xFF4A4152) : const Color(0xFFD1D5DC);
     return Semantics(
       toggled: value,
       label: label,
