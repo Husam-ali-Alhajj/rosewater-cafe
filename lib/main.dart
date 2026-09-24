@@ -60,12 +60,23 @@ class RosewaterCafeApp extends StatelessWidget {
     // something this widget should create or dispose itself.
     return ChangeNotifierProvider<SettingsProvider>.value(
       value: settings,
-      child: MaterialApp(
-        navigatorKey: navigatorKey,
-        title: 'Rosewater Café',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        home: const AppEntryPoint(),
+      // A Consumer, not `context.watch` right here -- this method's own
+      // `context` is RosewaterCafeApp's position in the tree, ABOVE the
+      // ChangeNotifierProvider it just returned, so nothing below it could
+      // be found by watching from here. The Consumer sits inside the
+      // provider instead, so `MaterialApp` (and everything under it)
+      // rebuilds the instant `SettingsProvider.setThemeMode` calls
+      // `notifyListeners()` -- Dark Mode flips live, with no restart.
+      child: Consumer<SettingsProvider>(
+        builder: (context, settings, _) => MaterialApp(
+          navigatorKey: navigatorKey,
+          title: 'Rosewater Café',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: settings.themeMode,
+          home: const AppEntryPoint(),
+        ),
       ),
     );
   }

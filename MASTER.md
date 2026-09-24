@@ -85,7 +85,7 @@ project and swaps one config file (§14).
 | Subscription expiry (daily `pg_cron` job + client-side check) | ✅ Built |
 | Profile tab (read-only screen + **Sign Out**) | ✅ Built (Sprint 5 Task 1). Its only remaining stub row is **Upgrade Membership**, since decision #25 has no re-subscribe flow to send it to yet |
 | Edit Profile (name, phone, photo; email read-only) | ✅ Built (Sprint 5 Task 2, #42), avatars bucket + storage isolation proven live |
-| App Settings (Sprint 5 Task 7, #47) | ✅ Dark Mode/Language/Animations/Sound/Haptic are visual-only placeholders (decisions #5/#47); **Cache Size/Clear Cache/Clear All App Data are real** — a genuine, computed number, and real clearing (image cache + local preferences + sign-out) |
+| App Settings (Sprint 5 Task 7, #47; Dark Mode made real, Sprint 8 Task 2, #59) | ✅ **Dark Mode is real**: `AppTheme.dark`, bound to `SettingsProvider.themeMode`, live-updates every screen with no restart. Language/Animations/Sound/Haptic are still visual-only placeholders (decisions #5/#47). **Cache Size/Clear Cache/Clear All App Data are real** — a genuine, computed number, and real clearing (image cache + local preferences + sign-out) |
 | Help & Support (Sprint 5 Task 6, #46) | ✅ Static contact cards (no backend); FAQ accordion with the **one real answer** the design exports, the other three questions shown with a plain placeholder, never invented copy; Resources open coming-soon pages |
 | Privacy & Security (Sprint 5 Task 5, #45; Delete Account made real, #52; hardened, #54; Change Email added, #57) | ✅ **Change Password is real** (re-enter the current password; same strength rules as signup). **Delete Account is real, immediate, self-service deletion, and password-gated**: an inline form (same expand-in-place pattern as Change Password) re-verifies the current password, then removes every stored file in both `avatars`/`id-documents` — aborting the whole deletion if that cleanup fails — before calling `delete_own_account`, which cascades through every table of the user's data; no undo, no request queue. **Change Email is real and password-gated too**: requests a Supabase email change (current email keeps working until the new one's confirmation link is clicked; `profiles.email` follows automatically via a server-side sync trigger). Biometric / Two-Factor / Auto-Lock are **disabled "Coming soon" placeholders**; Privacy Policy / Terms open a coming-soon page |
 | Notification settings (7 toggles, **local-only**) | ✅ Built (Sprint 5 Task 4, #44): saved on the device with `shared_preferences`, no table, no network. The toggles record preferences only — nothing sends push/email/SMS yet |
@@ -95,7 +95,7 @@ project and swaps one config file (§14).
 | **Real payments** (Stripe) | ❌ Mocked on purpose — see §15 |
 | **Usage counters incrementing** (`hookah_used`/`drinks_used`) | ❌ No mechanism exists (#25, #33) |
 | **Usage period renewal / re-subscribe flow** | ❌ Deferred (#25) |
-| Settings, dark mode, language, Help & Support | ❌ Not built (#5) |
+| Settings, language, Help & Support | ❌ Not built (#5) -- dark mode is now real, see the App Settings row above (#59) |
 | Admin/staff side (ID approval, door scanner) | ❌ Not in this app |
 
 Git history mirrors the sprints: `first sprint` → `sprint 1` → `sprint 2` →
@@ -458,10 +458,16 @@ Three cards (Figma frames `1217:2644` / `1217:2946`, #45):
 
 ### App Settings — `screens/profile/app_settings_screen.dart`
 Appearance → Language → Interactions → Data & Storage → app info footer (#47).
-- **Dark Mode, Language, Animations, Sound Effects, Haptic Feedback are all visual-only.**
-  Dark Mode/Language were already out of scope (decision #5); Animations/Sound/Haptic weren't
-  asked for either, so they're drawn at the design's own state (on) and are inert, for the same
-  "no functionality beyond what's decided in scope" reason. (The Notifications screen's "Sound &
+- **Dark Mode is real** (Sprint 8 Task 2, #59): `AppTheme.dark` gives every surface (background
+  wash, cards, inputs, text) a real dark value instead of `ThemeData.dark()`'s generic stub, while
+  reusing every accent gradient (`primaryGradient`, the membership tier gradients,
+  `bottomNavActive`) unchanged, so the app still reads as this brand at night. The row here reads
+  and writes `SettingsProvider.themeMode` — the same provider `main.dart`'s `MaterialApp` watches
+  for `themeMode` — so flipping it updates every screen immediately, with no restart.
+- **Language, Animations, Sound Effects, Haptic Feedback are still visual-only.** Language was
+  already out of scope (decision #5) and stays that way; Animations/Sound/Haptic weren't asked for
+  either, so they're drawn at the design's own state (on) and are inert, for the same "no
+  functionality beyond what's decided in scope" reason. (The Notifications screen's "Sound &
   Vibration" toggle is a *different* setting — notification sound, not general UI sound — kept
   deliberately separate, like decision #33's two different "guests" fields.)
 - **Data & Storage is real**, the task's explicit "your call": **Cache Size shows the real,
@@ -788,14 +794,30 @@ Figma REST API), not eyeballed (#20).
   gradient** (`#FF2056 → #9810FA`); per-tier gradients (Basic grey, Premium
   purple, VIP rose); the soft 3-stop **page background gradient**
   (`#FFF1F2 → #FDF2F8 → #FAF5FF`); bottom-nav active accent `#EC003F`; text and
-  status colours.
-- **`theme/app_text_styles.dart`** — `logoTitle` (italic serif "Times New Roman"),
-  headings, body, button. Some screens deliberately use **literal inline styles**
-  because Figma gives certain elements unique sizes; the shared styles were left
-  untouched so already-approved screens didn't change (#20).
-- **`theme/app_theme.dart`** — `AppTheme.light` (Material 3, Inter via
-  `google_fonts`, pink seed colour, filled inputs, rounded cards/buttons).
-  `AppTheme.dark` is a bare stub and **isn't wired** — dark mode is out of scope (#5).
+  status colours. Also carries dark-mode counterparts for every neutral
+  (`darkBackground`/`darkSurface`/`darkTextPrimary`/etc., #59) — the accent
+  colours above are reused unchanged in both modes.
+- **`theme/app_semantic_colors.dart`** (#59) — `AppSemanticColors`, a `ThemeExtension`
+  wrapping the light/dark neutral tokens above (page gradient, card surface, input
+  fill, border, primary/muted text, success/warning/danger) as `.light`/`.dark`
+  instances registered on `AppTheme`. A screen reads whichever is active via the
+  `context.colors` `BuildContext` extension instead of a hardcoded `AppColors`
+  constant; falls back to `.light` when the ambient theme doesn't carry the
+  extension (existing widget tests built directly off `ThemeData()`).
+- **`theme/app_text_styles.dart`** — `logoTitle`, `heading1`, `heading2`, `body`,
+  `bodyMuted` now take a `BuildContext` and resolve their color through
+  `context.colors` (#59) so the same call every auth screen already made just
+  gained a `(context)`; `button` (always white on a brand gradient) stays a plain
+  `const`. Some screens deliberately use **literal inline styles** because Figma
+  gives certain elements unique sizes; the shared styles were left untouched so
+  already-approved screens didn't change (#20).
+- **`theme/app_theme.dart`** — `AppTheme.light`/`.dark` (Material 3, Inter via
+  `google_fonts`, pink seed colour, filled inputs, rounded cards/buttons), both
+  built off `AppSemanticColors.light`/`.dark` so every surface/text color is
+  real per brightness. `AppTheme.dark` is a real dark theme now (Sprint 8 Task 2,
+  #59), not `ThemeData.dark()`'s bare stub — `main.dart`'s `MaterialApp` wires it
+  as `darkTheme`, with `themeMode` bound to `SettingsProvider.themeMode` so it
+  updates live, no restart.
 - **Shared widgets** (`lib/widgets/`):
   - `GradientButton` — the primary CTA; configurable gradient/height/font;
     renders at 50 % opacity with no shadow when `onPressed` is null.
@@ -841,7 +863,7 @@ Figma REST API), not eyeballed (#20).
 | `test/secure_local_storage_test.dart` | write → read → delete goes through the storage platform (fakes the OS layer) |
 | `test/home_content_test.dart` | Home screen data mapping: greeting by first name + member ID (and their no-placeholder fallbacks), status card, usage `used / limit` and Unlimited-with-no-bar, progress fractions, service-hours status by time, benefits from the plan, every callback, and the layout's spacing/card heights against Figma |
 | `test/app_settings_service_test.dart` | Real Flutter image-cache size/clear (a real image is put in the cache via a trivial in-memory `ImageProvider`, no network) and real `shared_preferences` wiping |
-| `test/app_settings_screen_test.dart` | Every row/copy shown; Dark Mode/Language/Animations/Sound/Haptic are all off-or-on-as-designed and inert (tapping does nothing); Cache Size shows the real computed number, never the design's fake "12.5 MB"; Clear Cache really clears and updates the shown size; Clear All App Data confirms first, then clears the image cache and local preferences and runs the (injectable) post-clear step, in that order |
+| `test/app_settings_screen_test.dart` | Every row/copy shown; **Dark Mode reflects `SettingsProvider.themeMode` and tapping it flips that provider** (#59); Language/Animations/Sound/Haptic are all off-or-on-as-designed and inert (tapping does nothing); Cache Size shows the real computed number, never the design's fake "12.5 MB"; Clear Cache really clears and updates the shown size; Clear All App Data confirms first, then clears the image cache and local preferences and runs the (injectable) post-clear step, in that order |
 | `test/help_support_screen_test.dart` | Contact cards show their real copy and aren't tappable; all 4 real questions shown; the one real answer starts expanded; the other 3 show the SAME placeholder (never 3 different invented answers — checked by scanning the whole page for phrases a plausible fabricated answer would use); expand/collapse and exclusive-accordion behaviour; Resources open a coming-soon page |
 | `test/change_password_test.dart` | `AuthService.changePassword` against a fake auth client that logs every call: the CURRENT password is verified (`signIn`) BEFORE `updateUser`; a wrong current password, a rate limit, a network failure or no session all mean `updateUser` is never called; server rejections land on the right field; ending other sessions is best-effort |
 | `test/privacy_security_screen_test.dart` | The screen: the three disabled placeholders (off, no handler, Coming Soon, tapping does nothing); the password form (empty current rejected, each #10 rule's own message, same-as-current, mismatch — none reach the service; a valid form sends current + new; wrong current shown under its field); Delete Account (confirm → the RPC is called once and the local session ends; Cancel calls nothing; a failure shows a message, leaves the button available, and never ends the session) |
@@ -920,7 +942,7 @@ flutter analyze
 8. **`status` can lag reality up to ~24 h**; always check `valid_until` too (§9.5).
 
 ### Known gaps
-- **Biometric login, Two-Factor Authentication and Auto-Lock** are disabled placeholders (#45); **Privacy Policy / Terms of Service text** doesn't exist. **3 of 4 FAQ answers** are still unwritten (#46). **Dark Mode, Language, Animations, general UI Sound/Haptic** are visual-only (#5/#47). **Upgrade Membership and the Home bell's notifications feed** aren't built — Profile is otherwise fully built out (Profile's rows open stubs). **Forgot Password is now real, end to end, on Flutter Web** (#55) — request, email, deep-link, Set New Password screen, sign-in with the new password. **Changing the login email is now real too** (#57) — Privacy & Security's Email card, password-gated, with `profiles.email` kept in sync by a new server-side trigger. **Mobile (Android/iOS) deep-linking is not built** for either flow — the redirect URL and platform config (`AndroidManifest.xml`/`Info.plist`) are web-only right now; `SupabaseConfig.authRedirectUrl` is the one place to change when that's built.
+- **Biometric login, Two-Factor Authentication and Auto-Lock** are disabled placeholders (#45); **Privacy Policy / Terms of Service text** doesn't exist. **3 of 4 FAQ answers** are still unwritten (#46). **Dark Mode is real** (#59) — App Settings' toggle live-updates every screen through `SettingsProvider`/`AppTheme.dark`, no restart. **Language, Animations, general UI Sound/Haptic** are still visual-only (#5/#47). **Upgrade Membership and the Home bell's notifications feed** aren't built — Profile is otherwise fully built out (Profile's rows open stubs). **Forgot Password is now real, end to end, on Flutter Web** (#55) — request, email, deep-link, Set New Password screen, sign-in with the new password. **Changing the login email is now real too** (#57) — Privacy & Security's Email card, password-gated, with `profiles.email` kept in sync by a new server-side trigger. **Mobile (Android/iOS) deep-linking is not built** for either flow — the redirect URL and platform config (`AndroidManifest.xml`/`Info.plist`) are web-only right now; `SupabaseConfig.authRedirectUrl` is the one place to change when that's built.
 - **PKCE code verifier** uses default plain-text storage — low risk until a
   magic-link/OAuth flow exists (#6).
 - **Accounts created while email confirmation was ON stay unconfirmed** if it's
@@ -1022,3 +1044,4 @@ have a separate admin app for ID verification and door scanning.
 | 56 | "Remember me" made real: unchecked forces sign-out on next cold start (`AppEntryPoint`) |
 | 57 | Change Login Email built: password-gated, Privacy & Security, `profiles.email` sync trigger |
 | 58 | Sprint 8 Task 1: shared `SettingsProvider` foundation (not wired to any screen yet) |
+| 59 | Sprint 8 Task 2: real Dark Mode -- `AppTheme.dark`, `MaterialApp.themeMode` bound to `SettingsProvider`, App Settings' toggle wired for real |

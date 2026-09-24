@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/membership_plan.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 import 'id_upload_screen.dart';
@@ -110,9 +111,10 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
@@ -123,22 +125,22 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
                           children: [
                             Text(
                               'Choose Your Membership',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 36,
                                 fontWeight: FontWeight.w500,
                                 letterSpacing: 0.37,
-                                color: AppColors.textDark,
+                                color: colors.textPrimary,
                               ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               'Select the plan that fits your lifestyle',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w400,
                                 letterSpacing: -0.31,
-                                color: AppColors.textMuted,
+                                color: colors.textMuted,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -148,7 +150,7 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
                                 padding: const EdgeInsets.only(bottom: 16),
                                 child: Text(
                                   _errorMessage!,
-                                  style: TextStyle(color: AppColors.danger),
+                                  style: TextStyle(color: colors.danger),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -161,15 +163,15 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
                               ),
                               const SizedBox(height: 16),
                             ],
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
                                 'All plans include member discounts. Guest orders not included in allowance.',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w400,
                                   letterSpacing: -0.15,
-                                  color: AppColors.membershipPriceSuffix,
+                                  color: colors.textMuted,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -213,14 +215,18 @@ class _MembershipCard extends StatelessWidget {
     final gradient = _gradientForRank(rank);
     final icon = _iconForRank(rank);
     final highlighted = plan.isPopular;
+    final colors = context.colors;
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.cardWhite,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: highlighted ? AppColors.membershipPremiumBorder : AppColors.membershipCardBorder,
+          // The highlighted card's border stays the brand's premium-lilac
+          // accent in both modes; the plain cards' border is a theme-aware
+          // hairline so it doesn't vanish against a dark card.
+          color: highlighted ? AppColors.membershipPremiumBorder : colors.border,
           width: highlighted ? 1.5 : 1,
         ),
         boxShadow: [
@@ -251,7 +257,7 @@ class _MembershipCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             plan.name,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w500, letterSpacing: 0.07, color: AppColors.textDark),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500, letterSpacing: 0.07, color: colors.textPrimary),
           ),
           const SizedBox(height: 4),
           RichText(
@@ -259,20 +265,20 @@ class _MembershipCard extends StatelessWidget {
               children: [
                 TextSpan(
                   text: '\$${plan.priceDollars}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.w400,
                     letterSpacing: 0.37,
-                    color: AppColors.membershipPriceText,
+                    color: colors.textPrimary,
                   ),
                 ),
-                const TextSpan(
+                TextSpan(
                   text: '/month',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
                     letterSpacing: -0.31,
-                    color: AppColors.membershipPriceSuffix,
+                    color: colors.textMuted,
                   ),
                 ),
               ],
@@ -291,11 +297,11 @@ class _MembershipCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           bullet,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                             letterSpacing: -0.15,
-                            color: AppColors.membershipListText,
+                            color: colors.textMuted,
                           ),
                         ),
                       ),

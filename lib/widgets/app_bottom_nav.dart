@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_semantic_colors.dart';
 
 class _BottomNavTabData {
   final IconData icon;
@@ -33,10 +34,11 @@ class AppBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.cardWhite,
-        border: Border(top: BorderSide(color: AppColors.membershipCardBorder)),
+      decoration: BoxDecoration(
+        color: colors.surfaceElevated,
+        border: Border(top: BorderSide(color: colors.border)),
       ),
       child: SafeArea(
         top: false,
@@ -69,7 +71,7 @@ class _BottomNavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? AppColors.bottomNavActive : AppColors.membershipPriceSuffix;
+    final color = isActive ? AppColors.bottomNavActive : context.colors.textMuted;
     return InkWell(
       onTap: onTap,
       child: Padding(

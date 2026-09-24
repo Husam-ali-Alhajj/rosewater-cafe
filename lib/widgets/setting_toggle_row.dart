@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_semantic_colors.dart';
 
-const _iconGrey = Color(0xFF4A5565);
-const _mutedText = Color(0xFF4A5565);
 const _comingSoonInk = Color(0xFF99A1AF);
-const _rowDivider = Color(0xFFF3F4F6);
 const _switchOn = Color(0xFFEC003F);
 const _switchOff = Color(0xFFD1D5DC);
 
@@ -52,10 +49,11 @@ class SettingToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: showDivider
-          ? const BoxDecoration(border: Border(bottom: BorderSide(color: _rowDivider, width: _hairline)))
+          ? BoxDecoration(border: Border(bottom: BorderSide(color: colors.border, width: _hairline)))
           : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,7 +64,7 @@ class SettingToggleRow extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Icon(icon, size: iconSize, color: _iconGrey),
+                  child: Icon(icon, size: iconSize, color: colors.textMuted),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -75,18 +73,18 @@ class SettingToggleRow extends StatelessWidget {
                     children: [
                       Text(
                         label,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           height: 1,
                           letterSpacing: -0.15,
-                          color: AppColors.textDark,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         description,
-                        style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _mutedText),
+                        style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
                       ),
                       if (note != null)
                         Text(

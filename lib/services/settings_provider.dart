@@ -55,14 +55,12 @@ class SettingsProvider extends ChangeNotifier {
 
   // Defaults, applied only when nothing has been stored yet.
   //
-  // themeMode defaults to light, NOT system, on purpose: AppTheme.dark is
-  // currently just Flutter's bare ThemeData.dark() (no brand colors, no
-  // Inter font, none of this app's custom styling) -- following the system
-  // setting today would mean a device already in dark mode sees that
-  // unstyled stub the moment a later task wires `themeMode` into
-  // `MaterialApp`, which would look broken, not just unfinished. Matches
-  // today's actual behavior exactly (MaterialApp has no darkTheme/themeMode
-  // wired at all yet, so it's always light regardless of device setting).
+  // themeMode defaults to light, NOT system, on purpose: App Settings'
+  // "Dark Mode" row (Sprint 8 Task 2, AppTheme.dark) is a plain on/off
+  // switch, not a three-way System/Light/Dark picker -- there's no UI for
+  // "follow the system" for this to represent, so a fresh install starts
+  // in the state that switch actually shows as off (light), the same way
+  // every other toggle here defaults to whatever its own row is drawn as.
   static const _defaultThemeMode = ThemeMode.light;
   static const _defaultAnimationsEnabled = true; // design shows these "on"
   static const _defaultSoundEnabled = true;

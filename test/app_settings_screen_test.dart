@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:rosewater_cafe/screens/profile/app_settings_screen.dart';
 import 'package:rosewater_cafe/services/app_settings_service.dart';
+import 'package:rosewater_cafe/services/settings_provider.dart';
 import 'package:rosewater_cafe/widgets/setting_toggle_row.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,13 +33,25 @@ class _FakeService extends AppSettingsService {
   }
 }
 
-Future<void> _pump(WidgetTester tester, {AppSettingsService? service, Future<void> Function(BuildContext)? onDataCleared}) async {
+Future<void> _pump(
+  WidgetTester tester, {
+  AppSettingsService? service,
+  Future<void> Function(BuildContext)? onDataCleared,
+  SettingsProvider? settings,
+}) async {
   tester.view.physicalSize = const Size(800, 3000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  // The Dark Mode row is real now (Sprint 8 Task 2): it reads/writes
+  // `SettingsProvider`, the same provider `main.dart` registers above
+  // `MaterialApp` for real -- so this screen needs one in its own widget
+  // tree here too, the same way `main.dart` provides it.
   await tester.pumpWidget(
-    MaterialApp(
-      home: AppSettingsScreen(service: service ?? _FakeService(), onDataCleared: onDataCleared ?? (_) async {}),
+    ChangeNotifierProvider<SettingsProvider>.value(
+      value: settings ?? await SettingsProvider.load(),
+      child: MaterialApp(
+        home: AppSettingsScreen(service: service ?? _FakeService(), onDataCleared: onDataCleared ?? (_) async {}),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -58,7 +72,6 @@ void main() {
         'Appearance',
         'Dark Mode',
         'Switch to dark theme',
-        '(Coming Soon)',
         'Animations',
         'Enable smooth animations throughout the app',
         'Language',
@@ -90,19 +103,37 @@ void main() {
     });
   });
 
-  group('decision #5: Dark Mode and Language are visual only, never functional', () {
-    testWidgets('Dark Mode is off, disabled, and tapping it does nothing', (tester) async {
-      await _pump(tester);
+  group('Dark Mode is real (Sprint 8 Task 2)', () {
+    testWidgets('reflects SettingsProvider.themeMode and tapping flips it', (tester) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
 
-      final sw = tester.widget<SettingSwitch>(find.byKey(const ValueKey('placeholder-dark-mode')));
-      expect(sw.value, isFalse);
-      expect(sw.onTap, isNull);
+      expect(settings.themeMode, ThemeMode.light);
+      expect(_isOn(tester, 'dark-mode'), isFalse);
 
-      await tester.tap(find.byKey(const ValueKey('placeholder-dark-mode')), warnIfMissed: false);
+      await tester.tap(find.byKey(const ValueKey('dark-mode')));
       await tester.pumpAndSettle();
-      expect(_isOn(tester, 'placeholder-dark-mode'), isFalse);
+
+      expect(settings.themeMode, ThemeMode.dark);
+      expect(_isOn(tester, 'dark-mode'), isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('dark-mode')));
+      await tester.pumpAndSettle();
+
+      expect(settings.themeMode, ThemeMode.light);
+      expect(_isOn(tester, 'dark-mode'), isFalse);
     });
 
+    testWidgets('starts on when SettingsProvider already has dark mode set', (tester) async {
+      SharedPreferences.setMockInitialValues({'settings.theme_mode': 'dark'});
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(_isOn(tester, 'dark-mode'), isTrue);
+    });
+  });
+
+  group('decision #5: Language is visual only, never functional', () {
     testWidgets('only English shows selected, and no language row is tappable', (tester) async {
       await _pump(tester);
 

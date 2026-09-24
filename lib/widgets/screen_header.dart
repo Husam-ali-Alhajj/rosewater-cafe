@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_semantic_colors.dart';
 
 /// The header used by the Profile sub-screens (Edit Profile, Payment Methods,
 /// Add Payment Method...): a 40x36 back button, 16px gap, then the title in
@@ -17,6 +17,7 @@ class ScreenHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return SizedBox(
       height: 40,
       child: Row(
@@ -26,10 +27,10 @@ class ScreenHeader extends StatelessWidget {
             child: InkWell(
               onTap: onBack,
               borderRadius: BorderRadius.circular(8),
-              child: const SizedBox(
+              child: SizedBox(
                 width: 40,
                 height: 36,
-                child: Center(child: Icon(Icons.arrow_back, size: 16, color: Color(0xFF0A0A0A))),
+                child: Center(child: Icon(Icons.arrow_back, size: 16, color: colors.textPrimary)),
               ),
             ),
           ),
@@ -39,12 +40,12 @@ class ScreenHeader extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.w500,
                 height: 40 / 26,
                 letterSpacing: 0.369,
-                color: AppColors.textDark,
+                color: colors.textPrimary,
               ),
             ),
           ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/gradient_button.dart';
 import 'sign_in_screen.dart';
@@ -16,9 +16,10 @@ class ConfirmEmailPendingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -28,7 +29,7 @@ class ConfirmEmailPendingScreen extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: AppColors.cardWhite.withValues(alpha: 0.9),
+                    color: colors.surface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
@@ -47,19 +48,19 @@ class ConfirmEmailPendingScreen extends StatelessWidget {
                         height: 96,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.success.withValues(alpha: 0.12),
+                          color: colors.success.withValues(alpha: 0.12),
                         ),
-                        child: Icon(Icons.mark_email_read_outlined, color: AppColors.success, size: 44),
+                        child: Icon(Icons.mark_email_read_outlined, color: colors.success, size: 44),
                       ),
                       const SizedBox(height: 24),
-                      Text('Confirm Your Email', style: AppTextStyles.heading1, textAlign: TextAlign.center),
+                      Text('Confirm Your Email', style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
                       const SizedBox(height: 8),
                       Text(
                         'Your account is almost ready. We\'ve sent a confirmation '
                         'link to $email — click it to activate your account, '
                         'then sign in.',
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMuted,
+                        style: AppTextStyles.bodyMuted(context),
                       ),
                       const SizedBox(height: 24),
                       GradientButton(

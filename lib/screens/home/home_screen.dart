@@ -6,13 +6,19 @@ import '../../models/usage_allowance.dart';
 import '../../services/subscription_service.dart';
 import '../../services/usage_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/service_hours.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../auth/sign_out.dart';
 
-// Exact values read from the Figma `MemberDashboard` frame (node 1217:3554)
-// via the REST API, same method as decisions #20/#40. Kept private to this
-// file, like the other exact-Figma screens' one-off literals.
+// Sprint 8 Task 2 (real dark mode): every one of these Figma-exact light
+// literals now has a hand-picked dark counterpart below, kept at the same
+// hue -- warm neutral greys and a green status chip -- so this card and its
+// status banner still look like this design's, just at dark-mode luminance,
+// rather than falling back to the generic AppSemanticColors tokens (whose
+// [AppSemanticColors.textMuted]/`.surface` etc. are close but weren't tuned
+// against these specific fills). See `_homeColors` below for which one a
+// given build picks.
 const _iconGrey = Color(0xFF4A5565);
 const _mutedText = Color(0xFF6A7282);
 const _rowFill = Color(0xFFF9FAFB);
@@ -21,6 +27,66 @@ const _rowValue = Color(0xFF101828);
 const _statusFill = Color(0xFFF0FDF4);
 const _statusBorder = Color(0xFFB9F8CF);
 const _statusInk = Color(0xFF016630);
+
+const _iconGreyDark = Color(0xFFC3B2C1);
+const _mutedTextDark = Color(0xFFC3B2C1);
+const _rowFillDark = Color(0xFF2B1D2C);
+const _rowLabelDark = Color(0xFFE7DCE6);
+const _rowValueDark = Color(0xFFF5EDF3);
+const _statusFillDark = Color(0xFF122A1C);
+const _statusBorderDark = Color(0xFF1F5C34);
+const _statusInkDark = Color(0xFF6FDD86);
+
+/// This screen's own Figma-literal tokens (see the doc comment above),
+/// picked by brightness -- a small brightness-keyed record, not the shared
+/// [AppSemanticColors] extension, because these are specific to this
+/// dashboard's exact fills rather than generic surface/text roles.
+class _HomeColors {
+  final Color iconGrey;
+  final Color mutedText;
+  final Color rowFill;
+  final Color rowLabel;
+  final Color rowValue;
+  final Color statusFill;
+  final Color statusBorder;
+  final Color statusInk;
+
+  const _HomeColors({
+    required this.iconGrey,
+    required this.mutedText,
+    required this.rowFill,
+    required this.rowLabel,
+    required this.rowValue,
+    required this.statusFill,
+    required this.statusBorder,
+    required this.statusInk,
+  });
+}
+
+const _lightHomeColors = _HomeColors(
+  iconGrey: _iconGrey,
+  mutedText: _mutedText,
+  rowFill: _rowFill,
+  rowLabel: _rowLabel,
+  rowValue: _rowValue,
+  statusFill: _statusFill,
+  statusBorder: _statusBorder,
+  statusInk: _statusInk,
+);
+
+const _darkHomeColors = _HomeColors(
+  iconGrey: _iconGreyDark,
+  mutedText: _mutedTextDark,
+  rowFill: _rowFillDark,
+  rowLabel: _rowLabelDark,
+  rowValue: _rowValueDark,
+  statusFill: _statusFillDark,
+  statusBorder: _statusBorderDark,
+  statusInk: _statusInkDark,
+);
+
+_HomeColors _homeColors(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark ? _darkHomeColors : _lightHomeColors;
 
 // Figma's hairline stroke width on cards / badges (a fractional value from
 // the design export, kept exactly).
@@ -101,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       // The Figma frame's own fill: the same soft 3-stop page wash used on
       // every other screen.
-      decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+      decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
       child: SafeArea(
         bottom: false, // the bottom nav in MainShell handles its own inset
         child: _loading
@@ -176,10 +242,10 @@ class HomeContent extends StatelessWidget {
           _QuickActionButton(
             icon: Icons.calendar_today_outlined,
             label: 'Reserve Event',
-            backgroundColor: AppColors.cardWhite,
-            border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 1.545),
+            backgroundColor: context.colors.surface,
+            border: Border.all(color: context.colors.border, width: 1.545),
             iconColor: AppColors.bottomNavActive,
-            textColor: AppColors.textDark,
+            textColor: context.colors.textPrimary,
             onTap: onGoToEvents,
           ),
           const SizedBox(height: 24),
@@ -210,13 +276,15 @@ class HomeContent extends StatelessWidget {
   }
 }
 
-/// White-at-90% card with the design's hairline black-at-10% border and
-/// 14px radius, shared by the usage, service-hours and benefits cards.
-BoxDecoration _whiteCardDecoration() {
+/// White-at-90% (this theme's `surface` token in dark mode) card with the
+/// design's hairline border and 14px radius, shared by the usage,
+/// service-hours and benefits cards.
+BoxDecoration _whiteCardDecoration(BuildContext context) {
+  final colors = context.colors;
   return BoxDecoration(
-    color: Colors.white.withValues(alpha: 0.9),
+    color: colors.surface.withValues(alpha: 0.9),
     borderRadius: BorderRadius.circular(14),
-    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+    border: Border.all(color: colors.border, width: _hairline),
   );
 }
 
@@ -247,6 +315,7 @@ class _HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final firstName = _firstName(profile?.fullName);
     final memberId = profile?.memberId;
+    final home = _homeColors(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -256,23 +325,23 @@ class _HomeHeader extends StatelessWidget {
             children: [
               Text(
                 firstName == null ? 'Welcome!' : 'Welcome, $firstName!',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w500,
                   height: 40 / 36,
                   letterSpacing: 0.369,
-                  color: AppColors.textDark,
+                  color: context.colors.textPrimary,
                 ),
               ),
               if (memberId != null && memberId.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   'Member ID: $memberId',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     height: 24 / 16,
                     letterSpacing: -0.3125,
-                    color: _iconGrey,
+                    color: home.iconGrey,
                   ),
                 ),
               ],
@@ -284,10 +353,10 @@ class _HomeHeader extends StatelessWidget {
           child: InkWell(
             onTap: onNotifications,
             borderRadius: BorderRadius.circular(8),
-            child: const SizedBox(
+            child: SizedBox(
               width: 40,
               height: 36,
-              child: Center(child: Icon(Icons.notifications_none, size: 16, color: _iconGrey)),
+              child: Center(child: Icon(Icons.notifications_none, size: 16, color: home.iconGrey)),
             ),
           ),
         ),
@@ -295,15 +364,15 @@ class _HomeHeader extends StatelessWidget {
         InkWell(
           onTap: onLogout,
           borderRadius: BorderRadius.circular(8),
-          child: const SizedBox(
+          child: SizedBox(
             height: 36,
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.logout, size: 16, color: _iconGrey),
-                  SizedBox(width: 16),
+                  Icon(Icons.logout, size: 16, color: home.iconGrey),
+                  const SizedBox(width: 16),
                   Text(
                     'Logout',
                     style: TextStyle(
@@ -311,7 +380,7 @@ class _HomeHeader extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       height: 20 / 14,
                       letterSpacing: -0.15,
-                      color: _iconGrey,
+                      color: home.iconGrey,
                     ),
                   ),
                 ],
@@ -462,9 +531,17 @@ class _UsageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final planLimit = limit;
+    final colors = context.colors;
+    final home = _homeColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // The design's progress bar is near-black (#030213) on a white card --
+    // on a dark card that fill and its 20%-alpha track both collapse into
+    // the background, so dark mode swaps to a near-white fill instead
+    // (same idea, inverted for the surface it sits on).
+    final progressColor = isDark ? Colors.white.withValues(alpha: 0.85) : const Color(0xFF030213);
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _whiteCardDecoration(),
+      decoration: _whiteCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -482,20 +559,20 @@ class _UsageCard extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       height: 20 / 14,
                       letterSpacing: -0.15,
-                      color: AppColors.textMuted,
+                      color: colors.textMuted,
                     ),
                   ),
                   Text(
                     planLimit == null ? 'Unlimited' : '$used / $planLimit',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       height: 32 / 24,
                       letterSpacing: 0.07,
-                      color: AppColors.textDark,
+                      color: colors.textPrimary,
                     ),
                   ),
                 ],
@@ -509,8 +586,8 @@ class _UsageCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: planLimit <= 0 ? 0 : (used / planLimit).clamp(0.0, 1.0),
                 minHeight: 8,
-                backgroundColor: const Color(0xFF030213).withValues(alpha: 0.2),
-                valueColor: const AlwaysStoppedAnimation(Color(0xFF030213)),
+                backgroundColor: progressColor.withValues(alpha: 0.2),
+                valueColor: AlwaysStoppedAnimation(progressColor),
               ),
             ),
             const SizedBox(height: 32),
@@ -518,7 +595,7 @@ class _UsageCard extends StatelessWidget {
             const SizedBox(height: 16),
           Text(
             '$used used this month',
-            style: const TextStyle(fontSize: 12, height: 16 / 12, color: _mutedText),
+            style: TextStyle(fontSize: 12, height: 16 / 12, color: home.mutedText),
           ),
         ],
       ),
@@ -608,16 +685,17 @@ class _ServiceHoursCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isFullService = ServiceHours.isFullServiceAt(now);
+    final statusColors = _homeColors(context);
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _whiteCardDecoration(),
+      decoration: _whiteCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.access_time, size: 24, color: _iconGrey),
-              SizedBox(width: 12),
+              Icon(Icons.access_time, size: 24, color: statusColors.iconGrey),
+              const SizedBox(width: 12),
               Text(
                 'Service Hours',
                 style: TextStyle(
@@ -625,7 +703,7 @@ class _ServiceHoursCard extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                   height: 28 / 20,
                   letterSpacing: -0.45,
-                  color: AppColors.textDark,
+                  color: context.colors.textPrimary,
                 ),
               ),
             ],
@@ -654,17 +732,17 @@ class _ServiceHoursCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _statusFill,
-              border: Border.all(color: _statusBorder, width: _hairline),
+              color: statusColors.statusFill,
+              border: Border.all(color: statusColors.statusBorder, width: _hairline),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text.rich(
               TextSpan(
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   height: 20 / 14,
                   letterSpacing: -0.15,
-                  color: _statusInk,
+                  color: statusColors.statusInk,
                 ),
                 children: [
                   const TextSpan(text: 'Current Status: ', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -698,14 +776,15 @@ class _ServiceHoursRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const style = TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.3125);
+    final home = _homeColors(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(color: _rowFill, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: home.rowFill, borderRadius: BorderRadius.circular(10)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Flexible(flex: labelFlex, child: Text(label, style: style.copyWith(color: _rowLabel))),
-          Flexible(flex: valueFlex, child: Text(value, style: style.copyWith(color: _rowValue))),
+          Flexible(flex: labelFlex, child: Text(label, style: style.copyWith(color: home.rowLabel))),
+          Flexible(flex: valueFlex, child: Text(value, style: style.copyWith(color: home.rowValue))),
         ],
       ),
     );
@@ -724,20 +803,21 @@ class _BenefitsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bullets = plan.featureBullets;
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _whiteCardDecoration(),
+      decoration: _whiteCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Membership Benefits',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w500,
               height: 28 / 20,
               letterSpacing: -0.45,
-              color: AppColors.textDark,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 40),
@@ -745,11 +825,11 @@ class _BenefitsCard extends StatelessWidget {
             if (i > 0) const SizedBox(height: 8),
             Text(
               '• ${bullets[i]}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 20 / 14,
                 letterSpacing: -0.15,
-                color: AppColors.textMuted,
+                color: colors.textMuted,
               ),
             ),
           ],

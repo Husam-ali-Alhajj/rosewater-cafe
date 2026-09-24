@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../services/supabase_client.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
 import '../../widgets/gradient_button.dart';
@@ -111,9 +112,10 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -121,9 +123,9 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: AppColors.cardWhite.withValues(alpha: 0.9),
+                color: colors.surface.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 0.515),
+                border: Border.all(color: colors.border, width: 0.515),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.25),
@@ -133,7 +135,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
                   ),
                 ],
               ),
-              child: _succeeded ? _SuccessContent(onContinue: _continueToSignIn) : _buildForm(),
+              child: _succeeded ? _SuccessContent(onContinue: _continueToSignIn) : _buildForm(context),
             ),
           ),
         ),
@@ -141,19 +143,19 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildForm(BuildContext context) {
     return Form(
       key: _formKey,
       child: Column(
         children: [
           const OnboardingIconBadge(icon: Icons.lock_reset_outlined, gradient: AppColors.primaryGradient),
           const SizedBox(height: 24),
-          Text('Set New Password', style: AppTextStyles.heading1),
+          Text('Set New Password', style: AppTextStyles.heading1(context)),
           const SizedBox(height: 8),
           Text(
             'Choose a new password for your account.',
             textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMuted,
+            style: AppTextStyles.bodyMuted(context),
           ),
           const SizedBox(height: 24),
           TextFormField(
@@ -193,7 +195,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
           ),
           if (_formError != null) ...[
             const SizedBox(height: 16),
-            Text(_formError!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+            Text(_formError!, textAlign: TextAlign.center, style: TextStyle(color: context.colors.danger, fontSize: 12)),
           ],
           const SizedBox(height: 24),
           GradientButton(
@@ -213,22 +215,23 @@ class _SuccessContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 96,
           height: 96,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.success.withValues(alpha: 0.12)),
-          child: Icon(Icons.check_circle_outline, color: AppColors.success, size: 44),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: colors.success.withValues(alpha: 0.12)),
+          child: Icon(Icons.check_circle_outline, color: colors.success, size: 44),
         ),
         const SizedBox(height: 24),
-        Text('Password Updated', style: AppTextStyles.heading1, textAlign: TextAlign.center),
+        Text('Password Updated', style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
         const SizedBox(height: 8),
         Text(
           "Your password has been changed. Please sign in with your new password.",
           textAlign: TextAlign.center,
-          style: AppTextStyles.bodyMuted,
+          style: AppTextStyles.bodyMuted(context),
         ),
         const SizedBox(height: 24),
         GradientButton(label: 'Continue to Sign In', onPressed: onContinue),

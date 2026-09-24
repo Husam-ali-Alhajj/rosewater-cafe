@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import '../theme/app_semantic_colors.dart';
 import '../theme/app_text_styles.dart';
 
 /// Shared placeholder for a destination that isn't built yet, so in-progress
@@ -11,16 +11,17 @@ class ComingSoonScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: Column(
             children: [
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                    icon: Icon(Icons.arrow_back, color: colors.textPrimary),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
                 ],
@@ -29,7 +30,7 @@ class ComingSoonScreen extends StatelessWidget {
                 child: Center(
                   child: Text(
                     '$label — coming in a future task',
-                    style: AppTextStyles.bodyMuted,
+                    style: AppTextStyles.bodyMuted(context),
                   ),
                 ),
               ),

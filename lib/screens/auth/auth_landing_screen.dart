@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/outlined_secondary_button.dart';
@@ -24,9 +24,10 @@ class AuthLandingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: Center(
             child: Padding(
@@ -34,11 +35,13 @@ class AuthLandingScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: AppColors.cardWhite.withValues(alpha: 0.8),
+                  color: colors.surface.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(14),
                   // Figma's fractional hairline stroke width (same value as
                   // App Settings' _hairline) -- re-measured in Sprint 6 Task 3
                   // via the Figma app; the original PDF estimate (1.55) was wrong.
+                  // The brand-pink tint stays the same in both modes -- it's
+                  // an accent detail, not a light/dark neutral.
                   border: Border.all(color: const Color(0xFFFFCCD3), width: 0.515),
                   boxShadow: [
                     BoxShadow(
@@ -55,7 +58,7 @@ class AuthLandingScreen extends StatelessWidget {
                     Text(
                       'Rosewater Café',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.logoTitle,
+                      style: AppTextStyles.logoTitle(context),
                     ),
                     const SizedBox(height: 8),
                     const Text(
@@ -70,12 +73,12 @@ class AuthLandingScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 56),
-                    const Column(
+                    Column(
                       children: [
                         _FeatureRow(icon: Icons.wifi, label: 'Premium Lounge'),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         _FeatureRow(icon: Icons.music_note, label: 'Exclusive Services'),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         _FeatureRow(icon: Icons.people, label: 'Bring Guests'),
                       ],
                     ),
@@ -95,14 +98,14 @@ class AuthLandingScreen extends StatelessWidget {
                       letterSpacing: -0.44,
                     ),
                     const SizedBox(height: 56),
-                    const Text(
+                    Text(
                       'Premium hookah lounge & café experience',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         height: 16 / 12,
-                        color: Color(0xFF6A7282),
+                        color: colors.textMuted,
                       ),
                     ),
                   ],
@@ -131,12 +134,12 @@ class _FeatureRow extends StatelessWidget {
         const SizedBox(width: 12),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,
             letterSpacing: -0.15,
             height: 20 / 14,
-            color: Color(0xFF4A5565),
+            color: context.colors.textMuted,
           ),
         ),
       ],

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/profile.dart';
 import '../../services/profile_service.dart';
 import '../../services/subscription_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../events/events_tab.dart';
 import '../membership/choose_membership_screen.dart';
@@ -132,7 +132,7 @@ class _MainShellState extends State<MainShell> {
     if (_loading) {
       return Scaffold(
         body: Container(
-          decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+          decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
           child: const Center(child: CircularProgressIndicator()),
         ),
       );

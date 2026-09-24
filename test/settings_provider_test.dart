@@ -16,9 +16,9 @@ void main() {
   group('SettingsProvider -- fresh-install defaults', () {
     test('themeMode defaults to light, not system', () async {
       final settings = await SettingsProvider.load();
-      // Not ThemeMode.system: AppTheme.dark is currently just Flutter's bare
-      // ThemeData.dark() -- defaulting to system would show that unstyled
-      // stub on any device already in dark mode.
+      // Not ThemeMode.system: App Settings' Dark Mode row is a plain on/off
+      // switch, not a System/Light/Dark picker, so a fresh install starts in
+      // the state that switch shows as off.
       expect(settings.themeMode, ThemeMode.light);
     });
 

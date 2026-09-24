@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
 import '../../widgets/gradient_button.dart';
@@ -141,10 +142,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.pageBackgroundGradient,
+        decoration: BoxDecoration(
+          gradient: colors.pageBackgroundGradient,
         ),
         child: SafeArea(
           child: SingleChildScrollView(
@@ -153,19 +155,19 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                  icon: Icon(Icons.arrow_back, color: colors.textPrimary),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: AppColors.cardWhite.withValues(alpha: 0.9),
+                    color: colors.surface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(14),
                     // Figma's fractional hairline stroke (same value as App
                     // Settings' _hairline), confirmed in Sprint 6 Task 3 --
                     // was missing entirely before this fidelity pass.
-                    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 0.515),
+                    border: Border.all(color: colors.border, width: 0.515),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.25),
@@ -184,11 +186,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           gradient: AppColors.primaryGradient,
                         ),
                         const SizedBox(height: 24),
-                        Text('Create Account', style: AppTextStyles.heading1),
+                        Text('Create Account', style: AppTextStyles.heading1(context)),
                         const SizedBox(height: 8),
                         Text(
                           'Join Rosewater Café today',
-                          style: AppTextStyles.bodyMuted,
+                          style: AppTextStyles.bodyMuted(context),
                         ),
                         const SizedBox(height: 24),
                         TextFormField(
@@ -294,7 +296,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                 padding: const EdgeInsets.only(top: 12),
                                 child: RichText(
                                   text: TextSpan(
-                                    style: AppTextStyles.bodyMuted,
+                                    style: AppTextStyles.bodyMuted(context),
                                     children: [
                                       const TextSpan(text: 'I agree to the '),
                                       TextSpan(
@@ -325,7 +327,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                               child: Text(
                                 'You must agree to continue',
                                 style: TextStyle(
-                                  color: AppColors.danger,
+                                  color: colors.danger,
                                   fontSize: 12,
                                 ),
                               ),
@@ -344,7 +346,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           children: [
                             Text(
                               'Already have an account? ',
-                              style: AppTextStyles.bodyMuted,
+                              style: AppTextStyles.bodyMuted(context),
                             ),
                             GestureDetector(
                               onTap: () =>

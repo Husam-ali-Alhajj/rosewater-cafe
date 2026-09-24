@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
 import '../../widgets/gradient_button.dart';
@@ -69,9 +70,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -79,19 +81,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                  icon: Icon(Icons.arrow_back, color: colors.textPrimary),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: AppColors.cardWhite.withValues(alpha: 0.9),
+                    color: colors.surface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(14),
                     // Figma's fractional hairline stroke (same value as App
                     // Settings' _hairline), confirmed in Sprint 6 Task 3 --
                     // was missing entirely before this fidelity pass.
-                    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 0.515),
+                    border: Border.all(color: colors.border, width: 0.515),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.25),
@@ -101,7 +103,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       ),
                     ],
                   ),
-                  child: _submitted ? _SuccessContent(email: _emailController.text.trim()) : _buildForm(),
+                  child: _submitted ? _SuccessContent(email: _emailController.text.trim()) : _buildForm(context),
                 ),
               ],
             ),
@@ -111,7 +113,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildForm(BuildContext context) {
     return Form(
       key: _formKey,
       child: Column(
@@ -121,12 +123,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             gradient: AppColors.primaryGradient,
           ),
           const SizedBox(height: 24),
-          Text('Forgot Password?', style: AppTextStyles.heading1),
+          Text('Forgot Password?', style: AppTextStyles.heading1(context)),
           const SizedBox(height: 8),
           Text(
             "No worries! Enter your email address and we'll send you a link to reset your password.",
             textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMuted,
+            style: AppTextStyles.bodyMuted(context),
           ),
           const SizedBox(height: 24),
           TextFormField(
@@ -146,7 +148,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   _requestError!,
-                  style: TextStyle(color: AppColors.danger, fontSize: 12),
+                  style: TextStyle(color: context.colors.danger, fontSize: 12),
                 ),
               ),
             ),
@@ -168,6 +170,7 @@ class _SuccessContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -176,12 +179,12 @@ class _SuccessContent extends StatelessWidget {
           height: 96,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.success.withValues(alpha: 0.12),
+            color: colors.success.withValues(alpha: 0.12),
           ),
-          child: Icon(Icons.mark_email_read_outlined, color: AppColors.success, size: 44),
+          child: Icon(Icons.mark_email_read_outlined, color: colors.success, size: 44),
         ),
         const SizedBox(height: 24),
-        Text('Check Your Email', style: AppTextStyles.heading1, textAlign: TextAlign.center),
+        Text('Check Your Email', style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
         const SizedBox(height: 8),
         Text(
           // Deliberately worded to be true and identical whether or not
@@ -190,7 +193,7 @@ class _SuccessContent extends StatelessWidget {
           'If an account exists for $email, we\'ve sent a link to reset '
           'your password. Check your inbox (and spam folder).',
           textAlign: TextAlign.center,
-          style: AppTextStyles.bodyMuted,
+          style: AppTextStyles.bodyMuted(context),
         ),
         const SizedBox(height: 24),
         GradientButton(

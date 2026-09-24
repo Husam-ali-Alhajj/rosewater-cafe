@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../services/app_settings_service.dart';
+import '../../services/settings_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/screen_header.dart';
 import '../../widgets/setting_toggle_row.dart';
 import '../auth/sign_out.dart';
@@ -9,13 +12,15 @@ import '../auth/sign_out.dart';
 // Values follow the same shared/established patterns as the rest of the
 // Profile section (Notification settings, Privacy & Security, Help &
 // Support), reused rather than re-measured -- the Figma REST API was still
-// rate-limited when this screen was built (see decision #47).
-const _titleInk = Color(0xFF1E2939);
-const _bodyInk = Color(0xFF4A5565);
-const _rowFill = Color(0xFFF9FAFB);
-const _dividerInk = Color(0xFFF3F4F6);
-const _rowValue = Color(0xFF101828);
-const _mutedText = Color(0xFF6A7282);
+// rate-limited when this screen was built (see decision #47). Sprint 8 Task
+// 2 made this screen theme-aware (it's where Dark Mode itself is toggled,
+// so it has to actually look right the instant that switch flips): the
+// fixed neutral inks/fills this file used to hardcode (title/body text, the
+// cache-size row fill, the card divider) are gone -- every build() below
+// reads them from `context.colors` instead. The language-selected and
+// destructive-action accents below stay literal, same reasoning as
+// everywhere else in this task: brand/semantic accents, not light/dark
+// neutrals.
 const _languageSelectedFill = Color(0xFFFFF1F2);
 const _languageSelectedBorder = Color(0xFFFFA1AD);
 const _destructiveInk = Color(0xFFE7000B);
@@ -35,12 +40,17 @@ const _appBuild = '1';
 /// App Settings (Figma frame "AppSettingsScreen"): Appearance, Language,
 /// Interactions, Data & Storage.
 ///
-/// **Dark Mode and Language are exactly decision #5: shown for visual
-/// accuracy, built for real nowhere.** Dark Mode is drawn off and inert with
-/// the design's own "(Coming Soon)" label. The language list always shows
-/// English selected (a plain, static list -- nothing here is tappable);
-/// selecting Arabic/French/Spanish was never in scope, so there's nothing to
-/// half-build.
+/// **Dark Mode is real now (Sprint 8 Task 2)** -- decision #5 originally
+/// scoped it out alongside Language, but this task un-scopes exactly Dark
+/// Mode: the toggle reads and writes `SettingsProvider.themeMode` (the same
+/// provider `main.dart`'s `MaterialApp` watches for `themeMode`), so
+/// flipping it here changes every screen's theme immediately, with no
+/// restart and no "(Coming Soon)" label anymore.
+///
+/// **Language stays decision #5**: shown for visual accuracy, built for
+/// real nowhere. The list always shows English selected (a plain, static
+/// list -- nothing here is tappable); selecting Arabic/French/Spanish was
+/// never in scope, so there's nothing to half-build.
 ///
 /// **Animations, Sound Effects and Haptic Feedback are the same kind of
 /// placeholder**, for the same reason: this task's acceptance bar is "no
@@ -132,7 +142,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
@@ -175,12 +185,13 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: colors.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -189,12 +200,12 @@ class _Card extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: gradientHeader
                 ? const BoxDecoration(gradient: AppColors.primaryGradient)
-                : const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: _dividerInk, width: _hairline)),
+                : BoxDecoration(
+                    border: Border(bottom: BorderSide(color: colors.border, width: _hairline)),
                   ),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: gradientHeader ? Colors.white : _titleInk),
+                Icon(icon, size: 20, color: gradientHeader ? Colors.white : colors.textPrimary),
                 const SizedBox(width: 12),
                 Text(
                   title,
@@ -203,7 +214,7 @@ class _Card extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                     height: 28 / 18,
                     letterSpacing: -0.44,
-                    color: gradientHeader ? Colors.white : _titleInk,
+                    color: gradientHeader ? Colors.white : colors.textPrimary,
                   ),
                 ),
               ],
@@ -221,6 +232,13 @@ class _AppearanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Real now (Sprint 8 Task 2) -- `watch`, not `read`, so this row's
+    // switch reflects `SettingsProvider.themeMode` immediately if it's
+    // changed anywhere else (there's nowhere else yet, but the same
+    // `ChangeNotifierProvider` this reads from is what `main.dart`'s
+    // `MaterialApp` also watches, so the two never disagree).
+    final settings = context.watch<SettingsProvider>();
+    final isDark = settings.themeMode == ThemeMode.dark;
     return _Card(
       title: 'Appearance',
       icon: Icons.palette_outlined,
@@ -228,16 +246,15 @@ class _AppearanceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SettingToggleRow(
+          SettingToggleRow(
             icon: Icons.dark_mode_outlined,
             iconSize: 20,
             label: 'Dark Mode',
             description: 'Switch to dark theme',
-            value: false,
-            onToggle: null, // decision #5: shown, never built
+            value: isDark,
+            onToggle: () => settings.setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark),
             showDivider: true,
-            note: '(Coming Soon)',
-            switchKey: ValueKey('placeholder-dark-mode'),
+            switchKey: const ValueKey('dark-mode'),
           ),
           const SettingToggleRow(
             icon: Icons.motion_photos_auto_outlined,
@@ -253,11 +270,11 @@ class _AppearanceCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
             child: Text(
               'Language',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 letterSpacing: -0.15,
-                color: _titleInk,
+                color: context.colors.textPrimary,
               ),
             ),
           ),
@@ -298,7 +315,7 @@ class _LanguageRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? AppColors.bottomNavActive : _bodyInk,
+                  color: selected ? AppColors.bottomNavActive : context.colors.textMuted,
                 ),
               ),
             ),
@@ -363,6 +380,7 @@ class _DataStorageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return _Card(
       title: 'Data & Storage',
       icon: Icons.storage_outlined,
@@ -375,17 +393,17 @@ class _DataStorageCard extends StatelessWidget {
             Container(
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(color: _rowFill, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Cache Size',
-                    style: TextStyle(fontSize: 14, letterSpacing: -0.15, color: _bodyInk),
+                    style: TextStyle(fontSize: 14, letterSpacing: -0.15, color: colors.textMuted),
                   ),
                   Text(
                     _format(cacheBytes),
-                    style: const TextStyle(fontSize: 16, letterSpacing: -0.31, color: _rowValue),
+                    style: TextStyle(fontSize: 16, letterSpacing: -0.31, color: colors.textPrimary),
                   ),
                 ],
               ),
@@ -394,8 +412,8 @@ class _DataStorageCard extends StatelessWidget {
             _OutlinedActionButton(
               icon: Icons.cleaning_services_outlined,
               label: 'Clear Cache',
-              ink: _titleInk,
-              borderColor: Colors.black.withValues(alpha: 0.1),
+              ink: colors.textPrimary,
+              borderColor: colors.border,
               onTap: onClearCache,
             ),
             const SizedBox(height: 12),
@@ -436,7 +454,7 @@ class _OutlinedActionButton extends StatelessWidget {
     return Opacity(
       opacity: onTap == null ? 0.5 : 1,
       child: Material(
-        color: Colors.white,
+        color: context.colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(color: borderColor, width: 1.545),
@@ -469,16 +487,17 @@ class _FooterInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final colors = context.colors;
+    return Column(
       children: [
         Text(
           'Rosewater Café',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _titleInk),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
         ),
-        SizedBox(height: 4),
-        Text('Version $_appVersion', style: TextStyle(fontSize: 12, color: _mutedText)),
-        SizedBox(height: 2),
-        Text('Build $_appBuild', style: TextStyle(fontSize: 12, color: _mutedText)),
+        const SizedBox(height: 4),
+        Text('Version $_appVersion', style: TextStyle(fontSize: 12, color: colors.textMuted)),
+        const SizedBox(height: 2),
+        Text('Build $_appBuild', style: TextStyle(fontSize: 12, color: colors.textMuted)),
       ],
     );
   }

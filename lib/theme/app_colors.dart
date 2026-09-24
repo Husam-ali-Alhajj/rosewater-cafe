@@ -85,4 +85,38 @@ class AppColors {
   static const Color success = Color(0xFF2E7D32);
   static const Color warning = Color(0xFFF9A825);
   static const Color danger = Color(0xFFD32F2F);
+
+  // --- Dark mode (Sprint 8 Task 2) ---
+  //
+  // Deliberately NOT a generic Material dark (blue-grey surfaces on near-
+  // black) -- these keep the same low-saturation plum/maroon hue family as
+  // [pageBackgroundGradient] and [cardWhite]'s warm undertone, just pushed to
+  // dark-mode luminance, so a card or the page wash still reads as this
+  // brand at night instead of a stock dark theme with pink buttons dropped
+  // on top. Consumed through [AppSemanticColors.dark] (see
+  // app_semantic_colors.dart), never referenced directly by a screen.
+  static const Color darkBackground = Color(0xFF120A10);
+  static const Color darkSurface = Color(0xFF211622);
+  static const Color darkSurfaceElevated = Color(0xFF2B1D2C);
+  static const Color darkInputFill = Color(0xFF2B1D2C);
+  static const Color darkBorder = Color(0x26FFFFFF); // white @ 15%
+  static const Color darkTextPrimary = Color(0xFFF5EDF3);
+  static const Color darkTextMuted = Color(0xFFC3B2C1);
+
+  // Same soft 3-stop wash as [pageBackgroundGradient], re-picked at dark-mode
+  // luminance (deep plum -> near-black-violet) rather than lightening the
+  // light-mode stops, which would have washed out against dark text.
+  static const LinearGradient pageBackgroundGradientDark = LinearGradient(
+    colors: [Color(0xFF1B0F19), Color(0xFF17101F), Color(0xFF120A1C)],
+    stops: [0, 0.5, 1],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  // success/warning/danger, lightened so each still clears ~4.5:1 against
+  // the dark surfaces above -- the light-mode hexes are tuned for a white
+  // card and fall well short of that on [darkSurface].
+  static const Color successDark = Color(0xFF6FDD86);
+  static const Color warningDark = Color(0xFFFFCA5C);
+  static const Color dangerDark = Color(0xFFFF7A7E);
 }

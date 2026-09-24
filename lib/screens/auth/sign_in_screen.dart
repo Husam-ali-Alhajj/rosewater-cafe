@@ -3,6 +3,7 @@ import '../../services/auth_service.dart';
 import '../../services/remember_me_prefs.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
 import '../../widgets/gradient_button.dart';
@@ -108,9 +109,10 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -118,19 +120,19 @@ class _SignInScreenState extends State<SignInScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                  icon: Icon(Icons.arrow_back, color: colors.textPrimary),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: AppColors.cardWhite.withValues(alpha: 0.9),
+                    color: colors.surface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(14),
                     // Figma's fractional hairline stroke (same value as App
                     // Settings' _hairline), confirmed in Sprint 6 Task 3 --
                     // was missing entirely before this fidelity pass.
-                    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 0.515),
+                    border: Border.all(color: colors.border, width: 0.515),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.25),
@@ -149,9 +151,9 @@ class _SignInScreenState extends State<SignInScreen> {
                           gradient: AppColors.primaryGradient,
                         ),
                         const SizedBox(height: 24),
-                        Text('Welcome Back', style: AppTextStyles.heading1),
+                        Text('Welcome Back', style: AppTextStyles.heading1(context)),
                         const SizedBox(height: 8),
-                        Text('Sign in to your account', style: AppTextStyles.bodyMuted),
+                        Text('Sign in to your account', style: AppTextStyles.bodyMuted(context)),
                         const SizedBox(height: 24),
                         TextFormField(
                           controller: _emailController,
@@ -187,7 +189,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               value: _rememberMe,
                               onChanged: (value) => setState(() => _rememberMe = value ?? true),
                             ),
-                            Text('Remember me', style: AppTextStyles.bodyMuted),
+                            Text('Remember me', style: AppTextStyles.bodyMuted(context)),
                             const Spacer(),
                             GestureDetector(
                               onTap: () => Navigator.of(context).push(
@@ -209,7 +211,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               alignment: Alignment.centerLeft,
                               child: Text(
                                 _credentialsError!,
-                                style: TextStyle(color: AppColors.danger, fontSize: 12),
+                                style: TextStyle(color: colors.danger, fontSize: 12),
                               ),
                             ),
                           ),
@@ -222,7 +224,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("Don't have an account? ", style: AppTextStyles.bodyMuted),
+                            Text("Don't have an account? ", style: AppTextStyles.bodyMuted(context)),
                             GestureDetector(
                               onTap: () => Navigator.of(context).pushReplacement(
                                 MaterialPageRoute(builder: (_) => const CreateAccountScreen()),
