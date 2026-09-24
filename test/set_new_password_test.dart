@@ -65,7 +65,7 @@ void main() {
 
       await AuthService(auth: auth).resetPassword('member@example.com');
 
-      expect(auth.log, ['resetPasswordForEmail(member@example.com, redirectTo: ${SupabaseConfig.passwordRecoveryRedirectUrl})']);
+      expect(auth.log, ['resetPasswordForEmail(member@example.com, redirectTo: ${SupabaseConfig.authRedirectUrl})']);
     });
   });
 

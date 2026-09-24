@@ -59,6 +59,18 @@ const _hairline = 0.515; // Figma's fractional hairline stroke width
 /// This screen then ends the local session and returns to Auth Landing. There
 /// is no undo, and the form says so before anything happens.
 ///
+/// **Change Email is real** (decision #57). Same expand-in-place pattern and
+/// password re-check as Change Password. Requesting a change only ever
+/// starts it: Supabase emails a confirmation link to the NEW address, and
+/// the current email keeps signing in the whole time -- there's nothing
+/// else for this screen to do once the request succeeds, since the actual
+/// `auth.users.email` change (and `profiles.email` following it, via the
+/// new sync trigger) happens server-side when that link is clicked, whether
+/// or not this screen -- or even this device -- is still open. Reads the
+/// current/pending email via [AuthService.currentUserEmail] /
+/// [AuthService.pendingEmailChange] (the real auth state) rather than the
+/// `profiles` row, which only ever reflects a confirmed value.
+///
 /// "View Privacy Policy" and "Terms of Service" open a "coming soon" page:
 /// no policy or terms text exists yet to show.
 class PrivacySecurityScreen extends StatefulWidget {
@@ -107,6 +119,22 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   String? _deletePasswordError;
   String? _deleteFormError;
 
+  final _emailFormKey = GlobalKey<FormState>();
+  final _newEmailController = TextEditingController();
+  final _emailPasswordController = TextEditingController();
+  bool _changingEmailForm = false;
+  bool _showEmailPassword = false;
+  bool _changingEmail = false;
+  String? _emailFieldError;
+  String? _emailPasswordError;
+  String? _emailFormError;
+  // Set right after a successful request so the pending notice shows
+  // immediately, without waiting on a fresh `currentUser` read -- Supabase
+  // updates `currentUser.newEmail` from the same response, but re-reading
+  // it here keeps this screen's own state the obvious source during this
+  // build, matching every other field on this screen.
+  String? _justRequestedEmail;
+
   @override
   void dispose() {
     // Password fields never leave this screen.
@@ -114,6 +142,8 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     _newController.dispose();
     _confirmController.dispose();
     _deletePasswordController.dispose();
+    _newEmailController.dispose();
+    _emailPasswordController.dispose();
     super.dispose();
   }
 
@@ -252,6 +282,80 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     }
   }
 
+  // ---- Change Email (real, password-gated, request-only) ----
+
+  void _openEmailForm() => setState(() => _changingEmailForm = true);
+
+  void _closeEmailForm() {
+    _newEmailController.clear();
+    _emailPasswordController.clear();
+    setState(() {
+      _changingEmailForm = false;
+      _showEmailPassword = false;
+      _emailFieldError = null;
+      _emailPasswordError = null;
+      _emailFormError = null;
+    });
+  }
+
+  String? _validateNewEmail(String? value) {
+    if (_emailFieldError != null) return _emailFieldError;
+    return Validators.email(value);
+  }
+
+  String? _validateEmailPassword(String? value) {
+    if (_emailPasswordError != null) return _emailPasswordError;
+    if (value == null || value.isEmpty) return 'Enter your current password';
+    return null;
+  }
+
+  Future<void> _submitChangeEmail() async {
+    if (_changingEmail) return;
+    // Clear last attempt's server errors so the validators start clean.
+    _emailFieldError = null;
+    _emailPasswordError = null;
+    setState(() => _emailFormError = null);
+    // Client-side checks first: an invalid form never reaches the network.
+    if (!_emailFormKey.currentState!.validate()) return;
+
+    final newEmail = _newEmailController.text.trim();
+    setState(() => _changingEmail = true);
+    try {
+      await widget.authService.changeEmail(
+        currentPassword: _emailPasswordController.text,
+        newEmail: newEmail,
+      );
+      if (!mounted) return;
+      _newEmailController.clear();
+      _emailPasswordController.clear();
+      setState(() {
+        _changingEmail = false;
+        _changingEmailForm = false;
+        _showEmailPassword = false;
+        _justRequestedEmail = newEmail;
+      });
+    } on ChangeEmailFailure catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _changingEmail = false;
+        if (e.field == 'password') {
+          _emailPasswordError = e.message;
+        } else if (e.field == 'email') {
+          _emailFieldError = e.message;
+        } else {
+          _emailFormError = e.message;
+        }
+      });
+      if (e.field != null) _emailFormKey.currentState!.validate();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _changingEmail = false;
+        _emailFormError = "Couldn't update your email. Check your connection and try again.";
+      });
+    }
+  }
+
   void _openComingSoon(String label) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => ComingSoonScreen(label: label)));
   }
@@ -275,6 +379,11 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                 _SectionCard(
                   title: 'Password',
                   child: _changingPassword ? _buildPasswordForm() : _buildPasswordPrompt(),
+                ),
+                const SizedBox(height: 24),
+                _SectionCard(
+                  title: 'Email',
+                  child: _changingEmailForm ? _buildEmailForm() : _buildEmailPrompt(),
                 ),
                 const SizedBox(height: 24),
                 _SectionCard(title: 'Privacy', child: _buildPrivacyRows()),
@@ -390,6 +499,140 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     savingLabel: 'Updating…',
                     saving: _saving,
                     onTap: _saving ? null : _submitPassword,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmailPrompt() {
+    final currentEmail = widget.authService.currentUserEmail ?? '';
+    final pendingEmail = _justRequestedEmail ?? widget.authService.pendingEmailChange;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            currentEmail,
+            style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _labelInk),
+          ),
+          if (pendingEmail != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Confirmation sent to $pendingEmail -- click the link there to finish. '
+              'Your current email still works until then.',
+              style: const TextStyle(fontSize: 12, height: 16 / 12, color: _bodyInk),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Material(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+            ),
+            child: InkWell(
+              onTap: _openEmailForm,
+              customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              child: const SizedBox(
+                height: 36,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.mail_outline, size: 16, color: _labelInk),
+                    SizedBox(width: 17),
+                    Text(
+                      'Change Email',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 20 / 14,
+                        letterSpacing: -0.15,
+                        color: _labelInk,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmailForm() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _emailFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Enter your new email address and current password. We\'ll send a '
+              'confirmation link to the new address -- your current email keeps '
+              'working until you click it.',
+              style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _bodyInk),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'New Email Address',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 1,
+                letterSpacing: -0.15,
+                color: _labelInk,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _newEmailController,
+              keyboardType: TextInputType.emailAddress,
+              validator: _validateNewEmail,
+              enabled: !_changingEmail,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              decoration: const InputDecoration(hintText: 'your.new.email@example.com'),
+              onChanged: (_) {
+                if (_emailFieldError != null) setState(() => _emailFieldError = null);
+              },
+            ),
+            const SizedBox(height: 24),
+            _PasswordField(
+              label: 'Current Password',
+              hint: 'Enter current password',
+              controller: _emailPasswordController,
+              visible: _showEmailPassword,
+              onToggleVisible: () => setState(() => _showEmailPassword = !_showEmailPassword),
+              validator: _validateEmailPassword,
+              enabled: !_changingEmail,
+            ),
+            if (_emailFormError != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                _emailFormError!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.danger, fontSize: 12),
+              ),
+            ],
+            const SizedBox(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: CancelButton(onTap: _changingEmail ? null : _closeEmailForm)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: SaveButton(
+                    label: 'Send Confirmation',
+                    savingLabel: 'Sending…',
+                    saving: _changingEmail,
+                    onTap: _changingEmail ? null : _submitChangeEmail,
                   ),
                 ),
               ],

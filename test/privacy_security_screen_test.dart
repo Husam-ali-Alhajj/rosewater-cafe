@@ -5,18 +5,43 @@ import 'package:rosewater_cafe/services/account_deletion_service.dart';
 import 'package:rosewater_cafe/services/auth_service.dart';
 import 'package:rosewater_cafe/widgets/setting_toggle_row.dart';
 
-/// Records every password change the screen asks for, and lets a test make it
-/// fail the way the real one can.
+/// Records every password change / email change the screen asks for, and
+/// lets a test make either fail the way the real ones can. Also stands in
+/// for the live Supabase user this screen would otherwise need for its
+/// Email card ([currentUserEmail]/[pendingEmailChange]) -- a widget test
+/// can't initialise a real Supabase client, so these are overridden here
+/// instead of falling through to the real ones.
 class _FakeAuthService extends AuthService {
-  _FakeAuthService({this.failure});
+  _FakeAuthService({
+    this.failure,
+    this.changeEmailFailure,
+    this.email = 'member@example.com',
+    this.pendingEmail,
+  });
 
   final ChangePasswordFailure? failure;
+  final ChangeEmailFailure? changeEmailFailure;
+  final String? email;
+  final String? pendingEmail;
   final List<Map<String, String>> calls = [];
+  final List<Map<String, String>> emailChangeCalls = [];
 
   @override
   Future<void> changePassword({required String currentPassword, required String newPassword}) async {
     calls.add({'current': currentPassword, 'new': newPassword});
     if (failure != null) throw failure!;
+  }
+
+  @override
+  String? get currentUserEmail => email;
+
+  @override
+  String? get pendingEmailChange => pendingEmail;
+
+  @override
+  Future<void> changeEmail({required String currentPassword, required String newEmail}) async {
+    emailChangeCalls.add({'password': currentPassword, 'newEmail': newEmail});
+    if (changeEmailFailure != null) throw changeEmailFailure!;
   }
 }
 
@@ -71,6 +96,14 @@ Future<void> _openDeleteForm(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _openEmailForm(WidgetTester tester) async {
+  await tester.tap(find.text('Change Email'));
+  await tester.pumpAndSettle();
+}
+
+Finder get _newEmailField => find.byType(TextFormField).at(0);
+Finder get _emailPasswordField => find.byType(TextFormField).at(1);
+
 Future<void> _fill(WidgetTester tester, {String current = 'OldPass1', String next = 'NewPass2', String? confirm}) async {
   await tester.enterText(_currentField, current);
   await tester.enterText(_newField, next);
@@ -94,6 +127,9 @@ void main() {
         'Password',
         'Keep your account secure by using a strong password',
         'Change Password',
+        'Email',
+        'member@example.com',
+        'Change Email',
         'Privacy',
         'View Privacy Policy',
         'Terms of Service',
@@ -396,6 +432,139 @@ void main() {
       expect(find.text("Couldn't remove your stored files. Please try again."), findsOneWidget);
       expect(find.text('Delete Permanently'), findsOneWidget); // not stuck on "Deleting…"
       expect(log, isEmpty); // the local session was never ended -- the account is still real
+    });
+  });
+
+  group('Change Email requires current-password re-confirmation', () {
+    testWidgets('shows the current email, and tapping the row opens an inline form, not a dialog', (tester) async {
+      await _pump(tester, auth: _FakeAuthService(email: 'husam@example.com'));
+
+      expect(find.text('husam@example.com'), findsOneWidget);
+      await _openEmailForm(tester);
+
+      expect(find.text('New Email Address'), findsOneWidget);
+      expect(find.text('Current Password'), findsOneWidget);
+      expect(find.byType(TextFormField), findsNWidgets(2));
+      expect(find.text('Send Confirmation'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+    });
+
+    testWidgets('a change already pending from before shows the pending notice up front', (tester) async {
+      await _pump(tester, auth: _FakeAuthService(email: 'husam@example.com', pendingEmail: 'new@example.com'));
+
+      expect(find.textContaining('new@example.com'), findsOneWidget);
+      expect(find.textContaining('still works until then'), findsOneWidget);
+    });
+
+    testWidgets('an invalid new email is rejected before any request', (tester) async {
+      final auth = _FakeAuthService();
+      await _pump(tester, auth: auth);
+      await _openEmailForm(tester);
+
+      await tester.enterText(_newEmailField, 'not-an-email');
+      await tester.enterText(_emailPasswordField, 'MyPass1');
+      await tester.tap(find.text('Send Confirmation'));
+      await tester.pumpAndSettle();
+
+      expect(auth.emailChangeCalls, isEmpty);
+    });
+
+    testWidgets('an empty password is rejected before any request', (tester) async {
+      final auth = _FakeAuthService();
+      await _pump(tester, auth: auth);
+      await _openEmailForm(tester);
+
+      await tester.enterText(_newEmailField, 'new@example.com');
+      await tester.tap(find.text('Send Confirmation'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Enter your current password'), findsOneWidget);
+      expect(auth.emailChangeCalls, isEmpty);
+    });
+
+    testWidgets('Cancel closes the form, clears both fields, and requests nothing', (tester) async {
+      final auth = _FakeAuthService();
+      await _pump(tester, auth: auth);
+      await _openEmailForm(tester);
+      await tester.enterText(_newEmailField, 'new@example.com');
+      await tester.enterText(_emailPasswordField, 'MyPass1');
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(auth.emailChangeCalls, isEmpty);
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.text('Change Email'), findsOneWidget); // row is back
+
+      await _openEmailForm(tester);
+      expect(tester.widget<TextField>(find.descendant(of: _newEmailField, matching: find.byType(TextField))).controller!.text, isEmpty);
+      expect(tester.widget<TextField>(find.descendant(of: _emailPasswordField, matching: find.byType(TextField))).controller!.text, isEmpty);
+    });
+
+    testWidgets('a valid request sends both fields, closes the form, and shows the pending notice', (tester) async {
+      final auth = _FakeAuthService(email: 'husam@example.com');
+      await _pump(tester, auth: auth);
+      await _openEmailForm(tester);
+
+      await tester.enterText(_newEmailField, 'new@example.com');
+      await tester.enterText(_emailPasswordField, 'MyPass1');
+      await tester.tap(find.text('Send Confirmation'));
+      await tester.pumpAndSettle();
+
+      expect(auth.emailChangeCalls, [
+        {'password': 'MyPass1', 'newEmail': 'new@example.com'},
+      ]);
+      expect(find.byType(TextFormField), findsNothing); // form closed
+      expect(find.text('husam@example.com'), findsOneWidget); // current email still shown
+      expect(find.textContaining('new@example.com'), findsOneWidget); // pending notice
+      expect(find.textContaining('still works until then'), findsOneWidget);
+    });
+
+    testWidgets('a wrong password is shown under that field and the form stays open', (tester) async {
+      final auth = _FakeAuthService(
+        changeEmailFailure: const ChangeEmailFailure('Current password is incorrect.', field: 'password'),
+      );
+      await _pump(tester, auth: auth);
+      await _openEmailForm(tester);
+
+      await tester.enterText(_newEmailField, 'new@example.com');
+      await tester.enterText(_emailPasswordField, 'WrongPass1');
+      await tester.tap(find.text('Send Confirmation'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Current password is incorrect.'), findsOneWidget);
+      expect(find.byType(TextFormField), findsNWidgets(2)); // form still open
+    });
+
+    testWidgets('an email already in use is shown under the email field', (tester) async {
+      final auth = _FakeAuthService(
+        changeEmailFailure: const ChangeEmailFailure('An account with this email already exists.', field: 'email'),
+      );
+      await _pump(tester, auth: auth);
+      await _openEmailForm(tester);
+
+      await tester.enterText(_newEmailField, 'taken@example.com');
+      await tester.enterText(_emailPasswordField, 'MyPass1');
+      await tester.tap(find.text('Send Confirmation'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('An account with this email already exists.'), findsOneWidget);
+    });
+
+    testWidgets('a general failure is shown under the form, and the button works again', (tester) async {
+      final auth = _FakeAuthService(
+        changeEmailFailure: const ChangeEmailFailure("Couldn't update your email. Please try again."),
+      );
+      await _pump(tester, auth: auth);
+      await _openEmailForm(tester);
+
+      await tester.enterText(_newEmailField, 'new@example.com');
+      await tester.enterText(_emailPasswordField, 'MyPass1');
+      await tester.tap(find.text('Send Confirmation'));
+      await tester.pumpAndSettle();
+
+      expect(find.text("Couldn't update your email. Please try again."), findsOneWidget);
+      expect(find.text('Send Confirmation'), findsOneWidget); // not stuck on "Sending…"
     });
   });
 

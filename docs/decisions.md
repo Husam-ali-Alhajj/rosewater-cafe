@@ -3401,6 +3401,124 @@ unchanged. Both confirmed working.
 
 ---
 
+### 57. Change Login Email
+
+Closes the last remaining Known Gap from the functional audit that started this
+sprint: `profiles.email` was locked against client edits (decision #9) specifically
+because changing the real login email "needs its own re-verification flow" --
+this builds that flow.
+
+**Found before writing any code, not mentioned in the task itself:**
+`profiles.email` had no way to follow `auth.users.email` once it actually changed.
+`handle_new_user()` only fires on `INSERT` (initial_schema.sql); nothing updates
+`profiles.email` after that, ever. Without a fix, the app would show the OLD email
+forever after a real, confirmed change. Decision #9's own lock-trigger comment had
+already anticipated exactly this and blessed the fix in advance: *"A server-side
+process with no user session -- e.g. a future trigger that syncs the email after a
+verified change -- is not affected."* Built that trigger (below) and proved the
+prediction correct live, before writing any UI: directly updated `auth.users.email`
+as `postgres` (no JWT context, `auth.uid()` returns `NULL` -- matching exactly how
+Supabase's own `/verify` endpoint runs), and confirmed the lock trigger did NOT
+block the sync.
+
+**Two decisions with no Figma frame or existing pattern to follow, put to the user
+first:**
+
+1. *Where does "Change Email" live?* **Chosen: Privacy & Security, next to Change
+   Password** -- a new "Email" card between Password and Privacy, the identical
+   expand-in-place pattern (prompt -> form -> back to prompt) those two sections
+   already use. Rejected: making Edit Profile's read-only email field editable,
+   which would mix a sensitive security action into a screen that's otherwise just
+   name/phone/photo.
+2. *Does it require the current password first?* **Chosen: yes** -- matches this
+   app's own established pattern for every other sensitive account action (Change
+   Password, and Delete Account after decision #54's hardening), even though
+   neither the task's wording nor Supabase's own requirement (`Secure email
+   change` is OFF for this project -- confirmed in the dashboard -- so Supabase
+   itself only requires the NEW email to confirm) asked for it.
+
+**What was built:**
+
+- **Migration `20260927100000_sync_profile_email_on_change.sql`**:
+  `sync_profile_email()`, `SECURITY DEFINER`, fires `AFTER UPDATE ON auth.users`
+  with a `WHEN (new.email IS DISTINCT FROM old.email)` guard -- critical, since
+  `auth.users` rows update constantly (every sign-in touches `last_sign_in_at`) and
+  this must never fire on any of that. Keeps `profiles.email` following the real,
+  CONFIRMED value only -- there's no "pending" value to reflect here, since
+  Supabase's own `/verify` endpoint updates `auth.users.email` server-side before
+  ever redirecting the browser back to the app (confirmed by reading the actual
+  "Change email address" template: it uses `{{ .ConfirmationURL }}`, the same
+  `/auth/v1/verify?...` pattern as "Reset password").
+- **`AuthService.changeEmail`** (new): re-verifies the current password (reuses
+  `verifyCurrentPassword`, the same method decision #54 built for Delete Account),
+  then calls `updateUser(email:)` with `emailRedirectTo:
+  SupabaseConfig.authRedirectUrl` -- the SAME redirect value decision #55's
+  password recovery already uses, since both are "land back on the app with
+  nothing further to do" (renamed from `passwordRecoveryRedirectUrl` to
+  `authRedirectUrl` to reflect that; decision #55's own text is left as originally
+  written, since it was accurate for what existed then). Also added
+  `AuthService.currentUserEmail` / `.pendingEmailChange` getters (`_auth
+  .currentUser?.email` / `.newEmail`) -- not strictly part of the request flow, but
+  needed so `PrivacySecurityScreen`'s Email card can display the right thing
+  through the SAME injectable `authService` the screen already takes, rather than
+  reaching for the live Supabase singleton directly (see the bug below).
+- **`PrivacySecurityScreen`**: new "Email" card -- current email, a pending notice
+  ("Confirmation sent to X -- click the link there to finish. Your current email
+  still works until then.") whenever `pendingEmailChange` is non-null, and "Change
+  Email" opening a form (New Email Address + Current Password, `Validators.email`)
+  in the same place. Nothing else on this screen changes; there's no follow-up
+  action once the request succeeds -- the actual change happens server-side,
+  whether or not this screen (or even this device) is still open when the link is
+  clicked.
+
+**Bug found and fixed before this ever reached a live test:** the first version of
+the Email card read `supabase.auth.currentUser?.email` directly instead of going
+through `widget.authService`. That's the live Supabase singleton, never
+initialised in a widget test -- and since this card renders unconditionally as
+part of the screen's normal layout, it broke ALL 21 previously-passing tests in
+`privacy_security_screen_test.dart`, not just new ones. Caught by running the
+existing suite right after adding the card, before writing a single new test.
+Fixed by adding the `currentUserEmail`/`pendingEmailChange` getters to
+`AuthService` above instead, so the same fake already injected for Change
+Password/Delete Account covers the Email card too.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 208/208 (7 new for
+`AuthService.changeEmail` mirroring `change_password_test.dart`'s fake-`GoTrueClient`
+pattern; 9 new widget tests for the Email card, extending the same suite the bug
+above was caught in).
+
+**Live test, the same before/after snapshot method as every hardening task this
+sprint.** A throwaway account was created via the real Auth API using Gmail `+`
+addressing for BOTH the old and new address (`...+emailchangetest<ts>@gmail.com`
+and `...+emailchangetest<ts>new@gmail.com`), so both confirmation emails landed in
+a real, already-authenticated inbox this session could read directly -- this whole
+task was verified through the real Auth API and a real inbox, without needing the
+Flutter app running at all, since the UI wiring itself is already covered by the
+widget tests above.
+
+- **Before:** `auth.users.email` = old address; `profiles.email` = old address
+  (matches); no pending change.
+- **Requested the change** (`PUT /auth/v1/user`, mirroring what `updateUser`
+  sends): `200`, response shows `new_email` = the new address.
+- **During the pending window:** signing in with the OLD email succeeded (`200`);
+  signing in with the NEW email failed (`400 invalid_credentials` -- not
+  confirmed yet). Exactly the required behavior.
+- **Opened the real confirmation email, clicked the real link.**
+- **After:** `auth.users.email` = new address; `profiles.email` = new address too
+  -- the sync trigger worked correctly on the real end-to-end path, not just the
+  isolated test that proved the mechanism before any UI was built; the pending
+  field was cleared.
+- **Sign-in, retested:** OLD email now fails (`400`); NEW email now succeeds
+  (`200`), signed in as the new address.
+
+**Sign-off:** old email keeps working for the entire pending window; the new email
+only works after its link is clicked; the old one stops working at exactly that
+point; `profiles.email` stays correct throughout, on the real end-to-end path, not
+just in isolation. This closes the last Known Gap from Sprint 6's functional
+audit.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

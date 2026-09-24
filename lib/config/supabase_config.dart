@@ -13,18 +13,24 @@ class SupabaseConfig {
 
   static const String publishableKey = 'sb_publishable_ikWe3ZC9r7LgsY-WB83NJA_dgbWObj4';
 
-  /// Where Supabase sends the browser after a password-recovery email link
-  /// is opened (`resetPasswordForEmail`'s `redirectTo`). This EXACT value
-  /// must also be added to the Supabase dashboard's Auth -> URL
-  /// Configuration -> Redirect URLs allow-list, or Supabase silently falls
-  /// back to the project's default Site URL instead.
+  /// Where Supabase sends the browser after any email-link auth flow
+  /// completes -- password recovery (`resetPasswordForEmail`'s
+  /// `redirectTo`, decision #55) and changing the login email
+  /// (`updateUser`'s `emailRedirectTo`, decision #57) both use this same
+  /// value; both land the browser back on the app with nothing further to
+  /// do (the actual account change already happened server-side by the
+  /// time the redirect fires -- see decision #57's notes on how the email
+  /// confirmation link works). This EXACT value must also be added to the
+  /// Supabase dashboard's Auth -> URL Configuration -> Redirect URLs
+  /// allow-list, or Supabase silently falls back to the project's default
+  /// Site URL instead.
   ///
   /// Currently set up for Flutter Web only (decision #55): run with
   /// `flutter run -d chrome --web-port=5000` so this fixed port actually
   /// matches what's running. A real mobile build (Android/iOS) would need
   /// this changed to a custom URL scheme instead (e.g.
-  /// `rosewatercafe://reset-password`), plus the matching platform config
+  /// `rosewatercafe://auth-callback`), plus the matching platform config
   /// in AndroidManifest.xml / Info.plist -- not done yet, since testing so
   /// far has been web-only.
-  static const String passwordRecoveryRedirectUrl = 'http://localhost:5000';
+  static const String authRedirectUrl = 'http://localhost:5000';
 }

@@ -57,6 +57,17 @@ class SetNewPasswordFailure implements Exception {
   const SetNewPasswordFailure(this.message, {this.field});
 }
 
+/// Thrown by [AuthService.changeEmail] with a message that's already safe to
+/// show the user directly. [field] is `'password'` or `'email'` so the UI
+/// can show it under the right field, the same shape every other sensitive
+/// action's failure type in this file already uses; null means a general
+/// failure not tied to either.
+class ChangeEmailFailure implements Exception {
+  final String message;
+  final String? field;
+  const ChangeEmailFailure(this.message, {this.field});
+}
+
 class AuthService {
   /// [auth] exists only so tests can substitute a fake auth client; the app
   /// always uses the real one from the shared Supabase client.
@@ -66,6 +77,21 @@ class AuthService {
   GoTrueClient get _auth => _authOverride ?? supabase.auth;
 
   static const _invalidCredentials = SignInFailure('Invalid email or password.');
+
+  /// The signed-in user's current login email, or null if nobody's signed
+  /// in. A getter (not a field) so callers -- e.g. `PrivacySecurityScreen`'s
+  /// Email card -- always see the live value, not a stale snapshot; a fake
+  /// in a widget test overrides this instead of needing a live Supabase
+  /// client just to render what email is on screen.
+  String? get currentUserEmail => _auth.currentUser?.email;
+
+  /// The new email address a pending [changeEmail] request is still waiting
+  /// to be confirmed for, or null if there's no change in progress. Reflects
+  /// real server state (from the user object Supabase itself returns), not
+  /// anything cached locally -- so it's still correct if the confirmation
+  /// link gets clicked on a different device, or this screen is reopened
+  /// long after the request was made.
+  String? get pendingEmailChange => _auth.currentUser?.newEmail;
 
   /// Signs in with email + password. Deliberately reports the exact same
   /// message for every credential-related failure — wrong email, wrong
@@ -108,7 +134,7 @@ class AuthService {
   /// not) and rate limiting.
   Future<void> resetPassword(String email) async {
     try {
-      await _auth.resetPasswordForEmail(email, redirectTo: SupabaseConfig.passwordRecoveryRedirectUrl);
+      await _auth.resetPasswordForEmail(email, redirectTo: SupabaseConfig.authRedirectUrl);
     } on AuthException catch (e) {
       switch (e.code) {
         case 'over_email_send_rate_limit':
@@ -266,6 +292,50 @@ class AuthService {
       throw const SetNewPasswordFailure("Couldn't update your password. Please try again.");
     } catch (_) {
       throw const SetNewPasswordFailure("Couldn't update your password. Check your connection and try again.");
+    }
+  }
+
+  /// Changes the signed-in user's login email -- after proving they know the
+  /// current password first, the same reasoning [changePassword] and account
+  /// deletion already use for a sensitive action (decision #57).
+  ///
+  /// This only ever *requests* the change: Supabase sends a confirmation
+  /// link to [newEmail], and the change doesn't take effect until that's
+  /// clicked ("Secure email change" is off for this project, so only the new
+  /// address needs to confirm -- see decision #57). The current email keeps
+  /// working for sign-in the entire time; nothing here ends the local
+  /// session or requires any follow-up action once the link is clicked --
+  /// the actual `auth.users.email` update happens server-side, at Supabase's
+  /// own `/verify` step, before the browser is ever redirected back.
+  Future<void> changeEmail({required String currentPassword, required String newEmail}) async {
+    // 1. Prove the caller actually knows the current password before
+    // requesting anything.
+    try {
+      await verifyCurrentPassword(currentPassword);
+    } on ReauthenticationFailure catch (e) {
+      throw ChangeEmailFailure(e.message, field: 'password');
+    }
+
+    // 2. Only now request the change.
+    try {
+      await _auth.updateUser(UserAttributes(email: newEmail), emailRedirectTo: SupabaseConfig.authRedirectUrl);
+    } on AuthException catch (e) {
+      switch (e.code) {
+        case 'email_exists':
+        case 'user_already_exists':
+          throw const ChangeEmailFailure(
+            'An account with this email already exists.',
+            field: 'email',
+          );
+        case 'validation_failed':
+          throw const ChangeEmailFailure('Enter a valid email address.', field: 'email');
+        case 'over_email_send_rate_limit':
+        case 'over_request_rate_limit':
+          throw const ChangeEmailFailure('Too many attempts. Please wait a moment and try again.');
+      }
+      throw const ChangeEmailFailure("Couldn't update your email. Please try again.");
+    } catch (_) {
+      throw const ChangeEmailFailure("Couldn't update your email. Check your connection and try again.");
     }
   }
 

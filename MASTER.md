@@ -87,7 +87,7 @@ project and swaps one config file (§14).
 | Edit Profile (name, phone, photo; email read-only) | ✅ Built (Sprint 5 Task 2, #42), avatars bucket + storage isolation proven live |
 | App Settings (Sprint 5 Task 7, #47) | ✅ Dark Mode/Language/Animations/Sound/Haptic are visual-only placeholders (decisions #5/#47); **Cache Size/Clear Cache/Clear All App Data are real** — a genuine, computed number, and real clearing (image cache + local preferences + sign-out) |
 | Help & Support (Sprint 5 Task 6, #46) | ✅ Static contact cards (no backend); FAQ accordion with the **one real answer** the design exports, the other three questions shown with a plain placeholder, never invented copy; Resources open coming-soon pages |
-| Privacy & Security (Sprint 5 Task 5, #45; Delete Account made real, #52; hardened, #54) | ✅ **Change Password is real** (re-enter the current password; same strength rules as signup). **Delete Account is real, immediate, self-service deletion, and password-gated**: an inline form (same expand-in-place pattern as Change Password) re-verifies the current password, then removes every stored file in both `avatars`/`id-documents` — aborting the whole deletion if that cleanup fails — before calling `delete_own_account`, which cascades through every table of the user's data; no undo, no request queue. Biometric / Two-Factor / Auto-Lock are **disabled "Coming soon" placeholders**; Privacy Policy / Terms open a coming-soon page |
+| Privacy & Security (Sprint 5 Task 5, #45; Delete Account made real, #52; hardened, #54; Change Email added, #57) | ✅ **Change Password is real** (re-enter the current password; same strength rules as signup). **Delete Account is real, immediate, self-service deletion, and password-gated**: an inline form (same expand-in-place pattern as Change Password) re-verifies the current password, then removes every stored file in both `avatars`/`id-documents` — aborting the whole deletion if that cleanup fails — before calling `delete_own_account`, which cascades through every table of the user's data; no undo, no request queue. **Change Email is real and password-gated too**: requests a Supabase email change (current email keeps working until the new one's confirmation link is clicked; `profiles.email` follows automatically via a server-side sync trigger). Biometric / Two-Factor / Auto-Lock are **disabled "Coming soon" placeholders**; Privacy Policy / Terms open a coming-soon page |
 | Notification settings (7 toggles, **local-only**) | ✅ Built (Sprint 5 Task 4, #44): saved on the device with `shared_preferences`, no table, no network. The toggles record preferences only — nothing sends push/email/SMS yet |
 | Payment Methods (list / add / set default / delete, metadata only) | ✅ Built (Sprint 5 Task 3, #43); one-default-per-user enforced in the database and proven live. Card brand/last4 are derived client-side for display — still no real processor |
 | **Notifications** (Home bell) | 🟡 Stub screen, no unread badge, table exists but unused (#32, #41) |
@@ -546,7 +546,7 @@ else in the app calls the database.
 | File | Responsibility | Backend calls |
 |---|---|---|
 | `supabase_client.dart` | Exports the global `supabase` client. | — |
-| `auth_service.dart` | `signIn`, `signUp`, `resetPassword` (sends `redirectTo: SupabaseConfig.passwordRecoveryRedirectUrl`, #55), `changePassword` (verifies the current password first), `verifyCurrentPassword` (the same re-auth step, reused by account deletion), `completePasswordRecovery` (sets a new password inside an active recovery session, #55). Maps Supabase errors → `SignInFailure`/`SignUpFailure`/`ResetPasswordFailure`/`ChangePasswordFailure`/`ReauthenticationFailure`/`SetNewPasswordFailure`. | `auth.signInWithPassword`, `auth.signUp`, `auth.resetPasswordForEmail`, `auth.updateUser`, `auth.signOut(others)` |
+| `auth_service.dart` | `signIn`, `signUp`, `resetPassword` (sends `redirectTo: SupabaseConfig.authRedirectUrl`, #55), `changePassword` (verifies the current password first), `verifyCurrentPassword` (the same re-auth step, reused by account deletion and email change), `completePasswordRecovery` (sets a new password inside an active recovery session, #55), `changeEmail` (verifies the current password, then requests a Supabase email change, #57), `currentUserEmail`/`pendingEmailChange` getters (for the Email card's display, #57). Maps Supabase errors → `SignInFailure`/`SignUpFailure`/`ResetPasswordFailure`/`ChangePasswordFailure`/`ReauthenticationFailure`/`SetNewPasswordFailure`/`ChangeEmailFailure`. | `auth.signInWithPassword`, `auth.signUp`, `auth.resetPasswordForEmail`, `auth.updateUser`, `auth.signOut(others)` |
 | `subscription_service.dart` | Plans, active membership, the whole subscription lifecycle. | `from('membership_plans')`, `from('subscriptions')`, RPCs `start_subscription`, `confirm_subscription_payment`, `cancel_subscription` |
 | `profile_service.dart` | Current user's `profiles` row; `updateProfile` (name, phone, optional photo path — never email). | `from('profiles')` select / update |
 | `account_deletion_service.dart` | `deleteAccount(currentPassword:)` — re-verifies the password, removes every stored file in both storage buckets (aborts on any cleanup failure), then permanently deletes the signed-in user's account and everything tied to it. No undo. (#54) | `auth.signInWithPassword` (via `verifyCurrentPassword`), `storage.from('avatars'/'id-documents').list/remove`, RPC `delete_own_account` |
@@ -607,6 +607,7 @@ them into the dashboard's SQL Editor.
 | `20260922100000_avatars_bucket_and_profile_email_lock` | Private `avatars` bucket (5 MB, PNG/JPEG/WebP) + 4 per-user storage policies; trigger that stops a client changing `profiles.email` |
 | `20260925100000_delete_own_account` | `delete_own_account` RPC (self-delete only, cascades through the user's own data); **drops** `deletion_requests`, its policies, and the `deletion_request_status` type (#52) |
 | `20260926100000_close_event_reservations_update_gap` | **Drops** the `event_reservations` UPDATE policy — closes a live-confirmed price-tampering gap found in the consolidated security audit (#53) |
+| `20260927100000_sync_profile_email_on_change` | `sync_profile_email()` trigger on `auth.users` (`AFTER UPDATE ... WHEN (new.email IS DISTINCT FROM old.email)`) — keeps `profiles.email` following a real, confirmed email change (#57) |
 
 ### 9.2 Tables
 
@@ -650,6 +651,17 @@ Every table has `created_at`/`updated_at` maintained by a shared
   deleted, so a user who has cards always has a default. The old `exp_year >= now()` CHECK
   was replaced: it was re-evaluated on every update, so once a saved card's year passed,
   *any* update of it — including the trigger clearing an old default — failed.
+- **`trg_sync_profile_email` → `sync_profile_email()`** (#57) — `AFTER UPDATE on
+  auth.users`, guarded by `WHEN (new.email IS DISTINCT FROM old.email)` so it
+  never fires on the constant unrelated churn of that table (every sign-in alone
+  touches `last_sign_in_at`). Keeps `profiles.email` following a real, CONFIRMED
+  email change — there's no "pending" value to reflect, since Supabase's own
+  `/verify` endpoint updates `auth.users.email` server-side before ever
+  redirecting back to the app. Doesn't conflict with `trg_profiles_lock_email`
+  (decision #9/avatars migration): that trigger only blocks a client-initiated
+  update (`auth.uid() is not null`), and this one runs with no JWT context at all
+  (confirmed live: `auth.uid()` is `NULL` here, the same way it is inside
+  Supabase's own internal update).
 
 ### 9.4 Subscription state machine
 
@@ -906,7 +918,7 @@ flutter analyze
 8. **`status` can lag reality up to ~24 h**; always check `valid_until` too (§9.5).
 
 ### Known gaps
-- **Biometric login, Two-Factor Authentication and Auto-Lock** are disabled placeholders (#45); **Privacy Policy / Terms of Service text** doesn't exist. **3 of 4 FAQ answers** are still unwritten (#46). **Dark Mode, Language, Animations, general UI Sound/Haptic** are visual-only (#5/#47). **Upgrade Membership and the Home bell's notifications feed** aren't built — Profile is otherwise fully built out (Profile's rows open stubs). Changing the login email isn't built either (needs a re-verification flow). **Forgot Password is now real, end to end, on Flutter Web** (#55) — request, email, deep-link, Set New Password screen, sign-in with the new password. **Mobile (Android/iOS) deep-linking is not built** — the redirect URL and platform config (`AndroidManifest.xml`/`Info.plist`) are web-only right now; `SupabaseConfig.passwordRecoveryRedirectUrl` is the one place to change when that's built.
+- **Biometric login, Two-Factor Authentication and Auto-Lock** are disabled placeholders (#45); **Privacy Policy / Terms of Service text** doesn't exist. **3 of 4 FAQ answers** are still unwritten (#46). **Dark Mode, Language, Animations, general UI Sound/Haptic** are visual-only (#5/#47). **Upgrade Membership and the Home bell's notifications feed** aren't built — Profile is otherwise fully built out (Profile's rows open stubs). **Forgot Password is now real, end to end, on Flutter Web** (#55) — request, email, deep-link, Set New Password screen, sign-in with the new password. **Changing the login email is now real too** (#57) — Privacy & Security's Email card, password-gated, with `profiles.email` kept in sync by a new server-side trigger. **Mobile (Android/iOS) deep-linking is not built** for either flow — the redirect URL and platform config (`AndroidManifest.xml`/`Info.plist`) are web-only right now; `SupabaseConfig.authRedirectUrl` is the one place to change when that's built.
 - **PKCE code verifier** uses default plain-text storage — low risk until a
   magic-link/OAuth flow exists (#6).
 - **Accounts created while email confirmation was ON stay unconfirmed** if it's
@@ -1006,3 +1018,4 @@ have a separate admin app for ID verification and door scanning.
 | 54 | Hardened Delete Account: current-password re-check + storage cleanup before the RPC |
 | 55 | Forgot Password completed (Set New Password screen, deep-link handling); two real live bugs found and fixed |
 | 56 | "Remember me" made real: unchecked forces sign-out on next cold start (`AppEntryPoint`) |
+| 57 | Change Login Email built: password-gated, Privacy & Security, `profiles.email` sync trigger |
