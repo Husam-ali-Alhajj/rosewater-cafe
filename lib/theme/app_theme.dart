@@ -6,7 +6,14 @@ import 'app_semantic_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get light => _build(Brightness.light, AppSemanticColors.light);
+  /// [isArabic] picks the typeface: the Figma design's Inter for Latin
+  /// text, or a real Arabic typeface when the app's locale is Arabic --
+  /// Inter itself has NO Arabic glyphs at all, so requesting it for Arabic
+  /// text was silently falling through to Skia's generic system fallback
+  /// font (different per platform, and never designed to match Inter's
+  /// weight or rhythm) -- see [_arabicFontFamily]'s doc comment.
+  static ThemeData light({bool isArabic = false}) =>
+      _build(Brightness.light, AppSemanticColors.light, isArabic: isArabic);
 
   /// A real dark theme (Sprint 8 Task 2) -- not `ThemeData.dark()`, which is
   /// what this was stubbed as before. Built the same way as [light], off
@@ -16,10 +23,23 @@ class AppTheme {
   /// gradients, `bottomNavActive`) is reused completely unchanged -- so the
   /// app still reads as Rosewater Café's pink/purple brand at night, not
   /// generic Material dark grey with a pink button dropped on top.
-  static ThemeData get dark => _build(Brightness.dark, AppSemanticColors.dark);
+  static ThemeData dark({bool isArabic = false}) =>
+      _build(Brightness.dark, AppSemanticColors.dark, isArabic: isArabic);
 
-  static ThemeData _build(Brightness brightness, AppSemanticColors colors) {
+  /// Cairo: a Google Fonts Arabic typeface built specifically to sit
+  /// alongside a geometric-grotesque Latin face like Inter -- same low
+  /// x-height, even stroke weight, and it ships the same 200-900 weight
+  /// range Inter does, so `FontWeight.w500`/`.w600`/etc. (used throughout
+  /// this app's TextStyles) still resolve to a real matching weight instead
+  /// of Skia faking bold on a face that doesn't have it. Chosen over
+  /// leaving `fontFamily` on Inter -- which has no Arabic glyphs at all --
+  /// and over just naming a generic "sans-serif" fallback, which would
+  /// leave Arabic type looking like a different, uncoordinated app.
+  static String? get _arabicFontFamily => GoogleFonts.cairo().fontFamily;
+
+  static ThemeData _build(Brightness brightness, AppSemanticColors colors, {required bool isArabic}) {
     final isDark = brightness == Brightness.dark;
+    final fontFamily = isArabic ? _arabicFontFamily : GoogleFonts.inter().fontFamily;
     // Brightness-correct default text colors (Material's own light/dark
     // typography), then overridden with this brand's own tokens -- same
     // approach as the rest of this method, never Flutter's raw defaults.
@@ -30,8 +50,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
-      // The Figma design uses Inter as its typeface throughout.
-      fontFamily: GoogleFonts.inter().fontFamily,
+      fontFamily: fontFamily,
       textTheme: baseTextTheme,
       scaffoldBackgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       colorScheme: ColorScheme.fromSeed(

@@ -70,34 +70,44 @@ class RosewaterCafeApp extends StatelessWidget {
       // rebuilds the instant `SettingsProvider.setThemeMode` calls
       // `notifyListeners()` -- Dark Mode flips live, with no restart.
       child: Consumer<SettingsProvider>(
-        builder: (context, settings, _) => MaterialApp(
-          navigatorKey: navigatorKey,
-          title: 'Rosewater Café',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
-          themeMode: settings.themeMode,
-          // Sprint 8 Task 6: `supportedLocales` only lists the two ARB
-          // files that actually exist (en/ar) -- French/Spanish are real,
-          // storable picks in `SettingsProvider.locale` (App Settings'
-          // Language list still shows all four, per the design), but
-          // MaterialApp's own locale-resolution algorithm falls back to
-          // the first supported locale (English) for anything it doesn't
-          // recognize, rather than crashing or showing missing-key
-          // fallback text. Arabic being in `supportedLocales` is also what
-          // makes `Directionality` flip to RTL app-wide -- that's derived
-          // from the resolved `Locale`, not set separately.
-          locale: Locale(settings.locale),
-          supportedLocales: AppLocalizations.supportedLocales,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          home: const AppEntryPoint(),
-          // Sprint 8 Task 5: wraps the app's whole navigated content (every
-          // route, regardless of which one is on top) so Auto-Lock's lock
-          // screen can appear on resume no matter where the user was --
-          // MaterialApp's own `builder`, not something bolted onto
-          // AppEntryPoint, which only ever runs once at cold start.
-          builder: (context, child) => AppLockGate(child: child!),
-        ),
+        builder: (context, settings, _) {
+          // Inter (this app's Latin typeface) has no Arabic glyphs at all,
+          // so it can't just stay the fontFamily when the locale is Arabic
+          // -- see AppTheme's own doc comment on why Cairo, specifically,
+          // replaces it. Re-evaluated on every rebuild (this Consumer
+          // already rebuilds on any SettingsProvider change, locale
+          // included), so switching languages in App Settings swaps the
+          // font live, the same way Dark Mode already swaps theme live.
+          final isArabic = settings.locale == 'ar';
+          return MaterialApp(
+            navigatorKey: navigatorKey,
+            title: 'Rosewater Café',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light(isArabic: isArabic),
+            darkTheme: AppTheme.dark(isArabic: isArabic),
+            themeMode: settings.themeMode,
+            // Sprint 8 Task 6: `supportedLocales` only lists the two ARB
+            // files that actually exist (en/ar) -- French/Spanish are real,
+            // storable picks in `SettingsProvider.locale` (App Settings'
+            // Language list still shows all four, per the design), but
+            // MaterialApp's own locale-resolution algorithm falls back to
+            // the first supported locale (English) for anything it doesn't
+            // recognize, rather than crashing or showing missing-key
+            // fallback text. Arabic being in `supportedLocales` is also what
+            // makes `Directionality` flip to RTL app-wide -- that's derived
+            // from the resolved `Locale`, not set separately.
+            locale: Locale(settings.locale),
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            home: const AppEntryPoint(),
+            // Sprint 8 Task 5: wraps the app's whole navigated content (every
+            // route, regardless of which one is on top) so Auto-Lock's lock
+            // screen can appear on resume no matter where the user was --
+            // MaterialApp's own `builder`, not something bolted onto
+            // AppEntryPoint, which only ever runs once at cold start.
+            builder: (context, child) => AppLockGate(child: child!),
+          );
+        },
       ),
     );
   }
