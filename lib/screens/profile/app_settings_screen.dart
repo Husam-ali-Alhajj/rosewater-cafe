@@ -252,15 +252,21 @@ class _AppearanceCard extends StatelessWidget {
             showDivider: true,
             switchKey: const ValueKey('dark-mode'),
           ),
-          const SettingToggleRow(
+          SettingToggleRow(
             icon: Icons.motion_photos_auto_outlined,
             iconSize: 20,
             label: 'Animations',
             description: 'Enable smooth animations throughout the app',
-            value: true,
-            onToggle: null, // out of this task's scope; drawn at the design's state
+            // Real now (Sprint 8 Task 3): page transitions (AppPageRoute,
+            // via every screen's `appRoute` call) and every explicit
+            // Animated* widget duration (this very switch included --
+            // SettingSwitch's AnimatedContainer/AnimatedPositioned read
+            // `context.animDuration`) collapse to near-zero the instant
+            // this flips off.
+            value: settings.animationsEnabled,
+            onToggle: () => settings.setAnimationsEnabled(!settings.animationsEnabled),
             showDivider: false,
-            switchKey: ValueKey('placeholder-animations'),
+            switchKey: const ValueKey('animations'),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),

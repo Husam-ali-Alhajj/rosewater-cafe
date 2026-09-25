@@ -8,6 +8,7 @@ import '../../services/subscription_service.dart';
 import '../../services/supabase_client.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/profile_avatar.dart';
 import '../auth/sign_out.dart';
@@ -105,11 +106,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openAppSettings() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AppSettingsScreen()));
+    Navigator.of(context).push(appRoute(context, (_) => const AppSettingsScreen()));
   }
 
   void _openHelpSupport() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HelpSupportScreen()));
+    Navigator.of(context).push(appRoute(context, (_) => const HelpSupportScreen()));
   }
 
   void _openNotificationSettings() {
@@ -118,16 +119,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // session is local, not a network call.
     final prefs = NotificationPrefs(userId: supabase.auth.currentUser?.id);
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => NotificationSettingsScreen(prefs: prefs)),
+      appRoute(context, (_) => NotificationSettingsScreen(prefs: prefs)),
     );
   }
 
   void _openPrivacySecurity() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacySecurityScreen()));
+    Navigator.of(context).push(appRoute(context, (_) => const PrivacySecurityScreen()));
   }
 
   void _openPaymentMethods() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentMethodsScreen()));
+    Navigator.of(context).push(appRoute(context, (_) => const PaymentMethodsScreen()));
   }
 
   Future<void> _editProfile() async {
@@ -138,8 +139,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
     final updated = await Navigator.of(context).push<Profile>(
-      MaterialPageRoute(
-        builder: (_) => EditProfileScreen(profile: profile, membership: widget.membership),
+      appRoute(
+        context,
+        (_) => EditProfileScreen(profile: profile, membership: widget.membership),
       ),
     );
     if (updated != null && mounted) widget.onProfileChanged(updated);
@@ -147,7 +149,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _openComingSoon(String label) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ComingSoonScreen(label: label)),
+      appRoute(context, (_) => ComingSoonScreen(label: label)),
     );
   }
 

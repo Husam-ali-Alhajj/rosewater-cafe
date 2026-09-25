@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_semantic_colors.dart';
+import '../utils/app_animations.dart';
 
 const _switchOn = Color(0xFFEC003F);
 
@@ -136,7 +137,7 @@ class SettingSwitch extends StatelessWidget {
           onTap: onTap,
           customBorder: const StadiumBorder(),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: context.animDuration(const Duration(milliseconds: 150)),
             width: 44,
             height: 24,
             decoration: BoxDecoration(
@@ -146,7 +147,7 @@ class SettingSwitch extends StatelessWidget {
             child: Stack(
               children: [
                 AnimatedPositioned(
-                  duration: const Duration(milliseconds: 150),
+                  duration: context.animDuration(const Duration(milliseconds: 150)),
                   left: value ? 24 : 4,
                   top: 4,
                   child: Container(

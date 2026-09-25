@@ -107,9 +107,16 @@ void main() {
       };
 
       // Everything they (transitively) import from outside the project:
+      // `provider` joined this list in Sprint 8 Task 3 -- SettingToggleRow's
+      // switch (used by this screen's toggles) now reads
+      // SettingsProvider.animationsEnabled via `app_animations.dart` for the
+      // Animations toggle. `provider` is a pure InheritedWidget wrapper with
+      // no I/O of its own, so it doesn't weaken the "no network" guarantee
+      // this test actually exists to check -- the loop below still holds.
       expect(imports, {
         'package:flutter/material.dart',
         'package:shared_preferences/shared_preferences.dart',
+        'package:provider/provider.dart',
       });
       // ... in particular, no backend client and no HTTP.
       for (final i in imports) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_semantic_colors.dart';
+import '../utils/app_animations.dart';
 
 class DotsIndicator extends StatelessWidget {
   final int itemCount;
@@ -37,7 +38,7 @@ class DotsIndicator extends StatelessWidget {
       children: List.generate(itemCount, (index) {
         final isActive = index == currentIndex;
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: context.animDuration(const Duration(milliseconds: 200)),
           margin: const EdgeInsets.symmetric(horizontal: 4),
           width: isActive ? 32 : 8,
           height: 8,

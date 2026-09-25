@@ -3,6 +3,7 @@ import '../../models/membership_plan.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 import 'id_upload_screen.dart';
@@ -71,8 +72,9 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
   void _goToIdUpload(String subscriptionId) {
     Navigator.of(context)
         .push(
-          MaterialPageRoute(
-            builder: (_) => IdUploadScreen(subscriptionId: subscriptionId),
+          appRoute(
+            context,
+            (_) => IdUploadScreen(subscriptionId: subscriptionId),
           ),
         )
         .then((_) {

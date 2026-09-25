@@ -4,6 +4,7 @@ import '../../services/account_deletion_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../utils/validators.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/form_buttons.dart';
 import '../../widgets/screen_header.dart';
@@ -355,7 +356,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   }
 
   void _openComingSoon(String label) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ComingSoonScreen(label: label)));
+    Navigator.of(context).push(appRoute(context, (_) => ComingSoonScreen(label: label)));
   }
 
   @override

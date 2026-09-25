@@ -3,6 +3,7 @@ import '../../services/auth_service.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 import '../membership/choose_membership_screen.dart';
@@ -102,8 +103,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       // would push an unauthenticated user into a screen that assumes
       // they're logged in, so show a "check your email" state instead.
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => hasSession
+        appRoute(
+          context,
+          (_) => hasSession
               ? const ChooseMembershipScreen()
               : ConfirmEmailPendingScreen(email: email),
         ),
@@ -347,8 +349,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             GestureDetector(
                               onTap: () =>
                                   Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (_) => const SignInScreen(),
+                                    appRoute(
+                                      context,
+                                      (_) => const SignInScreen(),
                                     ),
                                   ),
                               child: Text(

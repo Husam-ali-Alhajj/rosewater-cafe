@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import 'sign_in_screen.dart';
 
@@ -66,7 +67,7 @@ class ConfirmEmailPendingScreen extends StatelessWidget {
                       GradientButton(
                         label: 'Back to Sign In',
                         onPressed: () => Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(builder: (_) => const SignInScreen()),
+                          appRoute(context, (_) => const SignInScreen()),
                         ),
                       ),
                     ],

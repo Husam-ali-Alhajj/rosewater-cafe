@@ -10,6 +10,7 @@ import '../../services/id_document_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import 'payment_screen.dart';
 
@@ -210,8 +211,9 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
       await _idDocumentService.uploadAndRecord(bytes: file.bytes, fileName: file.name);
       if (!mounted) return;
       Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => PaymentScreen(subscriptionId: widget.subscriptionId, plan: _plan!),
+        appRoute(
+          context,
+          (_) => PaymentScreen(subscriptionId: widget.subscriptionId, plan: _plan!),
         ),
       );
     } catch (_) {

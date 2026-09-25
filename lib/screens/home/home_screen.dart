@@ -8,6 +8,7 @@ import '../../services/usage_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../utils/service_hours.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../auth/sign_out.dart';
 
@@ -179,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onGoToQrCode: widget.onGoToQrCode,
                 onGoToEvents: widget.onGoToEvents,
                 onNotifications: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ComingSoonScreen(label: 'Notifications')),
+                  appRoute(context, (_) => const ComingSoonScreen(label: 'Notifications')),
                 ),
                 onLogout: _isSigningOut ? null : _logout,
               ),

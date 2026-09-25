@@ -5,6 +5,7 @@ import '../../models/membership_plan.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../utils/payment_validators.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/outlined_secondary_button.dart';
 import 'payment_success_screen.dart';
@@ -67,7 +68,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _expiryController.clear();
       _cvvController.clear();
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => PaymentSuccessScreen(plan: widget.plan)),
+        appRoute(context, (_) => PaymentSuccessScreen(plan: widget.plan)),
         (route) => false,
       );
     } on ConfirmPaymentFailure catch (e) {

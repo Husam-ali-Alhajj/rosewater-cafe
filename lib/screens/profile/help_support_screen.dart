@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_semantic_colors.dart';
+import '../../utils/app_animations.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/screen_header.dart';
 
@@ -75,7 +77,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
   }
 
   void _openComingSoon(String label) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ComingSoonScreen(label: label)));
+    Navigator.of(context).push(appRoute(context, (_) => ComingSoonScreen(label: label)));
   }
 
   @override
@@ -300,7 +302,7 @@ class _FaqRow extends StatelessWidget {
                       ),
                     ),
                     AnimatedRotation(
-                      duration: const Duration(milliseconds: 150),
+                      duration: context.animDuration(const Duration(milliseconds: 150)),
                       turns: expanded ? 0.25 : 0, // right-pointing -> down-pointing
                       child: Padding(
                         padding: const EdgeInsets.only(left: 8, top: 2),

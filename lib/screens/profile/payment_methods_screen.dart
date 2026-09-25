@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/payment_method.dart';
 import '../../services/payment_method_service.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/screen_header.dart';
 import 'add_payment_method_screen.dart';
 
@@ -79,7 +80,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
 
   Future<void> _add() async {
     final added = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => AddPaymentMethodScreen(isFirstCard: _methods.isEmpty)),
+      appRoute(context, (_) => AddPaymentMethodScreen(isFirstCard: _methods.isEmpty)),
     );
     if (added == true && mounted) await _load();
   }

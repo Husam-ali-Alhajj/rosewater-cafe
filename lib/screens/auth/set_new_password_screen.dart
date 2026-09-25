@@ -4,6 +4,7 @@ import '../../services/supabase_client.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 import 'sign_in_screen.dart';
@@ -106,7 +107,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
   void _continueToSignIn() {
     Navigator.of(
       context,
-    ).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const SignInScreen()), (route) => false);
+    ).pushAndRemoveUntil(appRoute(context, (_) => const SignInScreen()), (route) => false);
   }
 
   @override

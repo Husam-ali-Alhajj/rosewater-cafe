@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/membership_plan.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 import '../home/main_shell.dart';
@@ -25,7 +26,7 @@ class PaymentSuccessScreen extends StatelessWidget {
 
   void _continue(BuildContext context) {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainShell()),
+      appRoute(context, (_) => const MainShell()),
       (route) => false,
     );
   }

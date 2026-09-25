@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../screens/auth/set_new_password_screen.dart';
+import '../widgets/app_page_route.dart';
 import 'supabase_client.dart';
 
 /// Set the moment `AuthChangeEvent.passwordRecovery` fires, if it fires
@@ -48,10 +49,17 @@ StreamSubscription<AuthState> listenForPasswordRecovery(GlobalKey<NavigatorState
   return supabase.auth.onAuthStateChange.listen((data) {
     if (data.event != AuthChangeEvent.passwordRecovery) return;
     final navigator = navigatorKey.currentState;
-    if (navigator == null) {
+    if (navigator == null || !navigator.mounted) {
       pendingPasswordRecovery = true;
       return;
     }
-    navigator.pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const SetNewPasswordScreen()), (route) => false);
+    // `navigator.context` -- a NavigatorState is itself a State, so this is
+    // a real BuildContext inside the tree Provider<SettingsProvider> wraps
+    // in main.dart, even though nothing built this listener FROM a widget.
+    // The `mounted` check above (redundant with the null check in the same
+    // synchronous callback today, but this is exactly the kind of stream
+    // listener the lint doesn't trust to stay synchronous) is what actually
+    // satisfies `use_build_context_synchronously`.
+    navigator.pushAndRemoveUntil(appRoute(navigator.context, (_) => const SetNewPasswordScreen()), (route) => false);
   });
 }

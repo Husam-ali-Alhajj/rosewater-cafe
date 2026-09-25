@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../services/onboarding_prefs.dart';
+import '../../services/settings_provider.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../auth/auth_landing_screen.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/dots_indicator.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
@@ -73,16 +76,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     // Fire-and-forget: a fast local write, not worth blocking navigation on.
     const OnboardingPrefs().markOnboardingSeen();
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const AuthLandingScreen()),
+      appRoute(context, (_) => const AuthLandingScreen()),
     );
   }
+
+  // Sprint 8 Task 3: the swipe/tap-through animation between slides is its
+  // own explicit duration (a `PageController.nextPage`/`.previousPage` call,
+  // not a route transition `appRoute` already covers) -- reads
+  // `animationsEnabled` the same way, near-zero (not literally 0, same
+  // reasoning as `AppPageRoute`) instead of removed outright.
+  Duration get _pageAnimationDuration =>
+      context.read<SettingsProvider>().animationsEnabled ? const Duration(milliseconds: 300) : const Duration(milliseconds: 1);
 
   void _next() {
     if (_isLastPage) {
       _goToNextDestination();
     } else {
       _controller.nextPage(
-        duration: const Duration(milliseconds: 300),
+        duration: _pageAnimationDuration,
         curve: Curves.easeInOut,
       );
     }
@@ -90,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _previous() {
     _controller.previousPage(
-      duration: const Duration(milliseconds: 300),
+      duration: _pageAnimationDuration,
       curve: Curves.easeInOut,
     );
   }

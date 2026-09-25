@@ -3771,6 +3771,97 @@ palette instead.
 
 ---
 
+### 60. Sprint 8 Task 3 — Real Animations toggle
+
+**The core problem:** `MaterialPageRoute` doesn't expose its transition
+duration as a constructor parameter -- it's a fixed `Duration(milliseconds:
+300)` override baked into the class. There's no `ThemeData`-level "make all
+navigation instant" switch either. Confirmed with the user before building
+anything (per the standing rule) that the only way to actually hit the
+acceptance criterion's "any screen-to-screen navigation" was a custom route
+class, read at every one of the app's 28 `Navigator.push(MaterialPageRoute
+(...))` call sites -- not a smaller sample first. Chose the full sweep.
+
+**What was built:**
+
+- **`AppPageRoute<T> extends MaterialPageRoute<T>`** (new,
+  `lib/widgets/app_page_route.dart`): takes `animationsEnabled` at
+  construction, overrides `transitionDuration`/`reverseTransitionDuration`
+  to return the normal 300ms when true, **1ms (not `Duration.zero`) when
+  false** -- the acceptance criterion's own explicit requirement, since a
+  zero-length transition can leave a route's animation stuck mid-flight
+  instead of settling on `.completed`/`.dismissed`.
+- **`appRoute(context, builder)`**, a drop-in replacement for
+  `MaterialPageRoute(builder: ...)` that reads
+  `SettingsProvider.animationsEnabled` at push time and builds an
+  `AppPageRoute` with it. **Every one of the 28 call sites app-wide switched
+  to it** (~20 files: every auth screen, Home, Main Shell, the whole
+  membership signup flow, every Profile sub-screen, Onboarding, and
+  `auth_deep_link_listener.dart`'s non-widget-triggered navigation, which
+  reaches a real `BuildContext` via `navigator.context` -- a
+  `NavigatorState` is itself a `State`, so this works even though nothing
+  built that listener from a widget).
+- **`context.animDuration(normal)`** (new, `lib/utils/app_animations.dart`):
+  the equivalent for every explicit `Animated*` widget duration that isn't
+  a route transition -- `SettingToggleRow`'s switch thumb/track,
+  `DotsIndicator`'s active-dot resize, Help & Support's FAQ chevron
+  rotation, and Onboarding's slide-to-slide `PageController.nextPage`/
+  `.previousPage` (handled separately, as a getter, since a
+  `PageController` call takes a `Duration` argument directly rather than
+  rendering a widget with one). Same near-zero-not-zero reasoning.
+- **Both fall back to animations-ON when no `SettingsProvider` is in the
+  widget tree** -- the same fallback `context.colors` already established
+  for the same reason: most of this app's ~20 existing widget test files
+  pump a screen directly (`MaterialApp(home: SomeScreen())`) without
+  registering `SettingsProvider`, and none of them should have to just
+  because the screen they're testing happens to navigate somewhere or use
+  a switch. Confirmed this was the actual failure mode, not guessed at:
+  before this fallback existed, running the full suite took it from
+  222/222 to 47 failing, all `ProviderNotFoundException`s surfacing as
+  cascading `RenderFlex` overflows and missing-text failures several layers
+  removed from the real cause.
+- **The Animations row in App Settings is real now** -- `value:
+  settings.animationsEnabled`, `onToggle:` flips it, same pattern as Dark
+  Mode (decision #59). `test/app_settings_screen_test.dart`'s old "all
+  three [Animations/Sound/Haptic] are on and inert" test split: Animations
+  moved to its own group proving the toggle actually reads/writes
+  `SettingsProvider` and starts at whatever's stored; Sound/Haptic stay in
+  the inert-placeholder group, unchanged (out of this task's scope, same
+  as decision #47 left them).
+- **`test/notification_prefs_test.dart`'s import-graph test** (asserts
+  Notification Settings and its whole transitive import tree can never
+  reach the network) needed its allow-list updated to include
+  `package:provider/provider.dart`, now pulled in transitively through
+  `SettingToggleRow` → `app_animations.dart`. Added deliberately, not
+  loosened carelessly: `provider` is a pure `InheritedWidget` wrapper with
+  no I/O of its own, so the test's actual guarantee (no `supabase`, no
+  `http`, no `dart:io`) still holds -- confirmed the loop asserting that
+  is untouched, only the allow-list's exact-match set changed.
+- **New test coverage**, not just relying on existing screen tests passing
+  incidentally: `test/app_page_route_test.dart` -- `AppPageRoute`'s
+  duration with animations on/off (and explicitly asserts it's never
+  `Duration.zero`), `appRoute()` reading the live `SettingsProvider` value
+  at push time in both states plus its no-provider fallback, and
+  `context.animDuration`'s same three cases. This is the test that directly
+  proves the acceptance criterion ("compare a screen-to-screen navigation
+  with it on vs off"), rather than leaving it as something only a manual
+  click-through could confirm.
+
+**Verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+232/232 (10 new: 2 for the real Animations toggle in App Settings, 8 in the
+new `app_page_route_test.dart`). No browser automation was used for this
+task -- the user asked, this round, to skip that and just review the code
+changes themselves.
+
+**Sign-off:** every screen-to-screen navigation and every explicit
+`Animated*` duration in the app now collapses to 1ms the instant Animations
+is switched off, and returns to normal the instant it's switched back on --
+covered by real tests, not just code review. Live click-through
+confirmation is, like decision #59's dark-mode look-and-feel, the user's
+own to do.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

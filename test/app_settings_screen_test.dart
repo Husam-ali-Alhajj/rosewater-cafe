@@ -133,6 +133,36 @@ void main() {
     });
   });
 
+  group('Animations is real (Sprint 8 Task 3)', () {
+    testWidgets('reflects SettingsProvider.animationsEnabled and tapping flips it', (tester) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(settings.animationsEnabled, isTrue); // design shows it on, and that's the default
+      expect(_isOn(tester, 'animations'), isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('animations')));
+      await tester.pumpAndSettle();
+
+      expect(settings.animationsEnabled, isFalse);
+      expect(_isOn(tester, 'animations'), isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('animations')));
+      await tester.pumpAndSettle();
+
+      expect(settings.animationsEnabled, isTrue);
+      expect(_isOn(tester, 'animations'), isTrue);
+    });
+
+    testWidgets('starts off when SettingsProvider already has animations disabled', (tester) async {
+      SharedPreferences.setMockInitialValues({'settings.animations_enabled': false});
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(_isOn(tester, 'animations'), isFalse);
+    });
+  });
+
   group('decision #5: Language is visual only, never functional', () {
     testWidgets('only English shows selected, and no language row is tappable', (tester) async {
       await _pump(tester);
@@ -146,11 +176,14 @@ void main() {
     });
   });
 
-  group('Animations / Sound Effects / Haptic Feedback: drawn at the design state, inert', () {
-    testWidgets('all three are on and not tappable', (tester) async {
+  group('Sound Effects / Haptic Feedback: drawn at the design state, inert', () {
+    testWidgets('both are on and not tappable', (tester) async {
       await _pump(tester);
 
-      for (final key in ['placeholder-animations', 'placeholder-sound-effects', 'placeholder-haptic-feedback']) {
+      // Animations is real now (Sprint 8 Task 3) -- its own group above --
+      // Sound Effects and Haptic Feedback are still exactly the inert
+      // placeholders decision #47 left them as.
+      for (final key in ['placeholder-sound-effects', 'placeholder-haptic-feedback']) {
         final sw = tester.widget<SettingSwitch>(find.byKey(ValueKey(key)));
         expect(sw.value, isTrue, reason: key);
         expect(sw.onTap, isNull, reason: key);

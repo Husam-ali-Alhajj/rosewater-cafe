@@ -4,6 +4,7 @@ import '../../services/profile_service.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/app_page_route.dart';
 import '../events/events_tab.dart';
 import '../membership/choose_membership_screen.dart';
 import '../profile/profile_screen.dart';
@@ -87,7 +88,7 @@ class _MainShellState extends State<MainShell> {
     if (!mounted) return;
     if (membership == null) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const ChooseMembershipScreen()),
+        appRoute(context, (_) => const ChooseMembershipScreen()),
         (route) => false,
       );
       return;

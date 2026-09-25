@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/outlined_secondary_button.dart';
 import 'create_account_screen.dart';
@@ -12,13 +13,13 @@ class AuthLandingScreen extends StatelessWidget {
 
   void _goToSignIn(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SignInScreen()),
+      appRoute(context, (_) => const SignInScreen()),
     );
   }
 
   void _goToCreateAccount(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CreateAccountScreen()),
+      appRoute(context, (_) => const CreateAccountScreen()),
     );
   }
 
@@ -39,10 +40,14 @@ class AuthLandingScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   // Figma's fractional hairline stroke width (same value as
                   // App Settings' _hairline) -- re-measured in Sprint 6 Task 3
-                  // via the Figma app; the original PDF estimate (1.55) was wrong.
-                  // The brand-pink tint stays the same in both modes -- it's
-                  // an accent detail, not a light/dark neutral.
-                  border: Border.all(color: const Color(0xFFFFCCD3), width: 0.515),
+                  // via the Figma app. Sprint 8 Task 2 v3: this accent tint
+                  // used to stay the same fixed pink in both modes -- now
+                  // derived from `colors.accent` so it goes blue in dark mode
+                  // like every other accent use, instead of being a gap the
+                  // 16-file sweep missed because it was a raw hex literal,
+                  // not an `AppColors.primaryGradient`/`.bottomNavActive`
+                  // reference.
+                  border: Border.all(color: colors.accent.withValues(alpha: 0.4), width: 0.515),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.25),
@@ -61,7 +66,7 @@ class AuthLandingScreen extends StatelessWidget {
                       style: AppTextStyles.logoTitle(context),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'VIP Membership & Lounge',
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -69,7 +74,7 @@ class AuthLandingScreen extends StatelessWidget {
                         fontWeight: FontWeight.w400,
                         letterSpacing: -0.31,
                         height: 24 / 16,
-                        color: Color(0xFFEC003F),
+                        color: colors.accent,
                       ),
                     ),
                     const SizedBox(height: 56),
@@ -91,8 +96,8 @@ class AuthLandingScreen extends StatelessWidget {
                     OutlinedSecondaryButton(
                       label: 'Create Account',
                       onPressed: () => _goToCreateAccount(context),
-                      borderColor: const Color(0xFFFFA1AD),
-                      textColor: const Color(0xFFEC003F),
+                      borderColor: colors.accent.withValues(alpha: 0.4),
+                      textColor: colors.accent,
                       fontSize: 18,
                       height: 28 / 18,
                       letterSpacing: -0.44,
@@ -130,7 +135,7 @@ class _FeatureRow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 20, color: const Color(0xFFFF2056)),
+        Icon(icon, size: 20, color: context.colors.accent),
         const SizedBox(width: 12),
         Text(
           label,

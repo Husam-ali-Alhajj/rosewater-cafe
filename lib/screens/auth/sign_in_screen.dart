@@ -5,6 +5,7 @@ import '../../services/subscription_service.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import '../home/main_shell.dart';
 import '../membership/choose_membership_screen.dart';
@@ -87,8 +88,9 @@ class _SignInScreenState extends State<SignInScreen> {
       final hasActive = await _subscriptionService.hasActiveSubscription();
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => hasActive ? const MainShell() : const ChooseMembershipScreen(),
+        appRoute(
+          context,
+          (_) => hasActive ? const MainShell() : const ChooseMembershipScreen(),
         ),
       );
     } on SignInFailure catch (e) {
@@ -189,8 +191,9 @@ class _SignInScreenState extends State<SignInScreen> {
                             const Spacer(),
                             GestureDetector(
                               onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const ForgotPasswordScreen(),
+                                appRoute(
+                                  context,
+                                  (_) => const ForgotPasswordScreen(),
                                 ),
                               ),
                               child: Text(
@@ -223,7 +226,7 @@ class _SignInScreenState extends State<SignInScreen> {
                             Text("Don't have an account? ", style: AppTextStyles.bodyMuted(context)),
                             GestureDetector(
                               onTap: () => Navigator.of(context).pushReplacement(
-                                MaterialPageRoute(builder: (_) => const CreateAccountScreen()),
+                                appRoute(context, (_) => const CreateAccountScreen()),
                               ),
                               child: Text(
                                 'Create Account',
