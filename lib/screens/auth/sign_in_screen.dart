@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../services/remember_me_prefs.dart';
 import '../../services/subscription_service.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
@@ -146,10 +145,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        const OnboardingIconBadge(
-                          icon: Icons.lock,
-                          gradient: AppColors.primaryGradient,
-                        ),
+                        const OnboardingIconBadge(icon: Icons.lock),
                         const SizedBox(height: 24),
                         Text('Welcome Back', style: AppTextStyles.heading1(context)),
                         const SizedBox(height: 8),
@@ -199,7 +195,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               ),
                               child: Text(
                                 'Forgot Password?',
-                                style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600),
+                                style: TextStyle(color: colors.accent, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],
@@ -231,7 +227,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               ),
                               child: Text(
                                 'Create Account',
-                                style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600),
+                                style: TextStyle(color: colors.accent, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../services/supabase_client.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
@@ -148,7 +147,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
       key: _formKey,
       child: Column(
         children: [
-          const OnboardingIconBadge(icon: Icons.lock_reset_outlined, gradient: AppColors.primaryGradient),
+          const OnboardingIconBadge(icon: Icons.lock_reset_outlined),
           const SizedBox(height: 24),
           Text('Set New Password', style: AppTextStyles.heading1(context)),
           const SizedBox(height: 8),

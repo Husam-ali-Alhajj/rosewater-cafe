@@ -233,7 +233,7 @@ class HomeContent extends StatelessWidget {
           _QuickActionButton(
             icon: Icons.qr_code_outlined,
             label: 'Access Café',
-            gradient: AppColors.primaryGradient,
+            gradient: context.colors.accentGradient,
             iconColor: Colors.white,
             textColor: Colors.white,
             onTap: onGoToQrCode,
@@ -244,7 +244,7 @@ class HomeContent extends StatelessWidget {
             label: 'Reserve Event',
             backgroundColor: context.colors.surface,
             border: Border.all(color: context.colors.border, width: 1.545),
-            iconColor: AppColors.bottomNavActive,
+            iconColor: context.colors.accent,
             textColor: context.colors.textPrimary,
             onTap: onGoToEvents,
           ),

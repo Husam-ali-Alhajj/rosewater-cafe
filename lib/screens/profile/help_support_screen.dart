@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/screen_header.dart';
@@ -93,10 +92,11 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               children: [
                 ScreenHeader(title: 'Help & Support', onBack: () => Navigator.of(context).pop()),
                 const SizedBox(height: 24),
-                const _ContactCard(
+                _ContactCard(
                   icon: Icons.chat_bubble_outline,
-                  // Confirmed via the Design panel.
-                  iconColor: AppColors.bottomNavActive,
+                  // The design's own accent color -- now theme-aware so it
+                  // goes blue in dark mode along with every other accent use.
+                  iconColor: context.colors.accent,
                   title: 'Live Chat',
                   description: 'Chat with our team',
                 ),
@@ -218,7 +218,7 @@ class _FaqCard extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+            decoration: BoxDecoration(gradient: colors.accentGradient),
             child: const Row(
               children: [
                 Icon(Icons.help_outline, size: 20, color: Colors.white),

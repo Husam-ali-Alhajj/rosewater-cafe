@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_semantic_colors.dart';
 
 class _BottomNavTabData {
@@ -71,7 +70,7 @@ class _BottomNavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? AppColors.bottomNavActive : context.colors.textMuted;
+    final color = isActive ? context.colors.accent : context.colors.textMuted;
     return InkWell(
       onTap: onTap,
       child: Padding(

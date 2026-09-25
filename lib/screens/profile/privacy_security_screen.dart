@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../services/account_deletion_service.dart';
 import '../../services/auth_service.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../utils/validators.dart';
 import '../../widgets/coming_soon_screen.dart';
@@ -784,7 +783,7 @@ class _SecurityOptionsCard extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+            decoration: BoxDecoration(gradient: colors.accentGradient),
             child: const Row(
               children: [
                 Icon(Icons.shield_outlined, size: 20, color: Colors.white),

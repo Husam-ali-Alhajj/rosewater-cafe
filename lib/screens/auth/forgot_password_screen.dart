@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
@@ -118,10 +117,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       key: _formKey,
       child: Column(
         children: [
-          const OnboardingIconBadge(
-            icon: Icons.lock_outline,
-            gradient: AppColors.primaryGradient,
-          ),
+          const OnboardingIconBadge(icon: Icons.lock_outline),
           const SizedBox(height: 24),
           Text('Forgot Password?', style: AppTextStyles.heading1(context)),
           const SizedBox(height: 8),

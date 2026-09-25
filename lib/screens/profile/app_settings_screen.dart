@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../services/app_settings_service.dart';
 import '../../services/settings_provider.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/screen_header.dart';
 import '../../widgets/setting_toggle_row.dart';
@@ -17,14 +16,11 @@ import '../auth/sign_out.dart';
 // so it has to actually look right the instant that switch flips): the
 // fixed neutral inks/fills this file used to hardcode (title/body text, the
 // cache-size row fill, the card divider) are gone -- every build() below
-// reads them from `context.colors` instead. The language-selected and
-// destructive-action accents below stay literal, same reasoning as
-// everywhere else in this task: brand/semantic accents, not light/dark
-// neutrals.
-const _languageSelectedFill = Color(0xFFFFF1F2);
-const _languageSelectedBorder = Color(0xFFFFA1AD);
-const _destructiveInk = Color(0xFFE7000B);
-const _destructiveBorder = Color(0xFFFFA2A2);
+// reads them from `context.colors` instead. The v3 accent rebuild went
+// further and tokenized the language-selected wash and the
+// destructive-action ink/border too (`colors.accent`/`colors.danger`), so
+// both react to the blue-in-dark-mode accent instead of staying the
+// design's fixed pink/red literals.
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
@@ -118,7 +114,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Clear & Sign Out', style: TextStyle(color: _destructiveInk)),
+            child: Text('Clear & Sign Out', style: TextStyle(color: ctx.colors.danger)),
           ),
         ],
       ),
@@ -199,7 +195,7 @@ class _Card extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: gradientHeader
-                ? const BoxDecoration(gradient: AppColors.primaryGradient)
+                ? BoxDecoration(gradient: colors.accentGradient)
                 : BoxDecoration(
                     border: Border(bottom: BorderSide(color: colors.border, width: _hairline)),
                   ),
@@ -297,15 +293,19 @@ class _LanguageRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Container(
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: selected ? _languageSelectedFill : Colors.transparent,
+          // A light accent wash, not the design's fixed pink literals --
+          // derived from `colors.accent` so it's pink-tinted in light mode
+          // and blue-tinted in dark, matching whatever the accent is.
+          color: selected ? colors.accent.withValues(alpha: 0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          border: selected ? Border.all(color: _languageSelectedBorder, width: _hairline) : null,
+          border: selected ? Border.all(color: colors.accent.withValues(alpha: 0.4), width: _hairline) : null,
         ),
         child: Row(
           children: [
@@ -315,11 +315,11 @@ class _LanguageRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? AppColors.bottomNavActive : context.colors.textMuted,
+                  color: selected ? colors.accent : colors.textMuted,
                 ),
               ),
             ),
-            if (selected) const Icon(Icons.check, size: 18, color: AppColors.bottomNavActive),
+            if (selected) Icon(Icons.check, size: 18, color: colors.accent),
           ],
         ),
       ),
@@ -420,8 +420,8 @@ class _DataStorageCard extends StatelessWidget {
             _OutlinedActionButton(
               icon: Icons.delete_sweep_outlined,
               label: 'Clear All App Data',
-              ink: _destructiveInk,
-              borderColor: _destructiveBorder,
+              ink: colors.danger,
+              borderColor: colors.danger.withValues(alpha: 0.4),
               onTap: onClearAllData,
             ),
           ],

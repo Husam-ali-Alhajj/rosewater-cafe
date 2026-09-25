@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../models/payment_method.dart';
 import '../../services/payment_method_service.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/screen_header.dart';
 import 'add_payment_method_screen.dart';
@@ -193,7 +192,7 @@ class _AddButton extends StatelessWidget {
       opacity: onTap == null ? 0.5 : 1,
       child: Container(
         height: 48,
-        decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(gradient: context.colors.accentGradient, borderRadius: BorderRadius.circular(8)),
         child: Material(
           color: Colors.transparent,
           child: InkWell(

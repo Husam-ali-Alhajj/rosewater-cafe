@@ -25,11 +25,10 @@ import 'privacy_security_screen.dart';
 //
 // Sprint 8 Task 2 (dark mode rebuild): the neutral greys/blacks this frame
 // exported (icon/label/value/border/fill) are now sourced from
-// `context.colors` instead, so they invert correctly. `_upgradeBorder` stays
-// a fixed literal -- it's the brand pink/red accent border on "Upgrade
-// Membership", unchanged between themes like every other accent colour in
-// this app.
-const _upgradeBorder = Color(0xFFFFA1AD);
+// `context.colors` instead, so they invert correctly. The v3 accent rebuild
+// went further and tokenized "Upgrade Membership"'s pink border/text too
+// (`colors.accent`), so it goes blue in dark mode with every other accent
+// use, instead of staying the design's fixed pink literal.
 
 // Figma's own hairline stroke width on the cards / Upgrade button (a
 // fractional value from the design export, kept exactly).
@@ -554,12 +553,12 @@ class _MembershipDetailsCard extends StatelessWidget {
               color: colors.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
-                side: const BorderSide(color: _upgradeBorder, width: _hairline),
+                side: BorderSide(color: colors.accent.withValues(alpha: 0.4), width: _hairline),
               ),
               child: InkWell(
                 onTap: onUpgrade,
                 customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                child: const Center(
+                child: Center(
                   child: Text(
                     'Upgrade Membership',
                     style: TextStyle(
@@ -567,7 +566,7 @@ class _MembershipDetailsCard extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       height: 20 / 14,
                       letterSpacing: -0.15,
-                      color: AppColors.bottomNavActive,
+                      color: colors.accent,
                     ),
                   ),
                 ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../services/notification_prefs.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/form_buttons.dart';
 import '../../widgets/screen_header.dart';
@@ -181,15 +180,16 @@ class _CommunicationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       clipBehavior: Clip.antiAlias,
-      decoration: _cardDecoration(context.colors),
+      decoration: _cardDecoration(colors),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+            decoration: BoxDecoration(gradient: colors.accentGradient),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

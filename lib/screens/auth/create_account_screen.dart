@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
@@ -181,10 +180,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        const OnboardingIconBadge(
-                          icon: Icons.person,
-                          gradient: AppColors.primaryGradient,
-                        ),
+                        const OnboardingIconBadge(icon: Icons.person),
                         const SizedBox(height: 24),
                         Text('Create Account', style: AppTextStyles.heading1(context)),
                         const SizedBox(height: 8),
@@ -302,14 +298,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                       TextSpan(
                                         text: 'Terms of Service',
                                         style: TextStyle(
-                                          color: AppColors.danger,
+                                          color: colors.accent,
                                         ),
                                       ),
                                       const TextSpan(text: ' and '),
                                       TextSpan(
                                         text: 'Privacy Policy',
                                         style: TextStyle(
-                                          color: AppColors.danger,
+                                          color: colors.accent,
                                         ),
                                       ),
                                     ],
@@ -358,7 +354,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                               child: Text(
                                 'Sign In',
                                 style: TextStyle(
-                                  color: AppColors.danger,
+                                  color: colors.accent,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),

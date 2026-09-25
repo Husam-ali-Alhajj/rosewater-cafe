@@ -3677,28 +3677,97 @@ complaint without also re-skinning the app's brand color.
   so it picks its own brightness-appropriate pair instead of reusing the wrong
   token).
 - **`SettingToggleRow`'s switch track**, on closer look during this pass, also
-  had a leftover fixed light-grey "off" state (`0xFFD1D5DC`) that would have
-  stayed nearly invisible against a dark card -- moved to
-  `colors.surfaceElevated` (opaque, a step lighter than the card, reads as
-  solid) rather than the translucent `border` token.
+  had a leftover fixed light-grey "off" state (`0xFFD1D5DC`). First attempt
+  moved it to `colors.surfaceElevated` -- wrong, and caught by a separate
+  cloud-session commit (`0f9a518`, "Fix: Dark Mode switch... invisible in
+  light mode"): `surfaceElevated` IS `AppColors.cardWhite` in light mode, the
+  exact same solid white as the card the switch already sits on, so an "off"
+  switch rendered as an invisible white-on-white pill with nothing to tap.
+  Corrected to its own dedicated brightness-aware grey pair instead (same
+  fix shape `DotsIndicator.inactiveColor` already needed for the same
+  underlying reason -- a small solid control sitting ON a card can't reuse
+  that card's own fill token).
 
-**Verified:** `flutter analyze` -- clean, whole project. `flutter test` --
-222/222 (unchanged; no widget test asserts on a specific hex color, so none
-needed updating for the palette change). Live verification via the running
-Flutter Web dev server was attempted but the browser tab repeatedly froze
-mid-render in this environment (confirmed the dev server itself was fine --
-`curl` got a fast `200` the whole time, so this was a renderer/resource issue
-here, not a build or code problem) -- **the actual "does Events/QR Code look
-right now, and does it look good" check the user asked for is still owed as a
-manual click-through**, same split this project already uses for DB/SQL vs.
-app-level verification.
+**v2 verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+222/222 (no widget test asserts on a specific hex color, so none needed
+updating for the palette change). Live verification via the running Flutter
+Web dev server was attempted but the browser tab repeatedly froze mid-render
+in this sandboxed environment (confirmed the dev server itself was fine --
+`curl` got a fast `200` the whole time) -- the actual look-and-feel check was
+handed to the user to do themselves, on their own machine, per the
+project's established DB/SQL-vs-app-level verification split.
 
-**Sign-off:** architecture kept from the first pass (it was sound); coverage
-gap and palette both fixed based on the user's direct product-level testing,
-which caught both problems faster and more conclusively than the code-level
-review alone. **Not yet signed off end-to-end** -- pending the user's own
-visual click-through of Dark Mode across Home, Choose Membership, a form
-screen, and specifically Events and QR Code (the two called out as broken).
+**v3 (this same task, third pass):** the user's own live check of v2 came
+back "too bad," "not matching," and asked for the dark palette to lean
+blue -- explicitly **not** to preserve anything from v2 if it didn't work
+("don't stick with anything"). Asked directly whether "blue" meant just the
+background/neutral tones or the accent color too, given the architecture's
+stated intent (`app_semantic_colors.dart`'s v2 doc comment) was to keep the
+brand gradient identical in both themes: **the user chose the bigger
+change** -- blue-black neutrals AND a dedicated blue accent for dark mode,
+not just a cooler backdrop under the same pink/purple buttons.
+
+- **Palette redone a second time**, now genuinely navy rather than
+  near-neutral: `darkBackground`/`darkSurface`/`darkSurfaceElevated`/
+  `darkInputFill` moved from a whisper-of-violet near-black to real
+  slate-blue (`0xFF0A0E1A` → `0xFF1B2540`), `darkBorder` changed from plain
+  white-at-20% to accent-blue-at-20% (so the hairline itself reads as part
+  of the same color family instead of a neutral afterthought),
+  `darkTextMuted` moved off a warm lavender-grey onto a cool slate-blue
+  (`0xFF94A3C0`). `pageBackgroundGradientDark` re-picked as a visible navy
+  movement instead of a barely-perceptible one.
+- **New dark-mode-only accent**, `AppColors.primaryGradientDark` (blue ->
+  indigo, `0xFF3B82F6` → `0xFF6366F1`, same left-to-right structure as the
+  light-mode pink/purple gradient) and `AppColors.accentDark` (`0xFF5B9BFF`,
+  a single-color stand-in for `bottomNavActive`). Both explicitly flagged in
+  their own code comments as a first attempt, not a locked-in final answer --
+  matching the user's "don't stick with anything" brief.
+- **`AppSemanticColors` gained `accentGradient`/`accent`**, the first tokens
+  on that extension that DO differ by theme (everything else added in v1/v2
+  is deliberately identical in both) -- light instances point at the
+  existing `AppColors.primaryGradient`/`bottomNavActive` unchanged, dark
+  instances point at the two new dark-only constants above. The membership
+  tier gradients (Basic/Premium/VIP) were deliberately left OUT of this --
+  those identify a plan, changing "VIP purple" per theme would make the tier
+  itself harder to recognize, a different problem than the action-color
+  swap this task is actually about.
+- **Every direct `AppColors.primaryGradient`/`AppColors.bottomNavActive`
+  reference project-wide (16 files) switched to
+  `context.colors.accentGradient`/`.accent`**: the four auth screens' lock
+  badge, `GradientButton`'s and `OnboardingIconBadge`'s own default gradient
+  (both changed from a fixed light-mode `Color`/`Gradient` default to
+  nullable, resolved via `context.colors` -- the same "null defaults to the
+  theme" pattern `OutlinedSecondaryButton` already used, so callers that
+  don't override it now get the theme instead of a stale light value), Home's
+  "Access Café" quick action and its "Reserve Event" icon color,
+  `AppBottomNav`'s active-tab color, every gradient-banded card header in
+  Profile (App Settings' Appearance card, Notification Settings, Help &
+  Support's FAQ card, Privacy & Security's Security Options), Payment
+  Methods' "Add New Payment Method" button, `form_buttons.dart`'s
+  `SaveButton`, and `DotsIndicator`'s default (currently dead code -- the one
+  live caller, Onboarding, always passes its own per-slide gradient -- kept
+  theme-aware anyway rather than left on a stale default). Along the way,
+  found and fixed several `AppColors.danger`-as-a-link-color reuses in Create
+  Account / Sign In ("Terms of Service," "Sign In," "Forgot Password?" etc.)
+  that were never actually error states -- moved to `colors.accent`, the
+  semantically correct token for a highlighted link. App Settings' language-
+  selected row wash and its "Clear All App Data" destructive button were
+  also caught still on fixed pink/red literals and moved to
+  `colors.accent.withValues(alpha: ...)`/`colors.danger` respectively.
+
+**v3 verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+222/222. Live look-and-feel check is, again, the user's own to do -- per
+their own explicit instruction this round ("don't open google and test
+things just do the changes in the code and I will verify them"), no browser
+automation was attempted for v3 at all.
+
+**Sign-off:** architecture from v1 kept (sound); v2 fixed coverage and
+de-muddied the palette; v3 gives dark mode its own blue identity (palette
+and accent both) rather than a cooler wrapper around the light-mode brand
+color, on the user's explicit direction to not preserve anything that
+wasn't working. **Still not signed off end-to-end** -- pending the user's
+own visual click-through, same as v2's open item, now against the v3 blue
+palette instead.
 
 ---
 

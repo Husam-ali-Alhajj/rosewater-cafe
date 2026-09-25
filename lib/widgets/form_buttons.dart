@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
 import '../theme/app_semantic_colors.dart';
 
 // Figma's fractional hairline stroke width.
@@ -77,7 +76,7 @@ class SaveButton extends StatelessWidget {
       opacity: onTap == null ? 0.5 : 1,
       child: Container(
         height: 48,
-        decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(gradient: context.colors.accentGradient, borderRadius: BorderRadius.circular(8)),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
