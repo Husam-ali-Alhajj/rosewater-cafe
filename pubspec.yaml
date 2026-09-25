@@ -56,10 +56,15 @@ dependencies:
   provider: ^6.1.2
 
   # Formatting dates (event reservations, membership "valid until")
-  intl: ^0.19.0
+  intl: ^0.20.2
 
   # Sprint 8 Task 5: Auto-Lock + Biometric login -- Face ID/Touch ID/fingerprint
   local_auth: ^2.3.0
+
+  # Sprint 8 Task 6: i18n -- English/Arabic (French/Spanish selectable but
+  # fall back to English text until translated in a later pass)
+  flutter_localizations:
+    sdk: flutter
 
   # The Figma design uses Inter as its typeface throughout the app
   google_fonts: ^6.2.1
@@ -88,6 +93,9 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  # Sprint 8 Task 6: generates lib/l10n/app_localizations.dart from the ARB
+  # files under lib/l10n/ (config in l10n.yaml) on every `flutter pub get`.
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

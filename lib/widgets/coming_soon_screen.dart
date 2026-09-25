@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_semantic_colors.dart';
 import '../theme/app_text_styles.dart';
 
@@ -21,7 +22,12 @@ class ComingSoonScreen extends StatelessWidget {
               Row(
                 children: [
                   IconButton(
-                    icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+                    // Sprint 8 Task 6: see sign_in_screen.dart's back
+                    // button for why this needs an explicit RTL check.
+                    icon: Icon(
+                      Directionality.of(context) == TextDirection.rtl ? Icons.arrow_forward : Icons.arrow_back,
+                      color: colors.textPrimary,
+                    ),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
                 ],
@@ -29,7 +35,7 @@ class ComingSoonScreen extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: Text(
-                    '$label — coming in a future task',
+                    AppLocalizations.of(context).comingSoonSuffix(label),
                     style: AppTextStyles.bodyMuted(context),
                   ),
                 ),

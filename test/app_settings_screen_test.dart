@@ -75,10 +75,13 @@ void main() {
         'Animations',
         'Enable smooth animations throughout the app',
         'Language',
+        // Each language is shown in its own script (Sprint 8 Task 6) --
+        // "العربية", not "Arabic" -- the standard language-picker
+        // convention, not something AppLocalizations governs.
         'English',
-        'Arabic',
-        'French',
-        'Spanish',
+        'العربية',
+        'Français',
+        'Español',
         'Interactions',
         'Sound Effects',
         'Play sounds for actions and notifications',
@@ -163,16 +166,34 @@ void main() {
     });
   });
 
-  group('decision #5: Language is visual only, never functional', () {
-    testWidgets('only English shows selected, and no language row is tappable', (tester) async {
-      await _pump(tester);
+  group('Language is real for English/Arabic (Sprint 8 Task 6)', () {
+    testWidgets('starts on English selected, and tapping Arabic switches SettingsProvider.locale', (tester) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
 
+      expect(settings.locale, 'en');
       expect(find.byIcon(Icons.check), findsOneWidget); // exactly one selected row
 
-      // Tapping "Arabic" does nothing -- still only English selected.
-      await tester.tap(find.text('Arabic'), warnIfMissed: false);
+      await tester.tap(find.text('العربية'));
       await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.check), findsOneWidget);
+
+      expect(settings.locale, 'ar');
+      expect(find.byIcon(Icons.check), findsOneWidget); // still exactly one, now on Arabic's row
+    });
+
+    testWidgets('French/Spanish are real, storable picks -- selecting one shows the fallback-to-English caption', (
+      tester,
+    ) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(find.textContaining('aren\'t translated yet'), findsNothing);
+
+      await tester.tap(find.text('Français'));
+      await tester.pumpAndSettle();
+
+      expect(settings.locale, 'fr');
+      expect(find.textContaining('aren\'t translated yet'), findsOneWidget);
     });
   });
 

@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/screens/profile/help_support_screen.dart';
 
 Future<void> _pump(WidgetTester tester) async {
   tester.view.physicalSize = const Size(800, 2400);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(const MaterialApp(home: HelpSupportScreen()));
+  await tester.pumpWidget(
+    MaterialApp(
+      // Sprint 8 Task 6: the Resources rows push ComingSoonScreen, which
+      // reads AppLocalizations now.
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const HelpSupportScreen(),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/screens/profile/privacy_security_screen.dart';
 import 'package:rosewater_cafe/services/account_deletion_service.dart';
 import 'package:rosewater_cafe/services/auth_service.dart';
@@ -98,6 +99,10 @@ Future<void> _pump(
     ChangeNotifierProvider<SettingsProvider>.value(
       value: settings ?? await SettingsProvider.load(),
       child: MaterialApp(
+        // Sprint 8 Task 6: "View Privacy Policy"/"Terms of Service" push
+        // ComingSoonScreen, which reads AppLocalizations now.
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: PrivacySecurityScreen(
           authService: auth ?? _FakeAuthService(),
           accountDeletionService: deletion ?? _FakeAccountDeletionService(),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/membership_plan.dart';
 import '../../models/profile.dart';
 import '../../models/usage_allowance.dart';
@@ -180,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onGoToQrCode: widget.onGoToQrCode,
                 onGoToEvents: widget.onGoToEvents,
                 onNotifications: () => Navigator.of(context).push(
-                  appRoute(context, (_) => const ComingSoonScreen(label: 'Notifications')),
+                  appRoute(context, (_) => ComingSoonScreen(label: AppLocalizations.of(context).notifications)),
                 ),
                 onLogout: _isSigningOut ? null : _logout,
               ),
@@ -219,6 +220,7 @@ class HomeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return SingleChildScrollView(
       // Figma's frame padding: 16 sides, 32 top. Bottom 16 is the gap the
       // design leaves above the bottom nav (which sits outside this scroll
@@ -233,7 +235,7 @@ class HomeContent extends StatelessWidget {
           const SizedBox(height: 24),
           _QuickActionButton(
             icon: Icons.qr_code_outlined,
-            label: 'Access Café',
+            label: l10n.accessCafe,
             gradient: context.colors.accentGradient,
             iconColor: Colors.white,
             textColor: Colors.white,
@@ -242,7 +244,7 @@ class HomeContent extends StatelessWidget {
           const SizedBox(height: 16),
           _QuickActionButton(
             icon: Icons.calendar_today_outlined,
-            label: 'Reserve Event',
+            label: l10n.reserveEvent,
             backgroundColor: context.colors.surface,
             border: Border.all(color: context.colors.border, width: 1.545),
             iconColor: context.colors.accent,
@@ -254,7 +256,7 @@ class HomeContent extends StatelessWidget {
             icon: Icons.local_fire_department,
             iconBackground: const Color(0xFFFFEDD4),
             iconColor: const Color(0xFFF54900),
-            label: 'Hookah Sessions',
+            label: l10n.hookahSessions,
             used: usage.hookahUsed,
             limit: membership.hookahLimit,
           ),
@@ -263,7 +265,7 @@ class HomeContent extends StatelessWidget {
             icon: Icons.local_bar,
             iconBackground: const Color(0xFFDBEAFE),
             iconColor: const Color(0xFF155DFC),
-            label: 'Drinks',
+            label: l10n.drinks,
             used: usage.drinksUsed,
             limit: membership.drinksLimit,
           ),
@@ -314,6 +316,7 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final firstName = _firstName(profile?.fullName);
     final memberId = profile?.memberId;
     final home = _homeColors(context);
@@ -325,7 +328,7 @@ class _HomeHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                firstName == null ? 'Welcome!' : 'Welcome, $firstName!',
+                firstName == null ? l10n.welcomeGeneric : l10n.welcomeNamed(firstName),
                 style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w500,
@@ -337,7 +340,7 @@ class _HomeHeader extends StatelessWidget {
               if (memberId != null && memberId.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Member ID: $memberId',
+                  l10n.memberIdLabel(memberId),
                   style: TextStyle(
                     fontSize: 16,
                     height: 24 / 16,
@@ -350,7 +353,7 @@ class _HomeHeader extends StatelessWidget {
           ),
         ),
         Tooltip(
-          message: 'Notifications',
+          message: l10n.notifications,
           child: InkWell(
             onTap: onNotifications,
             borderRadius: BorderRadius.circular(8),
@@ -375,7 +378,7 @@ class _HomeHeader extends StatelessWidget {
                   Icon(Icons.logout, size: 16, color: home.iconGrey),
                   const SizedBox(width: 16),
                   Text(
-                    'Logout',
+                    l10n.logout,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -401,7 +404,12 @@ class _MembershipStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final d = membership.validUntil;
+    // Kept as the app's existing M/D/YYYY, not re-formatted per locale --
+    // this task translates text, not date conventions, which weren't asked
+    // for. Only the surrounding "Valid until:" wording is localized.
+    final validUntilText = '${d.month}/${d.day}/${d.year}';
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -430,7 +438,7 @@ class _MembershipStatusCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Membership Status',
+                      l10n.membershipStatus,
                       style: TextStyle(
                         fontSize: 14,
                         height: 20 / 14,
@@ -449,11 +457,15 @@ class _MembershipStatusCard extends StatelessWidget {
                     SizedBox(
                       height: 36,
                       child: OverflowBox(
-                        alignment: Alignment.topLeft,
+                        // `AlignmentDirectional.topStart`, not physical
+                        // `Alignment.topLeft` (Sprint 8 Task 6) -- the
+                        // overflowing second line needs to spill toward
+                        // the same edge the text itself starts from.
+                        alignment: AlignmentDirectional.topStart,
                         minHeight: 0,
                         maxHeight: double.infinity,
                         child: Text(
-                          '${membership.planName} Member',
+                          l10n.memberSuffix(membership.planName),
                           style: const TextStyle(
                             fontSize: 30,
                             fontWeight: FontWeight.w500,
@@ -475,16 +487,16 @@ class _MembershipStatusCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: _hairline),
                 ),
-                child: const Text(
-                  'Active',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 16 / 12, color: Colors.white),
+                child: Text(
+                  l10n.activeStatus,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 16 / 12, color: Colors.white),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 40),
           Text(
-            'Valid until: ${d.month}/${d.day}/${d.year}',
+            l10n.validUntil(validUntilText),
             style: TextStyle(
               fontSize: 14,
               height: 20 / 14,
@@ -531,6 +543,7 @@ class _UsageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final planLimit = limit;
     final colors = context.colors;
     final home = _homeColors(context);
@@ -568,7 +581,7 @@ class _UsageCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    planLimit == null ? 'Unlimited' : '$used / $planLimit',
+                    planLimit == null ? l10n.unlimited : '$used / $planLimit',
                     style: TextStyle(
                       fontSize: 24,
                       height: 32 / 24,
@@ -595,7 +608,7 @@ class _UsageCard extends StatelessWidget {
           ] else
             const SizedBox(height: 16),
           Text(
-            '$used used this month',
+            l10n.usedThisMonth(used),
             style: TextStyle(fontSize: 12, height: 16 / 12, color: home.mutedText),
           ),
         ],
@@ -685,6 +698,7 @@ class _ServiceHoursCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isFullService = ServiceHours.isFullServiceAt(now);
     final statusColors = _homeColors(context);
     return Container(
@@ -698,7 +712,7 @@ class _ServiceHoursCard extends StatelessWidget {
               Icon(Icons.access_time, size: 24, color: statusColors.iconGrey),
               const SizedBox(width: 12),
               Text(
-                'Service Hours',
+                l10n.serviceHours,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w500,
@@ -715,16 +729,16 @@ class _ServiceHoursCard extends StatelessWidget {
           // text wraps exactly where the design does instead of
           // overflowing; on wider screens the rows stay on one line with
           // the value pushed to the right.
-          const _ServiceHoursRow(
-            label: 'Full Service Hours',
-            value: '9:00 AM - 11:00 PM',
+          _ServiceHoursRow(
+            label: l10n.fullServiceHours,
+            value: l10n.fullServiceHoursValue,
             labelFlex: 12883,
             valueFlex: 14113,
           ),
           const SizedBox(height: 12),
-          const _ServiceHoursRow(
-            label: 'Self-Service Hours',
-            value: '11:00 PM - 9:00 AM',
+          _ServiceHoursRow(
+            label: l10n.selfServiceHours,
+            value: l10n.selfServiceHoursValue,
             labelFlex: 13148,
             valueFlex: 13848,
           ),
@@ -746,9 +760,9 @@ class _ServiceHoursCard extends StatelessWidget {
                   color: statusColors.statusInk,
                 ),
                 children: [
-                  const TextSpan(text: 'Current Status: ', style: TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(text: l10n.currentStatusLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
                   TextSpan(
-                    text: isFullService ? 'Full service available' : 'Self-service hours',
+                    text: isFullService ? l10n.fullServiceAvailable : l10n.selfServiceHoursStatus,
                     style: const TextStyle(fontWeight: FontWeight.w400),
                   ),
                 ],
@@ -803,6 +817,8 @@ class _BenefitsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Real data from the plan, never translated (same reasoning as the
+    // plan name itself in _MembershipStatusCard.memberSuffix).
     final bullets = plan.featureBullets;
     final colors = context.colors;
     return Container(
@@ -812,7 +828,7 @@ class _BenefitsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Membership Benefits',
+            AppLocalizations.of(context).membershipBenefits,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w500,

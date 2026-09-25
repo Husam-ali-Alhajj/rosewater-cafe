@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
+import 'l10n/app_localizations.dart';
 import 'screens/app_entry_point.dart';
 import 'services/auth_deep_link_listener.dart';
 import 'services/secure_local_storage.dart';
@@ -76,6 +77,19 @@ class RosewaterCafeApp extends StatelessWidget {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: settings.themeMode,
+          // Sprint 8 Task 6: `supportedLocales` only lists the two ARB
+          // files that actually exist (en/ar) -- French/Spanish are real,
+          // storable picks in `SettingsProvider.locale` (App Settings'
+          // Language list still shows all four, per the design), but
+          // MaterialApp's own locale-resolution algorithm falls back to
+          // the first supported locale (English) for anything it doesn't
+          // recognize, rather than crashing or showing missing-key
+          // fallback text. Arabic being in `supportedLocales` is also what
+          // makes `Directionality` flip to RTL app-wide -- that's derived
+          // from the resolved `Locale`, not set separately.
+          locale: Locale(settings.locale),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           home: const AppEntryPoint(),
           // Sprint 8 Task 5: wraps the app's whole navigated content (every
           // route, regardless of which one is on top) so Auto-Lock's lock

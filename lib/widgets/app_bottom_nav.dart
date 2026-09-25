@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_semantic_colors.dart';
 
 class _BottomNavTabData {
@@ -7,11 +8,14 @@ class _BottomNavTabData {
   const _BottomNavTabData({required this.icon, required this.label});
 }
 
-const _tabs = [
-  _BottomNavTabData(icon: Icons.home_outlined, label: 'Home'),
-  _BottomNavTabData(icon: Icons.qr_code_outlined, label: 'QR Code'),
-  _BottomNavTabData(icon: Icons.calendar_today_outlined, label: 'Events'),
-  _BottomNavTabData(icon: Icons.person_outline, label: 'Profile'),
+/// Sprint 8 Task 6: built inside `build()`, not as a top-level `const`
+/// list, since the labels now come from `AppLocalizations` (needs a
+/// `BuildContext`) instead of fixed string literals.
+List<_BottomNavTabData> _tabs(AppLocalizations l10n) => [
+  _BottomNavTabData(icon: Icons.home_outlined, label: l10n.navHome),
+  _BottomNavTabData(icon: Icons.qr_code_outlined, label: l10n.navQrCode),
+  _BottomNavTabData(icon: Icons.calendar_today_outlined, label: l10n.navEvents),
+  _BottomNavTabData(icon: Icons.person_outline, label: l10n.navProfile),
 ];
 
 /// Bottom navigation bar matching the Figma `BottomNav` component (node
@@ -25,6 +29,14 @@ const _tabs = [
 /// `Expanded` to equal width instead; a fixed-content-width nav bar looks
 /// wrong the moment the device isn't exactly 375px wide, so this trades
 /// exact-pixel-match for correctness at real screen widths.
+///
+/// **RTL note (Sprint 8 Task 6, decision #63):** needed NO layout changes
+/// for Arabic -- every tab is a plain vertical `Column` (icon, dot, label),
+/// with no left/right positioning to mirror, and the enclosing `Row`
+/// already reverses its children's visual order automatically under RTL
+/// `Directionality` (Flutter's default `Row` behavior, since this file
+/// never overrides `textDirection`). Confirmed by reading the render logic,
+/// not assumed -- see `test/app_bottom_nav_test.dart`'s RTL group.
 class AppBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -34,6 +46,7 @@ class AppBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final tabs = _tabs(AppLocalizations.of(context));
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surfaceElevated,
@@ -45,10 +58,10 @@ class AppBottomNav extends StatelessWidget {
           height: 80,
           child: Row(
             children: [
-              for (var i = 0; i < _tabs.length; i++)
+              for (var i = 0; i < tabs.length; i++)
                 Expanded(
                   child: _BottomNavButton(
-                    data: _tabs[i],
+                    data: tabs[i],
                     isActive: i == currentIndex,
                     onTap: () => onTap(i),
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/auth_service.dart';
 import '../../services/remember_me_prefs.dart';
 import '../../services/subscription_service.dart';
@@ -60,8 +61,11 @@ class _SignInScreenState extends State<SignInScreen> {
 
   String? _validateEmail(String? value) => Validators.email(value);
 
+  // A local validator (not shared `Validators`, which has no BuildContext
+  // access) -- localizable right here via `this.context`, a State's own
+  // instance member, without changing that shared utility's signature.
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) return 'Password is required';
+    if (value == null || value.isEmpty) return AppLocalizations.of(context).passwordRequired;
     return null;
   }
 
@@ -106,7 +110,7 @@ class _SignInScreenState extends State<SignInScreen> {
       context.triggerError();
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Something went wrong. Check your connection and try again.')),
+        SnackBar(content: Text(AppLocalizations.of(context).signInGenericError)),
       );
     }
   }
@@ -114,6 +118,7 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
@@ -124,7 +129,16 @@ class _SignInScreenState extends State<SignInScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+                  // Sprint 8 Task 6 (decision #63): a "back" arrow is
+                  // directional -- it needs to point toward where "back"
+                  // actually leads, which is the opposite screen edge in
+                  // RTL. Icons.arrow_back doesn't auto-mirror (it's not one
+                  // of the codepoints Flutter's own bidi icon-mirroring
+                  // covers), so this checks Directionality explicitly.
+                  icon: Icon(
+                    Directionality.of(context) == TextDirection.rtl ? Icons.arrow_forward : Icons.arrow_back,
+                    color: colors.textPrimary,
+                  ),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
                 Container(
@@ -152,17 +166,17 @@ class _SignInScreenState extends State<SignInScreen> {
                       children: [
                         const OnboardingIconBadge(icon: Icons.lock),
                         const SizedBox(height: 24),
-                        Text('Welcome Back', style: AppTextStyles.heading1(context)),
+                        Text(l10n.welcomeBack, style: AppTextStyles.heading1(context)),
                         const SizedBox(height: 8),
-                        Text('Sign in to your account', style: AppTextStyles.bodyMuted(context)),
+                        Text(l10n.signInSubtitle, style: AppTextStyles.bodyMuted(context)),
                         const SizedBox(height: 24),
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Email Address',
-                            hintText: 'your@email.com',
-                            prefixIcon: Icon(Icons.mail_outline),
+                          decoration: InputDecoration(
+                            labelText: l10n.emailAddressLabel,
+                            hintText: l10n.emailAddressHint,
+                            prefixIcon: const Icon(Icons.mail_outline),
                           ),
                           validator: _validateEmail,
                           onChanged: (_) => _clearCredentialsError(),
@@ -172,8 +186,8 @@ class _SignInScreenState extends State<SignInScreen> {
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
-                            labelText: 'Password',
-                            hintText: '••••••••',
+                            labelText: l10n.passwordLabel,
+                            hintText: l10n.passwordHint,
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
@@ -190,7 +204,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               value: _rememberMe,
                               onChanged: (value) => setState(() => _rememberMe = value ?? true),
                             ),
-                            Text('Remember me', style: AppTextStyles.bodyMuted(context)),
+                            Text(l10n.rememberMe, style: AppTextStyles.bodyMuted(context)),
                             const Spacer(),
                             GestureDetector(
                               onTap: () => Navigator.of(context).push(
@@ -200,7 +214,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                 ),
                               ),
                               child: Text(
-                                'Forgot Password?',
+                                l10n.forgotPassword,
                                 style: TextStyle(color: colors.accent, fontWeight: FontWeight.w600),
                               ),
                             ),
@@ -210,7 +224,11 @@ class _SignInScreenState extends State<SignInScreen> {
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Align(
-                              alignment: Alignment.centerLeft,
+                              // Sprint 8 Task 6: `AlignmentDirectional.centerStart`,
+                              // not the physical `Alignment.centerLeft` --
+                              // this error text needs to hug the START edge
+                              // (right, in RTL), not always the left.
+                              alignment: AlignmentDirectional.centerStart,
                               child: Text(
                                 _credentialsError!,
                                 style: TextStyle(color: colors.danger, fontSize: 12),
@@ -219,20 +237,25 @@ class _SignInScreenState extends State<SignInScreen> {
                           ),
                         const SizedBox(height: 16),
                         GradientButton(
-                          label: _isSubmitting ? 'Signing in…' : 'Sign In',
+                          label: _isSubmitting ? l10n.signingIn : l10n.signInButton,
                           onPressed: _isSubmitting ? null : _submit,
                         ),
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("Don't have an account? ", style: AppTextStyles.bodyMuted(context)),
+                            Text(l10n.noAccountPrompt, style: AppTextStyles.bodyMuted(context)),
+                            // A SizedBox gap, not a trailing space baked
+                            // into `noAccountPrompt` -- a translated string
+                            // shouldn't have to carry layout spacing inside
+                            // it (Sprint 8 Task 6).
+                            const SizedBox(width: 4),
                             GestureDetector(
                               onTap: () => Navigator.of(context).pushReplacement(
                                 appRoute(context, (_) => const CreateAccountScreen()),
                               ),
                               child: Text(
-                                'Create Account',
+                                l10n.createAccount,
                                 style: TextStyle(color: colors.accent, fontWeight: FontWeight.w600),
                               ),
                             ),

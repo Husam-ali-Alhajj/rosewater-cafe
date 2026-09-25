@@ -1,0 +1,86 @@
+{
+  "@@locale": "en",
+
+  "navHome": "Home",
+  "@navHome": {"description": "Bottom nav tab label"},
+  "navQrCode": "QR Code",
+  "@navQrCode": {"description": "Bottom nav tab label"},
+  "navEvents": "Events",
+  "@navEvents": {"description": "Bottom nav tab label"},
+  "navProfile": "Profile",
+  "@navProfile": {"description": "Bottom nav tab label"},
+
+  "welcomeBack": "Welcome Back",
+  "@welcomeBack": {"description": "Sign In screen heading"},
+  "signInSubtitle": "Sign in to your account",
+  "emailAddressLabel": "Email Address",
+  "emailAddressHint": "your@email.com",
+  "passwordLabel": "Password",
+  "passwordHint": "••••••••",
+  "passwordRequired": "Password is required",
+  "@passwordRequired": {"description": "Sign In password field validator message"},
+  "rememberMe": "Remember me",
+  "forgotPassword": "Forgot Password?",
+  "signInButton": "Sign In",
+  "signingIn": "Signing in…",
+  "noAccountPrompt": "Don't have an account?",
+  "createAccount": "Create Account",
+  "signInGenericError": "Something went wrong. Check your connection and try again.",
+
+  "welcomeGeneric": "Welcome!",
+  "@welcomeGeneric": {"description": "Home header greeting when no profile name is available"},
+  "welcomeNamed": "Welcome, {name}!",
+  "@welcomeNamed": {
+    "description": "Home header greeting with the member's first name",
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "memberIdLabel": "Member ID: {id}",
+  "@memberIdLabel": {
+    "description": "Home header member ID line",
+    "placeholders": {"id": {"type": "String"}}
+  },
+  "notifications": "Notifications",
+  "logout": "Logout",
+  "membershipStatus": "Membership Status",
+  "memberSuffix": "{plan} Member",
+  "@memberSuffix": {
+    "description": "Home status card title, e.g. \"Premium Member\" -- {plan} is the real plan name, not translated",
+    "placeholders": {"plan": {"type": "String"}}
+  },
+  "activeStatus": "Active",
+  "@activeStatus": {"description": "Home status card badge"},
+  "validUntil": "Valid until: {date}",
+  "@validUntil": {
+    "description": "Home status card, e.g. \"Valid until: 6/1/2026\" -- {date} is a pre-formatted M/D/YYYY string, not re-formatted per locale",
+    "placeholders": {"date": {"type": "String"}}
+  },
+  "accessCafe": "Access Café",
+  "@accessCafe": {"description": "Home quick-action button"},
+  "reserveEvent": "Reserve Event",
+  "@reserveEvent": {"description": "Home quick-action button"},
+  "hookahSessions": "Hookah Sessions",
+  "drinks": "Drinks",
+  "unlimited": "Unlimited",
+  "@unlimited": {"description": "Usage card value when a plan has no limit for that allowance"},
+  "usedThisMonth": "{used} used this month",
+  "@usedThisMonth": {
+    "description": "Usage card caption",
+    "placeholders": {"used": {"type": "int"}}
+  },
+  "serviceHours": "Service Hours",
+  "fullServiceHours": "Full Service Hours",
+  "fullServiceHoursValue": "9:00 AM - 11:00 PM",
+  "selfServiceHours": "Self-Service Hours",
+  "selfServiceHoursValue": "11:00 PM - 9:00 AM",
+  "currentStatusLabel": "Current Status: ",
+  "fullServiceAvailable": "Full service available",
+  "selfServiceHoursStatus": "Self-service hours",
+  "@selfServiceHoursStatus": {"description": "Status banner text when outside full-service hours -- distinct string from selfServiceHours (a row label) even though the English happens to be similar"},
+  "membershipBenefits": "Membership Benefits",
+
+  "comingSoonSuffix": "{label} — coming in a future task",
+  "@comingSoonSuffix": {
+    "description": "ComingSoonScreen's body text",
+    "placeholders": {"label": {"type": "String"}}
+  }
+}

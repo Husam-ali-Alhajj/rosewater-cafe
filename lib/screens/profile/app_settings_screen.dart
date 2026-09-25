@@ -24,7 +24,29 @@ import '../auth/sign_out.dart';
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
-const _languages = ['English', 'Arabic', 'French', 'Spanish'];
+/// One row in the Language list. [label] is always shown in that
+/// language's OWN script ("العربية", not "Arabic") -- the standard
+/// convention for a language picker, and not something that needs
+/// `AppLocalizations` at all, unlike everything else this task touches.
+/// [translated] is false for French/Spanish: real, storable picks (the
+/// design shows all four as selectable), but `MaterialApp`'s
+/// `supportedLocales` only lists en/ar, so picking one of these falls back
+/// to English text -- decision #63's "say so plainly in the picker"
+/// requirement is [_LanguageRow]'s note, not silence.
+class _Language {
+  final String code;
+  final String label;
+  final bool translated;
+
+  const _Language({required this.code, required this.label, required this.translated});
+}
+
+const _languages = [
+  _Language(code: 'en', label: 'English', translated: true),
+  _Language(code: 'ar', label: 'العربية', translated: true),
+  _Language(code: 'fr', label: 'Français', translated: false),
+  _Language(code: 'es', label: 'Español', translated: false),
+];
 
 // pubspec.yaml's real `version: 1.0.0+1` -- shown instead of the design's
 // mock "Build 2024.01.14" (a demo date, not anything this project tracks).
@@ -43,10 +65,16 @@ const _appBuild = '1';
 /// flipping it here changes every screen's theme immediately, with no
 /// restart and no "(Coming Soon)" label anymore.
 ///
-/// **Language stays decision #5**: shown for visual accuracy, built for
-/// real nowhere. The list always shows English selected (a plain, static
-/// list -- nothing here is tappable); selecting Arabic/French/Spanish was
-/// never in scope, so there's nothing to half-build.
+/// **Language is real for English/Arabic as of Sprint 8 Task 6** (decision
+/// #63, superseding decision #5's original "shown for visual accuracy,
+/// built nowhere"): tapping a row calls `SettingsProvider.setLocale`, which
+/// `main.dart`'s `MaterialApp.locale` reads -- Arabic switches every
+/// translated string AND flips `Directionality` to RTL app-wide, live, no
+/// restart. French/Spanish are real, storable picks too (the row is
+/// tappable and shows selected), they just have no ARB translation yet --
+/// `MaterialApp.supportedLocales` only lists en/ar, so picking one of them
+/// falls back to English TEXT, with a caption saying so, rather than a
+/// missing-key crash or silently wrong text.
 ///
 /// **Animations is real too** (Sprint 8 Task 3, decision #60): the toggle
 /// reads/writes `SettingsProvider.animationsEnabled`, which
@@ -286,7 +314,24 @@ class _AppearanceCard extends StatelessWidget {
               ),
             ),
           ),
-          for (final language in _languages) _LanguageRow(language: language, selected: language == 'English'),
+          for (final language in _languages)
+            _LanguageRow(
+              language: language,
+              selected: language.code == settings.locale,
+              onTap: () => settings.setLocale(language.code),
+            ),
+          if (!_languages.firstWhere((l) => l.code == settings.locale).translated)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: Text(
+                // Sprint 8 Task 6 (decision #63): "say so plainly in the
+                // picker rather than silently showing wrong text" -- this
+                // is that line, shown only while an untranslated language
+                // is actually the current pick.
+                'French and Spanish aren\'t translated yet -- the app will keep showing English text until they are.',
+                style: TextStyle(fontSize: 12, height: 16 / 12, color: context.colors.textMuted),
+              ),
+            ),
           const SizedBox(height: 8),
         ],
       ),
@@ -294,45 +339,53 @@ class _AppearanceCard extends StatelessWidget {
   }
 }
 
-/// One language option. Decision #5: only English actually works, so this
-/// list is entirely static -- English always shows selected, and no row is
-/// tappable (there's nothing a tap could meaningfully do yet).
+/// One language option (Sprint 8 Task 6, decision #63): English and Arabic
+/// are real (tapping one calls `SettingsProvider.setLocale`, live-switching
+/// the whole app -- and, for Arabic, its `Directionality`); French/Spanish
+/// are real, storable picks too (the design shows all four as selectable),
+/// they just render English text until translated -- see the caption
+/// `_AppearanceCard` shows underneath when one of them is picked.
 class _LanguageRow extends StatelessWidget {
-  final String language;
+  final _Language language;
   final bool selected;
+  final VoidCallback onTap;
 
-  const _LanguageRow({required this.language, required this.selected});
+  const _LanguageRow({required this.language, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          // A light accent wash, not the design's fixed pink literals --
-          // derived from `colors.accent` so it's pink-tinted in light mode
-          // and blue-tinted in dark, matching whatever the accent is.
-          color: selected ? colors.accent.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: selected ? Border.all(color: colors.accent.withValues(alpha: 0.4), width: _hairline) : null,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                language,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? colors.accent : colors.textMuted,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            // A light accent wash, not the design's fixed pink literals --
+            // derived from `colors.accent` so it's pink-tinted in light mode
+            // and blue-tinted in dark, matching whatever the accent is.
+            color: selected ? colors.accent.withValues(alpha: 0.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: selected ? Border.all(color: colors.accent.withValues(alpha: 0.4), width: _hairline) : null,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  language.label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected ? colors.accent : colors.textMuted,
+                  ),
                 ),
               ),
-            ),
-            if (selected) Icon(Icons.check, size: 18, color: colors.accent),
-          ],
+              if (selected) Icon(Icons.check, size: 18, color: colors.accent),
+            ],
+          ),
         ),
       ),
     );

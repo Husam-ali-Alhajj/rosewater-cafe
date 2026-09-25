@@ -43,6 +43,7 @@ class SettingsProvider extends ChangeNotifier {
     required this._autoLockEnabled,
     required this._autoLockTimeoutSeconds,
     required this._biometricEnabled,
+    required this._locale,
   });
 
   static const _keyThemeMode = 'settings.theme_mode';
@@ -52,6 +53,7 @@ class SettingsProvider extends ChangeNotifier {
   static const _keyAutoLockEnabled = 'settings.auto_lock_enabled';
   static const _keyAutoLockTimeoutSeconds = 'settings.auto_lock_timeout_seconds';
   static const _keyBiometricEnabled = 'settings.biometric_enabled';
+  static const _keyLocale = 'settings.locale';
 
   // Defaults, applied only when nothing has been stored yet.
   //
@@ -68,6 +70,12 @@ class SettingsProvider extends ChangeNotifier {
   static const _defaultAutoLockEnabled = false; // decision #45: shown off, not implying protection that isn't real
   static const _defaultAutoLockTimeoutSeconds = 300; // 5 minutes; revisited when Auto-Lock's own task wires this up
   static const _defaultBiometricEnabled = false; // decision #45, same reasoning as auto-lock
+  // 'en' -- matches App Settings' Language list showing English selected by
+  // default (decision #5's original static state, before Sprint 8 Task 6
+  // made English/Arabic real). An ISO 639-1 code, not the design's display
+  // name ("English"/"Arabic") -- what `Locale(...)` and the ARB filenames
+  // both use.
+  static const _defaultLocale = 'en';
 
   final SharedPreferences _prefs;
 
@@ -78,6 +86,7 @@ class SettingsProvider extends ChangeNotifier {
   bool _autoLockEnabled;
   int _autoLockTimeoutSeconds;
   bool _biometricEnabled;
+  String _locale;
 
   ThemeMode get themeMode => _themeMode;
   bool get animationsEnabled => _animationsEnabled;
@@ -86,6 +95,16 @@ class SettingsProvider extends ChangeNotifier {
   bool get autoLockEnabled => _autoLockEnabled;
   int get autoLockTimeoutSeconds => _autoLockTimeoutSeconds;
   bool get biometricEnabled => _biometricEnabled;
+
+  /// An ISO 639-1 code ('en'/'ar'/'fr'/'es') -- **the user's PICKED
+  /// language, not necessarily what's actually shown.** French/Spanish are
+  /// real, storable choices (the design shows all four as selectable), but
+  /// have no ARB translation yet -- `MaterialApp`'s own locale resolution
+  /// (`supportedLocales: [en, ar]`) falls back to English text for them
+  /// automatically. This getter is what the picker highlights as selected;
+  /// what text actually renders is a separate question `AppLocalizations`
+  /// answers via `Localizations.localeOf(context)`, not this field.
+  String get locale => _locale;
 
   Future<void> setThemeMode(ThemeMode value) async {
     _themeMode = value;
@@ -129,6 +148,12 @@ class SettingsProvider extends ChangeNotifier {
     await _prefs.setBool(_keyBiometricEnabled, value);
   }
 
+  Future<void> setLocale(String value) async {
+    _locale = value;
+    notifyListeners();
+    await _prefs.setString(_keyLocale, value);
+  }
+
   /// Reads every stored value (or its default) from disk and returns a
   /// fully-populated instance -- call once, awaited, before `runApp()`.
   static Future<SettingsProvider> load() async {
@@ -142,6 +167,7 @@ class SettingsProvider extends ChangeNotifier {
       autoLockEnabled: prefs.getBool(_keyAutoLockEnabled) ?? _defaultAutoLockEnabled,
       autoLockTimeoutSeconds: prefs.getInt(_keyAutoLockTimeoutSeconds) ?? _defaultAutoLockTimeoutSeconds,
       biometricEnabled: prefs.getBool(_keyBiometricEnabled) ?? _defaultBiometricEnabled,
+      locale: prefs.getString(_keyLocale) ?? _defaultLocale,
     );
   }
 

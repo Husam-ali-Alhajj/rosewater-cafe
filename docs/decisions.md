@@ -4065,6 +4065,130 @@ with the `MainActivity.kt`/manifest/`Info.plist` changes above.
 
 ---
 
+### 63. Sprint 8 Task 6 — i18n infrastructure + English/Arabic (phase 1: infra + 3 screens)
+
+**The scale problem, put to the user before writing anything:** this app
+has ~30 screens; the task's own text says the string extraction, not the
+plumbing, is "the bulk of the effort," and RTL correctness means auditing
+LAYOUT code (not just strings) on top of that. Two real decisions:
+
+1. *Pace it all at once, or phase it?* **Chosen: phase it** -- build the
+   full i18n infrastructure (real, app-wide, not a stub), then fully do
+   (strings AND RTL layout) the exact three screens the acceptance
+   criteria names -- bottom nav, a form screen (Sign In), Home's
+   icon-badge rows -- check in on the approach, extend to the rest of the
+   app afterward. Not "infra only" -- the three named screens are
+   completely real, not placeholders.
+2. *Who reviews the Arabic?* No translation service exists in this
+   project. **Chosen: the user does** -- every Arabic string below is
+   AI-written and explicitly unreviewed by a fluent speaker. Flagged here,
+   not silently presented as authoritative.
+
+**Infrastructure built:**
+
+- **`flutter_localizations` + ARB files** (`lib/l10n/app_en.arb`,
+  `app_ar.arb`), `flutter: generate: true` in `pubspec.yaml` + `l10n.yaml`
+  -- `flutter gen-l10n` runs automatically on `pub get`/`run`/`build`,
+  generating `lib/l10n/app_localizations.dart` (never hand-edited).
+  `intl` bumped `^0.19.0` → `^0.20.2`: `flutter_localizations` pins an
+  exact `intl` version, and the old constraint made `pub get` unsolvable.
+- **`SettingsProvider.locale`** (new field, `'en'` default, ISO 639-1
+  codes): the user's PICKED language, not necessarily what's shown --
+  French/Spanish are real, storable picks (the design shows all four as
+  selectable) with no ARB file yet.
+- **`MaterialApp.locale`/`supportedLocales`/`localizationsDelegates`**
+  wired in `main.dart`, reading `SettingsProvider.locale`.
+  `supportedLocales` only lists `[en, ar]` -- **this is what makes the
+  French/Spanish fallback automatic**, not extra code: Flutter's own
+  locale-resolution algorithm falls back to the first supported locale
+  (English) for a `Locale` it doesn't recognize, rather than crashing or
+  showing missing-key text. Arabic being in `supportedLocales` is also
+  what flips `Directionality` app-wide -- derived from the resolved
+  `Locale`, not set separately.
+- **App Settings' Language list is real for English/Arabic**
+  (`_LanguageRow` now tappable, calls `SettingsProvider.setLocale`).
+  French/Spanish stay tappable and show selected too (real, storable
+  picks) -- decision #63's "say so plainly in the picker" requirement is
+  a caption shown under the list while one of them is picked ("French and
+  Spanish aren't translated yet..."), not silence. Each language is shown
+  in its OWN script (`"العربية"`, not `"Arabic"`) -- the standard
+  language-picker convention, unrelated to `AppLocalizations`.
+
+**The three screens, fully done (strings + RTL), not stubbed:**
+
+- **`AppBottomNav`** needed ZERO layout changes -- confirmed by reading
+  the render logic, not assumed: every tab is a plain vertical `Column`
+  (icon, dot, label), no left/right positioning to mirror, and the
+  enclosing `Row` already reverses its children's visual order under RTL
+  `Directionality` (Flutter's own default `Row` behavior). Only the four
+  tab labels needed translating.
+- **Sign In** (the form screen): found and fixed two real RTL bugs while
+  auditing, not guessed at -- `grep` for `Alignment\.`/`EdgeInsets\.only`
+  found exactly one physical-alignment bug in this file
+  (`Alignment.centerLeft` on the credentials-error text → 
+  `AlignmentDirectional.centerStart`) and the back arrow, which doesn't
+  auto-mirror (`Icons.arrow_back` isn't one of the codepoints Flutter's
+  bidi icon-mirroring covers), so it now checks `Directionality.of(context)`
+  explicitly and swaps to `Icons.arrow_forward`. The "Don't have an
+  account? Create Account" row's trailing space was moved out of the
+  translated string into a `SizedBox` gap -- a translated string
+  shouldn't have to carry layout spacing baked into it.
+- **Home** (icon-badge rows): same audit found one more physical-alignment
+  bug (`Alignment.topLeft` on the wrapping-text `OverflowBox` in
+  `_MembershipStatusCard` → `AlignmentDirectional.topStart`). Every
+  icon-badge row (`_UsageCard`, `_HomeHeader`, `_ServiceHoursCard`'s
+  title) needed no changes -- same `Row`-auto-reverses reasoning as the
+  bottom nav, proven directly in `home_content_test.dart` by measuring an
+  icon's screen position relative to its label in both directions, not
+  just asserted. Real data (the member's name, member ID, plan name,
+  plan's own `featureBullets`) is interpolated into translated strings,
+  never itself translated.
+- **`ComingSoonScreen`** (shared, reached from Home's notification bell
+  and elsewhere) got the same back-arrow fix and its one string
+  localized, since it's a single shared widget already on both screens'
+  critical path, not per-screen duplicated effort.
+- **Validators**: `SignInScreen`'s own `_validatePassword` (a local
+  method with `this.context` available) is localized; the shared
+  `Validators.email`/etc. (`lib/utils/validators.dart`, used by ~10+
+  screens) is explicitly NOT -- it's a plain `String? Function(String?)`
+  with no `BuildContext` parameter, and giving it one is a real signature
+  change touching every call site app-wide, out of this phase's scope.
+  Logged as a known follow-up, not silently left inconsistent.
+
+**A real bug found along the way, unrelated to i18n:** writing
+`test/sign_in_screen_test.dart` at a phone-realistic width (400px, instead
+of this suite's usual 800px canvas) surfaced a `RenderFlex` overflow on
+the "Remember me / Forgot Password?" and "Don't have an account? / Create
+Account" rows -- **in English too**, confirmed independently before
+concluding it wasn't an RTL regression. Pre-existing, not introduced by
+this task; the test was widened to match this suite's established
+800px-canvas convention (used everywhere else specifically to keep
+narrow-width responsiveness a separate concern from what each test is
+actually checking) rather than silently worked around. Left as a known
+gap for a future task, not fixed here -- fixing general responsiveness is
+outside Task 6's scope.
+
+**Verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+277/277 (12 new: 4 in `app_bottom_nav_test.dart`, 4 in
+`sign_in_screen_test.dart`, 4 added to `home_content_test.dart` --
+covering both languages, `Directionality`, and, for Home, actually
+measuring the icon-badge row's mirrored screen position rather than just
+checking translated text appears). `app_settings_screen_test.dart`'s old
+"Language is visual only" test replaced with one proving the real
+tap-to-switch-locale behavior and the French/Spanish fallback caption.
+
+**Sign-off:** infrastructure is real and app-wide, not a stub; all three
+acceptance-criteria screens are fully translated AND RTL-correct, proven
+by tests that measure actual mirrored positions, not just check for
+translated text. **Two things explicitly still open, not silently
+closed:** the Arabic translations are unreviewed by a fluent speaker (the
+user's own to check), and the remaining ~27 screens are untouched --
+Phase 1 only, per the pacing decision above. Extending this to the rest
+of the app is the next task, not assumed to be "mostly done" because the
+pattern is now proven.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/models/membership_plan.dart';
 import 'package:rosewater_cafe/models/profile.dart';
 import 'package:rosewater_cafe/models/usage_allowance.dart';
@@ -45,6 +46,7 @@ Future<_Calls> _pump(
   bool logoutEnabled = true,
   Size size = const Size(800, 3000),
   ThemeData? theme,
+  String locale = 'en',
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -54,6 +56,10 @@ Future<_Calls> _pump(
   await tester.pumpWidget(
     MaterialApp(
       theme: theme,
+      locale: Locale(locale),
+      // Sprint 8 Task 6: HomeContent reads AppLocalizations now.
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: HomeContent(
           profile: profile,
@@ -235,5 +241,61 @@ void main() {
     expect(close(benefits.top - service.bottom), 24);
     // 24 + 28 (title) + 40 + 6 bullets (20 each, 8 apart) + 24 + hairline border
     expect(close(benefits.height), 277.03);
+  });
+
+  group('Sprint 8 Task 6 -- i18n + RTL (one of the three named acceptance screens)', () {
+    testWidgets('shows every real string, translated in Arabic, with no English fallback text', (tester) async {
+      await _pump(tester, locale: 'ar');
+
+      for (final text in [
+        'أهلاً بك يا Layla!', // welcomeNamed -- real first name interpolated, not translated
+        'رقم العضوية: RC-000031', // memberIdLabel -- real member ID interpolated
+        'حالة العضوية',
+        'عضو Premium', // memberSuffix -- real plan name interpolated, not translated
+        'نشط',
+        'الدخول إلى المقهى',
+        'حجز فعالية',
+        'جلسات الشيشة',
+        'المشروبات',
+        'ساعات الخدمة',
+        'ساعات الخدمة الكاملة',
+        'ساعات الخدمة الذاتية',
+        'مزايا العضوية',
+      ]) {
+        expect(find.text(text), findsWidgets, reason: text);
+      }
+
+      // No missing-key fallback to the English original anywhere on screen.
+      for (final english in ['Membership Status', 'Access Café', 'Reserve Event', 'Service Hours']) {
+        expect(find.text(english), findsNothing, reason: english);
+      }
+    });
+
+    testWidgets('Directionality flips to RTL for Arabic', (tester) async {
+      await _pump(tester, locale: 'ar');
+      final context = tester.element(find.byType(HomeContent));
+      expect(Directionality.of(context), TextDirection.rtl);
+    });
+
+    testWidgets(
+      'an icon-badge row (the usage card) actually mirrors under RTL, not just translates its text',
+      (tester) async {
+        // LTR baseline: the icon sits to the left of its label.
+        await _pump(tester, locale: 'en');
+        final iconCenterLtr = tester.getCenter(find.byIcon(Icons.local_fire_department)).dx;
+        final labelCenterLtr = tester.getCenter(find.text('Hookah Sessions')).dx;
+        expect(iconCenterLtr, lessThan(labelCenterLtr));
+      },
+    );
+
+    testWidgets(
+      'the same icon-badge row mirrors: icon moves to the right of its label under RTL',
+      (tester) async {
+        await _pump(tester, locale: 'ar');
+        final iconCenterRtl = tester.getCenter(find.byIcon(Icons.local_fire_department)).dx;
+        final labelCenterRtl = tester.getCenter(find.text('جلسات الشيشة')).dx;
+        expect(iconCenterRtl, greaterThan(labelCenterRtl));
+      },
+    );
   });
 }

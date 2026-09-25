@@ -1,0 +1,9 @@
+# Sprint 8 Task 6 -- config for `flutter gen-l10n`, run automatically by
+# `flutter pub get`/`flutter run`/`flutter build` (flutter: generate: true
+# in pubspec.yaml). Generates lib/l10n/app_localizations.dart (+ one
+# per-locale file) from the ARB files below -- never hand-edit the
+# generated output.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+nullable-getter: false
