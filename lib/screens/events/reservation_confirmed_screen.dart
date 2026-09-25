@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/reservation_summary.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/gradient_button.dart';
@@ -26,12 +27,13 @@ class ReservationConfirmedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     final dateText = DateFormat('M/d/yyyy').format(reservation.eventDate);
     final time = reservation.startTime;
     final timeText = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     final duration = reservation.durationHours;
-    final durationText = '${_trimTrailingZero(duration)} hour${duration == 1 ? '' : 's'}';
-    final guestsText = '${reservation.guestCount} people';
+    final durationText = '${_trimTrailingZero(duration)} ${duration == 1 ? l10n.hourSingular : l10n.hourPlural}';
+    final guestsText = '${reservation.guestCount} ${l10n.peopleLabel}';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -55,7 +57,7 @@ class ReservationConfirmedScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  'Event reservation confirmed!',
+                  l10n.eventReservationConfirmedBanner,
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
                 ),
               ],
@@ -83,13 +85,13 @@ class ReservationConfirmedScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Reservation Confirmed!',
+                  l10n.reservationConfirmedHeading,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: colors.textPrimary),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Your event has been successfully reserved',
+                  l10n.reservationConfirmedSubtitle,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: colors.textMuted, height: 1.4),
                 ),
@@ -99,18 +101,18 @@ class ReservationConfirmedScreen extends StatelessWidget {
                   decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
                   child: Column(
                     children: [
-                      _detailRow(colors, 'Date:', dateText),
+                      _detailRow(colors, l10n.dateColonLabel, dateText),
                       const SizedBox(height: 8),
-                      _detailRow(colors, 'Time:', timeText),
+                      _detailRow(colors, l10n.timeColonLabel, timeText),
                       const SizedBox(height: 8),
-                      _detailRow(colors, 'Duration:', durationText),
+                      _detailRow(colors, l10n.durationColonLabel, durationText),
                       const SizedBox(height: 8),
-                      _detailRow(colors, 'Guests:', guestsText),
+                      _detailRow(colors, l10n.guestsColonLabel, guestsText),
                     ],
                   ),
                 ),
                 const SizedBox(height: 32),
-                GradientButton(label: 'Back to Dashboard', onPressed: onBackToDashboard),
+                GradientButton(label: l10n.backToDashboard, onPressed: onBackToDashboard),
               ],
             ),
           ),

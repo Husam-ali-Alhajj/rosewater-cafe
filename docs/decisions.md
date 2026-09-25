@@ -4187,6 +4187,137 @@ Phase 1 only, per the pacing decision above. Extending this to the rest
 of the app is the next task, not assumed to be "mostly done" because the
 pattern is now proven.
 
+### 64. Sprint 8 Task 6 — i18n Phase 2: the remaining ~27 screens, same pattern extended app-wide
+
+Picked up right where #63 left off, with the user's go-ahead to run
+straight through the rest of the app the same way (real strings, RTL
+audited, tested at every stop) rather than checking in screen-by-screen.
+Worked in eight groups, each with its own ARB keys, RTL audit, `flutter
+analyze` and `flutter test` pass before moving on:
+
+- **Auth** (Auth Landing, Create Account, Forgot Password, Set New
+  Password, Confirm Email Pending): ~35 keys. RTL bugs: the back arrow
+  (same `Icons.arrow_back`-doesn't-auto-mirror fix as #63) on Create
+  Account and Forgot Password, plus `Alignment.centerLeft` on each
+  screen's terms/error text → `AlignmentDirectional.centerStart`.
+- **Membership** (Choose Membership, ID Upload, Payment, Payment
+  Success): ~35 keys. RTL bug: ID Upload's back arrow +
+  `Alignment.centerLeft` on "Back to Plans" + a stray `TextAlign.left`.
+- **Events + QR** (Events Tab, Reserve Event, Reservation Confirmed, QR
+  Access): ~65 keys, including the four placeholder event types
+  (decision #37/#38) and both guest-count/duration validators. RTL bugs:
+  the same back-arrow pattern on Reserve Event's and QR Access's own
+  "Back to Dashboard" buttons. `intl`'s own `TextDirection` enum turned
+  out to shadow `dart:ui`'s when both packages are imported unqualified
+  (`import 'package:intl/intl.dart'` alongside `Directionality.of(...) ==
+  TextDirection.rtl`) -- fixed by hiding it (`import
+  'package:intl/intl.dart' hide TextDirection`), not by qualifying every
+  reference.
+- **Onboarding**: the 4-slide `_pages` list, previously a `static const
+  List`, had to become a method taking `AppLocalizations` (same pattern
+  as #63's bottom-nav tabs) since Dart consts can't hold looked-up
+  strings. RTL: the Skip button's `Alignment.centerRight` →
+  `AlignmentDirectional.centerEnd`, and the Next/Previous chevrons now
+  swap (`chevron_right`↔`chevron_left`) under `Directionality`, the same
+  "points toward reading-forward, not literally right" reasoning as every
+  other directional icon this task touches.
+- **Profile + Edit Profile**: ~45 keys. Fixed the shared **`ScreenHeader`**
+  widget here (back arrow + a hardcoded "Back" tooltip) -- used by six
+  more screens still to come, so fixing it once here instead of
+  per-screen. Also fixed the shared **`SettingToggleRow`**'s custom switch
+  thumb (`AnimatedPositioned(left: ...)` → `AnimatedPositionedDirectional
+  (start: ...)`), used by Notifications, App Settings, and Privacy &
+  Security. `_EditField`'s custom icon overlay (a `Positioned` + fixed
+  `contentPadding`, not `InputDecoration.prefixIcon`, so it doesn't
+  auto-mirror) converted to `PositionedDirectional` +
+  `EdgeInsetsDirectional` -- flagged in-code as the same "form field
+  icons" trap the original Task 6 acceptance criteria called out.
+  Fixing `ScreenHeader`/`SettingToggleRow` mid-task broke five *other*
+  screens' existing tests that construct a bare `MaterialApp` with no
+  `AppLocalizations` delegate (their own screens aren't localized yet) --
+  fixed by registering the delegate in each of those test files (the same
+  fallback pattern #63 already established), and by extending
+  `notification_prefs_test.dart`'s "no network" import-allowlist test
+  with `flutter_localizations` and its own transitive imports, once
+  `ScreenHeader` started pulling them in. Not a scope violation: these
+  were pre-existing tests broken by a shared-widget fix, fixed to keep
+  passing, not new screens localized early.
+- **Payment Methods + Add Payment Method**: ~15 keys, including the
+  "Remove this card?" confirm dialog. No RTL bugs -- both screens already
+  used `Row`/`InputDecoration.prefixIcon` throughout.
+- **Notification Settings + App Settings**: ~30 keys. `_communicationToggles`/
+  `_typeToggles` (Notification Settings) converted from const lists to
+  functions the same way Onboarding's `_pages` was. RTL bug:
+  `_TypesCard`'s "Notification Types" strip used `Alignment.centerLeft`.
+- **Privacy & Security + Help & Support**: ~55 keys, the largest single
+  file in this phase (Change Password / Delete Account / Change Email,
+  each its own inline form and validators). RTL bugs: `_PasswordField`'s
+  show/hide eye icon (`Positioned(right:)` + fixed `contentPadding`, the
+  same non-`prefixIcon` overlay pattern as Edit Profile's `_EditField`)
+  and `_PrivacyRow`'s `Alignment.centerLeft`. Help & Support:
+  `_ResourcesCard`'s row chevrons get the same RTL flip as
+  `ProfileScreen`'s `_SettingsRow`; the FAQ accordion's own chevron
+  (rotates in place to indicate open/closed, not a "leads forward"
+  navigation cue) was deliberately left unmirrored -- reversing its
+  glyph would also have required inverting its rotation direction to
+  still land pointing down when open, and that's a real behavior change
+  outside what the acceptance criteria asks for, not a one-line
+  consistency fix.
+
+**Pattern held from #63, confirmed at scale, not just asserted:** every
+icon-then-text `Row` across all eight groups auto-mirrored with zero
+changes; the only real bugs were physical `Alignment`/`Positioned`/
+`EdgeInsets` values and un-mirrored directional icons (back arrows,
+forward/previous chevrons, list-row chevrons) -- exactly the two
+categories #63 predicted, no new category of RTL bug turned up across
+~27 more screens.
+
+**Final sweep caught two more files** the eight groups above didn't
+cover, because they're `lib/widgets/`/`lib/screens/auth/` helpers, not
+one of the ~27 screens on the task list: **`AppLockScreen`** (Sprint 8
+Task 5's real lock screen, decision #62 -- shown whenever Auto-Lock
+actually fires, so very much user-facing) had five hardcoded strings
+plus the native biometric prompt's own reason text
+(`BiometricService.authenticate(reason:)`, which the OS shows in its own
+system dialog); and **`signOutAndShowLanding`** (`sign_out.dart`, shared
+by every Sign Out control) had one SnackBar string. Both fully localized,
+no RTL fixes needed (neither uses physical `Alignment`/`Positioned`).
+Found by grepping the whole `lib/` tree for `Text('[A-Z]` a second time
+after all eight groups were done, specifically to check for exactly this
+kind of gap rather than assuming the group-by-group pass was exhaustive.
+
+**One category of string deliberately left un-localized, same reasoning
+as decision #63's `Validators` gap:** the `*Failure.message` strings
+thrown by `lib/services/*.dart` (`ChangePasswordFailure`,
+`DeleteAccountFailure`, `PaymentMethodFailure`, `ProfileUpdateFailure`,
+etc.) -- these are plain Dart exception messages built inside service
+methods with no `BuildContext` available at the throw site, then
+displayed via `e.message` by the screens that catch them (already
+localized this phase). Giving every service method a `BuildContext` or
+`AppLocalizations` parameter to build these server-facing-error strings
+would be a real signature change touching every service class and call
+site app-wide -- the same scope boundary #63 already drew around
+`Validators.email`. Logged here explicitly, not silently left
+inconsistent: these ~15 messages across 6 service files still show
+English text regardless of locale.
+
+**Verified:** `flutter analyze` -- clean, whole project, after every
+group. `flutter test` -- 277/277 throughout (English text never changed,
+so no test needed updating for content, only the handful whose
+`MaterialApp` needed the `AppLocalizations` delegate added because of the
+shared-widget fixes above).
+
+**Sign-off:** i18n/RTL now covers every screen and dialog a user can
+actually navigate to, matching #63's acceptance criteria extended
+app-wide. **Three things explicitly still open, not silently closed:**
+(1) the Arabic translations -- now ~65 more strings on top of #63's --
+remain AI-written and unreviewed by a fluent speaker, the user's own to
+check per the earlier "you review the Arabic yourself" decision; (2)
+French/Spanish stay real, storable picks with no translation yet
+(decision #63's fallback caption still applies everywhere); (3) the
+service-layer exception-message strings above stay English-only,
+same scope boundary as `Validators`.
+
 ---
 
 ## Checkpoint: status of every open item, as of the end of Sprint 2

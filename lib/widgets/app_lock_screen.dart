@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_service.dart';
 import '../theme/app_semantic_colors.dart';
@@ -60,7 +61,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
     if (_biometricInFlight || !mounted) return;
     setState(() => _biometricInFlight = true);
     final ok = await widget.biometricService.authenticate(
-      reason: 'Unlock Rosewater Café',
+      reason: AppLocalizations.of(context).unlockReasonPrompt,
     );
     if (!mounted) return;
     setState(() => _biometricInFlight = false);
@@ -74,7 +75,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
     if (_verifyingPassword) return;
     final password = _passwordController.text;
     if (password.isEmpty) {
-      setState(() => _passwordError = 'Enter your password');
+      setState(() => _passwordError = AppLocalizations.of(context).enterYourPasswordError);
       return;
     }
     setState(() {
@@ -96,7 +97,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
       if (!mounted) return;
       setState(() {
         _verifyingPassword = false;
-        _passwordError = "Couldn't verify your password. Check your connection and try again.";
+        _passwordError = AppLocalizations.of(context).couldntVerifyPasswordError;
       });
     }
   }
@@ -104,6 +105,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Material(
       // A screen unto itself, not a dialog -- fully opaque, no way to see
       // or interact with whatever's underneath until unlocked.
@@ -125,14 +127,12 @@ class _AppLockScreenState extends State<AppLockScreen> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'App Locked',
+                    l10n.appLockedTitle,
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    widget.biometricEnabled
-                        ? 'Unlock with your fingerprint or face to continue.'
-                        : 'Enter your password to continue.',
+                    widget.biometricEnabled ? l10n.unlockWithBiometricPrompt : l10n.unlockWithPasswordPrompt,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: colors.textMuted),
                   ),
@@ -143,13 +143,13 @@ class _AppLockScreenState extends State<AppLockScreen> {
                       child: FilledButton.icon(
                         onPressed: _biometricInFlight ? null : _attemptBiometric,
                         icon: const Icon(Icons.fingerprint),
-                        label: Text(_biometricInFlight ? 'Checking…' : 'Try Again'),
+                        label: Text(_biometricInFlight ? l10n.checkingEllipsis : l10n.tryAgainBiometricButton),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextButton(
                       onPressed: () => setState(() => _showPasswordField = true),
-                      child: const Text('Use Password Instead'),
+                      child: Text(l10n.usePasswordInsteadButton),
                     ),
                   ] else ...[
                     TextField(
@@ -161,7 +161,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
                       autocorrect: false,
                       onSubmitted: (_) => _submitPassword(),
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        labelText: l10n.passwordFieldLabel,
                         errorText: _passwordError,
                         filled: true,
                         fillColor: colors.inputFill,
@@ -177,7 +177,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _verifyingPassword ? null : _submitPassword,
-                        child: Text(_verifyingPassword ? 'Verifying…' : 'Unlock'),
+                        child: Text(_verifyingPassword ? l10n.verifyingEllipsis : l10n.unlockButton),
                       ),
                     ),
                     if (widget.biometricEnabled) ...[
@@ -190,7 +190,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
                                   _passwordError = null;
                                   _passwordController.clear();
                                 }),
-                        child: const Text('Use Biometric Instead'),
+                        child: Text(l10n.useBiometricInsteadButton),
                       ),
                     ],
                   ],

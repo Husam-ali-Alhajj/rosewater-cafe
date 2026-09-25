@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
@@ -62,7 +63,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Something went wrong. Check your connection and try again.')),
+        SnackBar(content: Text(AppLocalizations.of(context).genericConnectionError)),
       );
     }
   }
@@ -80,7 +81,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  icon: Icon(Icons.arrow_back, color: colors.textPrimary),
+                  // Sprint 8 Task 6: see sign_in_screen.dart for why this
+                  // needs an explicit RTL check.
+                  icon: Icon(
+                    Directionality.of(context) == TextDirection.rtl ? Icons.arrow_forward : Icons.arrow_back,
+                    color: colors.textPrimary,
+                  ),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
                 Container(
@@ -113,16 +119,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Widget _buildForm(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Form(
       key: _formKey,
       child: Column(
         children: [
           const OnboardingIconBadge(icon: Icons.lock_outline),
           const SizedBox(height: 24),
-          Text('Forgot Password?', style: AppTextStyles.heading1(context)),
+          Text(l10n.forgotPassword, style: AppTextStyles.heading1(context)),
           const SizedBox(height: 8),
           Text(
-            "No worries! Enter your email address and we'll send you a link to reset your password.",
+            l10n.forgotPasswordSubtitle,
             textAlign: TextAlign.center,
             style: AppTextStyles.bodyMuted(context),
           ),
@@ -130,10 +137,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Email Address',
-              hintText: 'your.email@example.com',
-              prefixIcon: Icon(Icons.mail_outline),
+            decoration: InputDecoration(
+              labelText: l10n.emailAddressLabel,
+              hintText: l10n.emailAddressHint,
+              prefixIcon: const Icon(Icons.mail_outline),
             ),
             validator: Validators.email,
           ),
@@ -141,7 +148,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Align(
-                alignment: Alignment.centerLeft,
+                // AlignmentDirectional.centerStart, not physical
+                // Alignment.centerLeft (Sprint 8 Task 6).
+                alignment: AlignmentDirectional.centerStart,
                 child: Text(
                   _requestError!,
                   style: TextStyle(color: context.colors.danger, fontSize: 12),
@@ -150,7 +159,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           const SizedBox(height: 24),
           GradientButton(
-            label: _isSubmitting ? 'Sending…' : 'Send Reset Link',
+            label: _isSubmitting ? l10n.sendingEllipsis : l10n.sendResetLink,
             onPressed: _isSubmitting ? null : _submit,
           ),
         ],
@@ -167,6 +176,7 @@ class _SuccessContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -180,20 +190,19 @@ class _SuccessContent extends StatelessWidget {
           child: Icon(Icons.mark_email_read_outlined, color: colors.success, size: 44),
         ),
         const SizedBox(height: 24),
-        Text('Check Your Email', style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
+        Text(l10n.checkYourEmail, style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
         const SizedBox(height: 8),
         Text(
           // Deliberately worded to be true and identical whether or not
           // "$email" actually has an account — never "we sent a link to
           // your account", which would confirm the account exists.
-          'If an account exists for $email, we\'ve sent a link to reset '
-          'your password. Check your inbox (and spam folder).',
+          l10n.resetLinkSentBody(email),
           textAlign: TextAlign.center,
           style: AppTextStyles.bodyMuted(context),
         ),
         const SizedBox(height: 24),
         GradientButton(
-          label: 'Back to Sign In',
+          label: l10n.backToSignIn,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
       ],

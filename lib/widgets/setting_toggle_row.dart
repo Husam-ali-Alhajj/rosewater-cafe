@@ -146,9 +146,13 @@ class SettingSwitch extends StatelessWidget {
             ),
             child: Stack(
               children: [
-                AnimatedPositioned(
+                // Sprint 8 Task 6: AnimatedPositionedDirectional (not
+                // AnimatedPositioned's physical `left`), so the thumb slides
+                // toward the trailing edge -- which is the LEFT in RTL -- not
+                // always toward the physical left/right.
+                AnimatedPositionedDirectional(
                   duration: context.animDuration(const Duration(milliseconds: 150)),
-                  left: value ? 24 : 4,
+                  start: value ? 24 : 4,
                   top: 4,
                   child: Container(
                     width: 16,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/membership_plan.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
@@ -56,7 +57,7 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _errorMessage = 'Could not load membership plans. Check your connection and try again.';
+        _errorMessage = AppLocalizations.of(context).couldNotLoadPlansError;
       });
     }
   }
@@ -106,7 +107,7 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
       if (!mounted) return;
       setState(() {
         _selectingPlanId = null;
-        _errorMessage = 'Something went wrong. Check your connection and try again.';
+        _errorMessage = AppLocalizations.of(context).genericConnectionError;
       });
     }
   }
@@ -114,6 +115,7 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
@@ -126,7 +128,7 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
-                              'Choose Your Membership',
+                              l10n.chooseYourMembership,
                               style: TextStyle(
                                 fontSize: 36,
                                 fontWeight: FontWeight.w500,
@@ -137,7 +139,7 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Select the plan that fits your lifestyle',
+                              l10n.selectPlanSubtitle,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w400,
@@ -168,7 +170,7 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
-                                'All plans include member discounts. Guest orders not included in allowance.',
+                                l10n.allPlansFooter,
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w400,
@@ -218,6 +220,7 @@ class _MembershipCard extends StatelessWidget {
     final icon = _iconForRank(rank);
     final highlighted = plan.isPopular;
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -250,9 +253,9 @@ class _MembershipCard extends StatelessWidget {
                 color: AppColors.membershipPopularBadge,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'Most Popular',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 12),
+              child: Text(
+                l10n.mostPopularBadge,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 12),
               ),
             ),
           OnboardingIconBadge(icon: icon, gradient: gradient, size: 64),
@@ -275,7 +278,7 @@ class _MembershipCard extends StatelessWidget {
                   ),
                 ),
                 TextSpan(
-                  text: '/month',
+                  text: l10n.perMonthSuffix,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
@@ -314,7 +317,7 @@ class _MembershipCard extends StatelessWidget {
           ),
           const SizedBox(height: 48),
           GradientButton(
-            label: isSubmitting ? 'Selecting…' : 'Select ${plan.name}',
+            label: isSubmitting ? l10n.selectingEllipsis : l10n.selectPlanButton(plan.name),
             gradient: gradient,
             onPressed: onSelect,
             height: 38,

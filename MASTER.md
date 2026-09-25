@@ -478,16 +478,22 @@ Appearance → Language → Interactions → Data & Storage → app info footer 
   confirmed/door opened/reservation confirmed (haptic + sound), failed sign-in/failed payment
   (haptic + sound). Real-device confirmation (haptics don't exist in a browser) is the user's own to
   do, same as Dark Mode/Animations' look-and-feel checks.
-- **Language is real for English/Arabic** (Sprint 8 Task 6, #63): tapping a row calls
-  `SettingsProvider.setLocale`, which `MaterialApp.locale` reads — Arabic switches every translated
-  string and flips `Directionality` to RTL app-wide, live, no restart. French/Spanish are real,
-  storable picks too (the design shows all four selectable), they just have no ARB translation yet —
-  `supportedLocales` only lists en/ar, so Flutter's own locale resolution falls back to English text
-  automatically, with a caption saying so under the list. **Phase 1 only**: the bottom nav, Sign In,
-  and Home are fully translated + RTL-audited; the other ~27 screens are still English-only literals,
-  extended in a later task. (The Notifications screen's "Sound & Vibration" toggle is a *different*
-  setting — notification sound, not general UI sound — kept deliberately separate, like decision
-  #33's two different "guests" fields.)
+- **Language is real for English/Arabic, across the whole app** (Sprint 8 Task 6, #63 Phase 1 +
+  #64 Phase 2): tapping a row calls `SettingsProvider.setLocale`, which `MaterialApp.locale` reads —
+  Arabic switches every translated string and flips `Directionality` to RTL app-wide, live, no
+  restart. French/Spanish are real, storable picks too (the design shows all four selectable), they
+  just have no ARB translation yet — `supportedLocales` only lists en/ar, so Flutter's own locale
+  resolution falls back to English text automatically, with a caption saying so under the list.
+  **Every screen is now translated and RTL-audited** — Phase 1 (#63) did the bottom nav, Sign In and
+  Home; Phase 2 (#64) extended the exact same pattern (real strings, RTL-audited, tested) through the
+  remaining ~27 screens: Auth, Membership, Events + QR, Onboarding, Profile + Edit Profile, Payment
+  Methods + Add Payment Method, Notification Settings + App Settings, and Privacy & Security + Help &
+  Support. Along the way, two **shared widgets** got their own RTL fixes once, rather than
+  per-screen: `ScreenHeader`'s back arrow/tooltip, and `SettingToggleRow`'s switch thumb. **Still
+  open**: the Arabic strings are AI-written and unreviewed by a fluent speaker (the user's own to
+  check). (The Notifications screen's "Sound & Vibration" toggle is a *different* setting —
+  notification sound, not general UI sound — kept deliberately separate, like decision #33's two
+  different "guests" fields.)
 - **Data & Storage is real**, the task's explicit "your call": **Cache Size shows the real,
   computed number of bytes in Flutter's image cache** — never the design's fabricated "12.5 MB" —
   and **Clear Cache** really clears it (meaningful: the profile photo's signed URL is the one real
@@ -968,7 +974,7 @@ flutter analyze
 8. **`status` can lag reality up to ~24 h**; always check `valid_until` too (§9.5).
 
 ### Known gaps
-- **Biometric Authentication and Auto-Lock are real** (#62) — `AppLockGate` (mounted above `MaterialApp`) shows a real lock screen on resuming past the stored timeout, gated by `local_auth` biometrics with a password fallback; **not yet verified on a real device** (no Android SDK/Xcode/physical device here). **Two-Factor Authentication** is still a disabled placeholder (#45); **Privacy Policy / Terms of Service text** doesn't exist. **3 of 4 FAQ answers** are still unwritten (#46). **Dark Mode is real** (#59) — App Settings' toggle live-updates every screen through `SettingsProvider`/`AppTheme.dark`, no restart, including a dedicated blue accent in dark mode as of v3. **Animations is real** (#60) — off collapses every screen transition and explicit widget-animation duration to 1ms app-wide. **Sound Effects and Haptic Feedback are real** (#61) — gated independently, at a small fixed set of real trigger points (button presses, payment/door/reservation success, failed sign-in/payment). **i18n (English/Arabic) is real, Phase 1** (#63) — `SettingsProvider.locale` + ARB files + RTL; the bottom nav, Sign In, and Home are fully translated and RTL-audited, the rest of the app is still English-only literals pending a later phase; French/Spanish are real picks that fall back to English text. **Upgrade Membership and the Home bell's notifications feed** aren't built — Profile is otherwise fully built out (Profile's rows open stubs). **Forgot Password is now real, end to end, on Flutter Web** (#55) — request, email, deep-link, Set New Password screen, sign-in with the new password. **Changing the login email is now real too** (#57) — Privacy & Security's Email card, password-gated, with `profiles.email` kept in sync by a new server-side trigger. **Mobile (Android/iOS) deep-linking is not built** for either flow — the redirect URL and platform config (`AndroidManifest.xml`/`Info.plist`) are web-only right now; `SupabaseConfig.authRedirectUrl` is the one place to change when that's built.
+- **Biometric Authentication and Auto-Lock are real** (#62) — `AppLockGate` (mounted above `MaterialApp`) shows a real lock screen on resuming past the stored timeout, gated by `local_auth` biometrics with a password fallback; **not yet verified on a real device** (no Android SDK/Xcode/physical device here). **Two-Factor Authentication** is still a disabled placeholder (#45); **Privacy Policy / Terms of Service text** doesn't exist. **3 of 4 FAQ answers** are still unwritten (#46). **Dark Mode is real** (#59) — App Settings' toggle live-updates every screen through `SettingsProvider`/`AppTheme.dark`, no restart, including a dedicated blue accent in dark mode as of v3. **Animations is real** (#60) — off collapses every screen transition and explicit widget-animation duration to 1ms app-wide. **Sound Effects and Haptic Feedback are real** (#61) — gated independently, at a small fixed set of real trigger points (button presses, payment/door/reservation success, failed sign-in/payment). **i18n (English/Arabic) is real, app-wide** (#63 Phase 1 + #64 Phase 2) — `SettingsProvider.locale` + ARB files + RTL; every screen is translated and RTL-audited, not just the three Phase 1 named; French/Spanish are real picks that fall back to English text; the Arabic strings remain unreviewed by a fluent speaker. **Upgrade Membership and the Home bell's notifications feed** aren't built — Profile is otherwise fully built out (Profile's rows open stubs). **Forgot Password is now real, end to end, on Flutter Web** (#55) — request, email, deep-link, Set New Password screen, sign-in with the new password. **Changing the login email is now real too** (#57) — Privacy & Security's Email card, password-gated, with `profiles.email` kept in sync by a new server-side trigger. **Mobile (Android/iOS) deep-linking is not built** for either flow — the redirect URL and platform config (`AndroidManifest.xml`/`Info.plist`) are web-only right now; `SupabaseConfig.authRedirectUrl` is the one place to change when that's built.
 - **PKCE code verifier** uses default plain-text storage — low risk until a
   magic-link/OAuth flow exists (#6).
 - **Accounts created while email confirmation was ON stay unconfirmed** if it's
@@ -1071,3 +1077,8 @@ have a separate admin app for ID verification and door scanning.
 | 57 | Change Login Email built: password-gated, Privacy & Security, `profiles.email` sync trigger |
 | 58 | Sprint 8 Task 1: shared `SettingsProvider` foundation (not wired to any screen yet) |
 | 59 | Sprint 8 Task 2: real Dark Mode -- `AppTheme.dark`, `MaterialApp.themeMode` bound to `SettingsProvider`, App Settings' toggle wired for real |
+| 60 | Sprint 8 Task 3: real Animations toggle -- `AppPageRoute`/`context.animDuration`, app-wide (28 `Navigator.push` sites) |
+| 61 | Sprint 8 Task 4: real Sound & Haptic Feedback -- independently gated, small fixed set of real trigger points |
+| 62 | Sprint 8 Task 5: real Auto-Lock + Biometric login -- `AppLockGate`, `local_auth`, password fallback |
+| 63 | Sprint 8 Task 6 Phase 1: i18n infra + English/Arabic for bottom nav, Sign In, Home (RTL-audited) |
+| 64 | Sprint 8 Task 6 Phase 2: i18n extended to the remaining ~27 screens; `ScreenHeader`/`SettingToggleRow` RTL-fixed once, shared |

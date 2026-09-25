@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/services/auth_service.dart';
 import 'package:rosewater_cafe/services/biometric_service.dart';
 import 'package:rosewater_cafe/widgets/app_lock_screen.dart';
@@ -41,6 +42,10 @@ void main() {
   }) async {
     await tester.pumpWidget(
       MaterialApp(
+        // Sprint 8 Task 6 Phase 2: AppLockScreen now reads AppLocalizations
+        // throughout.
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: AppLockScreen(
           biometricEnabled: biometricEnabled,
           onUnlocked: onUnlocked,

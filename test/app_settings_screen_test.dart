@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/screens/profile/app_settings_screen.dart';
 import 'package:rosewater_cafe/services/app_settings_service.dart';
 import 'package:rosewater_cafe/services/settings_provider.dart';
@@ -50,6 +51,11 @@ Future<void> _pump(
     ChangeNotifierProvider<SettingsProvider>.value(
       value: settings ?? await SettingsProvider.load(),
       child: MaterialApp(
+        // Sprint 8 Task 6 Phase 2: ScreenHeader (this screen's back button)
+        // now reads AppLocalizations for its tooltip/RTL-aware arrow --
+        // this screen's own strings aren't localized yet (a later task).
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: AppSettingsScreen(service: service ?? _FakeService(), onDataCleared: onDataCleared ?? (_) async {}),
       ),
     ),

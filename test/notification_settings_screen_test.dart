@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/screens/profile/notification_settings_screen.dart';
 import 'package:rosewater_cafe/services/notification_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,7 +20,15 @@ Future<void> _pump(WidgetTester tester, {NotificationPrefs prefs = _prefs}) asyn
   tester.view.physicalSize = const Size(800, 3000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(home: NotificationSettingsScreen(prefs: prefs)));
+  await tester.pumpWidget(
+    MaterialApp(
+      // Sprint 8 Task 6 Phase 2: ScreenHeader now reads AppLocalizations for
+      // its back button -- this screen's own strings aren't localized yet.
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: NotificationSettingsScreen(prefs: prefs),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -130,6 +139,10 @@ void main() {
     Future<void> open() async {
       await tester.pumpWidget(
         MaterialApp(
+          // Sprint 8 Task 6 Phase 2: ScreenHeader now reads AppLocalizations
+          // for its back button -- this screen isn't localized yet.
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => Scaffold(
               body: TextButton(

@@ -113,10 +113,21 @@ void main() {
       // Animations toggle. `provider` is a pure InheritedWidget wrapper with
       // no I/O of its own, so it doesn't weaken the "no network" guarantee
       // this test actually exists to check -- the loop below still holds.
+      //
+      // `flutter_localizations` (and its own `dart:async` /
+      // `flutter/foundation.dart` / `flutter/widgets.dart` re-exports)
+      // joined in Sprint 8 Task 6 Phase 2 -- `ScreenHeader` (used by this
+      // screen for its back button/title) now reads `AppLocalizations` for
+      // the back button's tooltip and RTL-aware arrow direction. It's
+      // Flutter's own i18n plumbing, no I/O of its own either.
       expect(imports, {
         'package:flutter/material.dart',
         'package:shared_preferences/shared_preferences.dart',
         'package:provider/provider.dart',
+        'package:flutter_localizations/flutter_localizations.dart',
+        'dart:async',
+        'package:flutter/foundation.dart',
+        'package:flutter/widgets.dart',
       });
       // ... in particular, no backend client and no HTTP.
       for (final i in imports) {

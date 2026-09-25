@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/membership_plan.dart';
 import '../../models/profile.dart';
 import '../../services/id_document_service.dart';
@@ -75,7 +76,7 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
       if (profile == null || plan == null) {
         setState(() {
           _loading = false;
-          _loadError = 'Could not load your details. Check your connection and try again.';
+          _loadError = AppLocalizations.of(context).couldNotLoadDetailsError;
         });
         return;
       }
@@ -88,12 +89,13 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _loadError = 'Could not load your details. Check your connection and try again.';
+        _loadError = AppLocalizations.of(context).couldNotLoadDetailsError;
       });
     }
   }
 
   Future<void> _showPickerOptions() async {
+    final l10n = AppLocalizations.of(context);
     final source = await showModalBottomSheet<_PickSource>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -102,17 +104,17 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Take Photo'),
+              title: Text(l10n.takePhoto),
               onTap: () => Navigator.of(ctx).pop(_PickSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from Gallery'),
+              title: Text(l10n.chooseFromGallery),
               onTap: () => Navigator.of(ctx).pop(_PickSource.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.insert_drive_file_outlined),
-              title: const Text('Choose File (PNG, JPG, PDF)'),
+              title: Text(l10n.chooseFileHint),
               onTap: () => Navigator.of(ctx).pop(_PickSource.file),
             ),
           ],
@@ -140,7 +142,7 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
       file = await ImagePicker().pickImage(source: source, imageQuality: 90);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _pickError = 'Could not access the camera/gallery. Check app permissions and try again.');
+      setState(() => _pickError = AppLocalizations.of(context).cameraGalleryAccessError);
       return;
     }
     if (file == null) return; // user cancelled
@@ -163,7 +165,7 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      setState(() => _pickError = 'Could not open the file picker. Try again.');
+      setState(() => _pickError = AppLocalizations.of(context).filePickerError);
       return;
     }
     if (!mounted) return;
@@ -184,13 +186,13 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
     } on IdDocumentInvalidType {
       setState(() {
         _pickedFile = null;
-        _pickError = 'Please choose a PNG, JPG, or PDF file.';
+        _pickError = AppLocalizations.of(context).invalidIdFileType;
       });
       return;
     } on IdDocumentTooLarge catch (e) {
       setState(() {
         _pickedFile = null;
-        _pickError = 'That file is too large — max ${e.maxBytes ~/ (1024 * 1024)}MB.';
+        _pickError = AppLocalizations.of(context).idFileTooLarge(e.maxBytes ~/ (1024 * 1024));
       });
       return;
     }
@@ -220,7 +222,7 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
       if (!mounted) return;
       setState(() {
         _uploading = false;
-        _uploadError = 'Upload failed. Check your connection and try again.';
+        _uploadError = AppLocalizations.of(context).uploadFailedError;
       });
     }
   }
@@ -242,7 +244,7 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
       if (!mounted) return;
       setState(() => _cancelling = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not go back to plans. Check your connection and try again.')),
+        SnackBar(content: Text(AppLocalizations.of(context).couldNotGoBackToPlansError)),
       );
     }
   }
@@ -274,18 +276,27 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
   }
 
   Widget _buildForm(AppSemanticColors colors) {
+    final l10n = AppLocalizations.of(context);
     final profile = _profile!;
     final plan = _plan!;
     return Column(
       children: [
         const SizedBox(height: 16),
         Align(
-          alignment: Alignment.centerLeft,
+          // AlignmentDirectional.centerStart, not physical
+          // Alignment.centerLeft (Sprint 8 Task 6).
+          alignment: AlignmentDirectional.centerStart,
           child: TextButton.icon(
             onPressed: _cancelling ? null : _backToPlans,
-            icon: Icon(Icons.arrow_back, size: 16, color: colors.textPrimary),
+            icon: Icon(
+              // Same explicit RTL check as every other back control this
+              // task touched.
+              Directionality.of(context) == TextDirection.rtl ? Icons.arrow_forward : Icons.arrow_back,
+              size: 16,
+              color: colors.textPrimary,
+            ),
             label: Text(
-              _cancelling ? 'Cancelling…' : 'Back to Plans',
+              _cancelling ? l10n.cancellingEllipsis : l10n.backToPlans,
               style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15),
             ),
           ),
@@ -312,24 +323,26 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Verify Your Membership',
-                    textAlign: TextAlign.left,
+                    l10n.verifyYourMembership,
+                    // TextAlign.start, not physical TextAlign.left (Sprint 8
+                    // Task 6).
+                    textAlign: TextAlign.start,
                     style: TextStyle(fontSize: 25, fontWeight: FontWeight.w500, letterSpacing: 0.4, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 48),
-                  _ReadOnlyField(label: 'Full Name', value: profile.fullName),
+                  _ReadOnlyField(label: l10n.fullNameLabel, value: profile.fullName),
                   const SizedBox(height: 24),
-                  _ReadOnlyField(label: 'Email Address', value: profile.email),
+                  _ReadOnlyField(label: l10n.emailAddressLabel, value: profile.email),
                   const SizedBox(height: 24),
-                  _ReadOnlyField(label: 'Phone Number', value: profile.phone ?? '—'),
+                  _ReadOnlyField(label: l10n.phoneNumberLabel, value: profile.phone ?? '—'),
                   const SizedBox(height: 24),
                   _ReadOnlyField(
-                    label: 'Subscription Plan',
-                    value: '${plan.name} — \$${plan.priceDollars}/month',
+                    label: l10n.subscriptionPlanLabel,
+                    value: '${plan.name} — \$${plan.priceDollars}${l10n.perMonthSuffix}',
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Upload ID Document',
+                    l10n.uploadIdDocumentLabel,
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 4),
@@ -346,12 +359,12 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
                     ),
                   const SizedBox(height: 24),
                   Text(
-                    'Required for membership verification and security',
+                    l10n.requiredForVerification,
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: colors.textMuted),
                   ),
                   const SizedBox(height: 48),
                   GradientButton(
-                    label: _uploading ? 'Uploading…' : 'Continue to Payment',
+                    label: _uploading ? l10n.uploadingEllipsis : l10n.continueToPayment,
                     onPressed: (_pickedFile == null || _uploading) ? null : _submit,
                     fontSize: 14,
                   ),
@@ -434,7 +447,7 @@ class _UploadBox extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              hasFile ? pickedFileName! : 'Click to upload ID',
+              hasFile ? pickedFileName! : AppLocalizations.of(context).clickToUploadId,
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: colors.textMuted),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
@@ -442,7 +455,7 @@ class _UploadBox extends StatelessWidget {
             if (!hasFile) ...[
               const SizedBox(height: 4),
               Text(
-                'PNG, JPG, PDF (max 10MB)',
+                AppLocalizations.of(context).idFileTypesHint,
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: colors.textMuted),
               ),
             ],

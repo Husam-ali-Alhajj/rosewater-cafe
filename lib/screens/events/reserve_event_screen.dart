@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../l10n/app_localizations.dart';
 import '../../models/reservation_summary.dart';
 import '../../services/event_reservation_service.dart';
 import '../../theme/app_colors.dart';
@@ -32,7 +33,23 @@ class ReserveEventScreen extends StatefulWidget {
   State<ReserveEventScreen> createState() => _ReserveEventScreenState();
 }
 
+// Canonical values sent to the server (p_event_type) -- these stay in
+// English regardless of the active locale, since there's no backing table
+// for event types to be looked up from; only the on-screen label localizes.
 const _eventTypes = ['Birthday', 'Corporate', 'Private Party', 'Other'];
+
+String _eventTypeLabel(AppLocalizations l10n, String type) {
+  switch (type) {
+    case 'Birthday':
+      return l10n.eventTypeBirthday;
+    case 'Corporate':
+      return l10n.eventTypeCorporate;
+    case 'Private Party':
+      return l10n.eventTypePrivateParty;
+    default:
+      return l10n.eventTypeOther;
+  }
+}
 
 class _ReserveEventScreenState extends State<ReserveEventScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -91,20 +108,22 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
   static final _durationPattern = RegExp(r'^\d{1,2}(\.\d{1,2})?$');
 
   String? _validateDuration(String? value) {
+    final l10n = AppLocalizations.of(context);
     final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) return 'Duration is required';
-    if (!_durationPattern.hasMatch(trimmed)) return 'Enter a valid number (up to 2 decimal places)';
+    if (trimmed.isEmpty) return l10n.durationRequired;
+    if (!_durationPattern.hasMatch(trimmed)) return l10n.enterValidNumberDecimal;
     final parsed = double.parse(trimmed);
-    if (parsed <= 0) return 'Duration must be greater than 0';
+    if (parsed <= 0) return l10n.durationMustBeGreaterThanZero;
     return null;
   }
 
   String? _validateGuestCount(String? value) {
+    final l10n = AppLocalizations.of(context);
     final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) return 'Number of guests is required';
+    if (trimmed.isEmpty) return l10n.guestCountRequired;
     final parsed = int.tryParse(trimmed);
-    if (parsed == null) return 'Enter a valid number';
-    if (parsed < 5 || parsed > 100) return 'Minimum 5 guests, maximum 100 guests';
+    if (parsed == null) return l10n.enterValidNumber;
+    if (parsed < 5 || parsed > 100) return l10n.guestCountRange;
     return null;
   }
 
@@ -155,7 +174,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
-        _errorMessage = 'Something went wrong. Please try again.';
+        _errorMessage = AppLocalizations.of(context).genericTryAgainError;
       });
     }
   }
@@ -163,18 +182,20 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: TextButton.icon(
               onPressed: widget.onBackToDashboard,
-              icon: Icon(Icons.arrow_back, size: 16, color: colors.textPrimary),
+              icon: Icon(isRtl ? Icons.arrow_forward : Icons.arrow_back, size: 16, color: colors.textPrimary),
               label: Text(
-                'Back to Dashboard',
+                l10n.backToDashboard,
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
               ),
             ),
@@ -194,54 +215,56 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Reserve an Event',
+                    l10n.reserveAnEvent,
                     style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Book the café for your private event. Perfect for parties, meetings, and special occasions.',
+                    l10n.reserveEventSubtitle,
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textMuted),
                   ),
                   const SizedBox(height: 32),
-                  _FieldLabel('Event Type'),
+                  _FieldLabel(l10n.eventTypeLabel),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String>(
                     initialValue: _eventType,
-                    items: _eventTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+                    items: _eventTypes
+                        .map((type) => DropdownMenuItem(value: type, child: Text(_eventTypeLabel(l10n, type))))
+                        .toList(),
                     onChanged: (value) => setState(() => _eventType = value),
-                    validator: (value) => value == null ? 'Please select an event type' : null,
-                    decoration: _fieldDecoration(colors, hint: 'Select event type'),
+                    validator: (value) => value == null ? l10n.pleaseSelectEventType : null,
+                    decoration: _fieldDecoration(colors, hint: l10n.selectEventTypeHint),
                   ),
                   const SizedBox(height: 20),
-                  _FieldLabel('Event Date', icon: Icons.calendar_today_outlined, required: true),
+                  _FieldLabel(l10n.eventDateLabel, icon: Icons.calendar_today_outlined, required: true),
                   const SizedBox(height: 4),
                   _PickerField(
                     text: _eventDate == null ? null : DateFormat.yMMMd().format(_eventDate!),
-                    hint: 'Select a date',
+                    hint: l10n.selectDateHint,
                     onTap: _pickDate,
                   ),
                   if (_dateError != null) _ErrorText(_dateError!),
                   const SizedBox(height: 20),
-                  _FieldLabel('Start Time', icon: Icons.access_time, required: true),
+                  _FieldLabel(l10n.startTimeLabel, icon: Icons.access_time, required: true),
                   const SizedBox(height: 4),
                   _PickerField(
                     text: _startTime?.format(context),
-                    hint: 'Select a time',
+                    hint: l10n.selectTimeHint,
                     onTap: _pickStartTime,
                   ),
                   if (_timeError != null) _ErrorText(_timeError!),
                   const SizedBox(height: 20),
-                  _FieldLabel('Duration (hours)'),
+                  _FieldLabel(l10n.durationHoursLabel),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: _durationController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
                     validator: _validateDuration,
-                    decoration: _fieldDecoration(colors, hint: 'e.g. 2'),
+                    decoration: _fieldDecoration(colors, hint: l10n.durationExampleHint),
                   ),
                   const SizedBox(height: 20),
-                  _FieldLabel('Number of Guests', icon: Icons.people_outline, required: true),
+                  _FieldLabel(l10n.numberOfGuestsLabel, icon: Icons.people_outline, required: true),
                   const SizedBox(height: 4),
                   TextFormField(
                     controller: _guestCountController,
@@ -252,20 +275,20 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Minimum 5 guests, maximum 100 guests',
+                    l10n.guestCountRange,
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: colors.textMuted),
                   ),
                   const SizedBox(height: 32),
-                  _buildPackageCard(context),
+                  _buildPackageCard(context, l10n),
                   const SizedBox(height: 24),
-                  _buildPriceCard(colors),
+                  _buildPriceCard(colors, l10n),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 16),
                     _ErrorText(_errorMessage!),
                   ],
                   const SizedBox(height: 32),
                   GradientButton(
-                    label: _isSubmitting ? 'Confirming…' : 'Confirm Reservation',
+                    label: _isSubmitting ? l10n.confirmingEllipsis : l10n.confirmReservation,
                     onPressed: _isSubmitting ? null : _confirm,
                   ),
                 ],
@@ -281,16 +304,17 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
 
   String? get _dateError {
     if (!_formSubmitted) return null;
-    if (_eventDate == null) return 'Event date is required';
+    final l10n = AppLocalizations.of(context);
+    if (_eventDate == null) return l10n.eventDateRequired;
     final today = DateTime.now();
     final todayOnly = DateTime(today.year, today.month, today.day);
-    if (_eventDate!.isBefore(todayOnly)) return "That date has already passed -- please choose another.";
+    if (_eventDate!.isBefore(todayOnly)) return l10n.datePassedError;
     return null;
   }
 
   String? get _timeError {
     if (!_formSubmitted) return null;
-    if (_startTime == null) return 'Start time is required';
+    if (_startTime == null) return AppLocalizations.of(context).startTimeRequired;
     return null;
   }
 
@@ -313,14 +337,14 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
   // purple-tinted surface with light lavender text in dark mode) rather than
   // becoming an undifferentiated `colors.surface` card, so it still reads as
   // "the package included with every event" highlight in both modes.
-  Widget _buildPackageCard(BuildContext context) {
+  Widget _buildPackageCard(BuildContext context, AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const bullets = [
-      'Exclusive use of the café',
-      'Complimentary hookah for all guests',
-      'Special event menu available',
-      'Dedicated staff service',
-      'Sound system and music control',
+    final bullets = [
+      l10n.packageBulletCafe,
+      l10n.packageBulletHookah,
+      l10n.packageBulletMenu,
+      l10n.packageBulletStaff,
+      l10n.packageBulletSound,
     ];
     final bg = isDark ? const Color(0xFF2A2038) : const Color(0xFFFAF5FF);
     final ink = isDark ? const Color(0xFFDCC2FF) : AppColors.purple;
@@ -335,7 +359,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Event Package Includes:',
+            l10n.eventPackageIncludes,
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ink),
           ),
           const SizedBox(height: 8),
@@ -349,24 +373,24 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
     );
   }
 
-  Widget _buildPriceCard(AppSemanticColors colors) {
+  Widget _buildPriceCard(AppSemanticColors colors, AppLocalizations l10n) {
     final total = EventReservationService.estimatedTotal(_durationHours);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
       child: Column(
         children: [
-          _priceRow(colors, 'Base rate (per hour)', '\$${EventReservationService.pricePerHour.toStringAsFixed(0)}'),
+          _priceRow(colors, l10n.baseRatePerHour, '\$${EventReservationService.pricePerHour.toStringAsFixed(0)}'),
           const SizedBox(height: 8),
           _priceRow(
             colors,
-            'Duration',
-            '${_durationController.text.trim().isEmpty ? '0' : _durationController.text.trim()} hours',
+            l10n.durationRowLabel,
+            l10n.durationHoursValue(_durationController.text.trim().isEmpty ? '0' : _durationController.text.trim()),
           ),
           const SizedBox(height: 8),
           Divider(color: colors.border, height: 1),
           const SizedBox(height: 8),
-          _priceRow(colors, 'Estimated Total', '\$${total.toStringAsFixed(2)}', emphasize: true),
+          _priceRow(colors, l10n.estimatedTotal, '\$${total.toStringAsFixed(2)}', emphasize: true),
         ],
       ),
     );

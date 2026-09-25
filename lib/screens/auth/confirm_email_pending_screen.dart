@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/app_page_route.dart';
@@ -18,6 +19,7 @@ class ConfirmEmailPendingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
@@ -54,18 +56,16 @@ class ConfirmEmailPendingScreen extends StatelessWidget {
                         child: Icon(Icons.mark_email_read_outlined, color: colors.success, size: 44),
                       ),
                       const SizedBox(height: 24),
-                      Text('Confirm Your Email', style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
+                      Text(l10n.confirmYourEmailHeading, style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
                       const SizedBox(height: 8),
                       Text(
-                        'Your account is almost ready. We\'ve sent a confirmation '
-                        'link to $email — click it to activate your account, '
-                        'then sign in.',
+                        l10n.confirmEmailBody(email),
                         textAlign: TextAlign.center,
                         style: AppTextStyles.bodyMuted(context),
                       ),
                       const SizedBox(height: 24),
                       GradientButton(
-                        label: 'Back to Sign In',
+                        label: l10n.backToSignIn,
                         onPressed: () => Navigator.of(context).pushReplacement(
                           appRoute(context, (_) => const SignInScreen()),
                         ),

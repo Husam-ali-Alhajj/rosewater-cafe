@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/membership_plan.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_semantic_colors.dart';
@@ -85,7 +86,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       context.triggerError();
       setState(() {
         _isPaying = false;
-        _errorMessage = 'Payment failed. Check your connection and try again.';
+        _errorMessage = AppLocalizations.of(context).paymentFailedError;
       });
     }
   }
@@ -94,6 +95,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget build(BuildContext context) {
     final plan = widget.plan;
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
@@ -125,13 +127,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       const Icon(Icons.credit_card_outlined, size: 64, color: Color(0xFFFF2056)),
                       const SizedBox(height: 12),
                       Text(
-                        'Complete Payment',
+                        l10n.completePayment,
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500, letterSpacing: 0.07, color: colors.textPrimary),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${plan.name} Plan',
+                        l10n.planSuffix(plan.name),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textMuted),
                       ),
@@ -148,7 +150,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Monthly Subscription',
+                                  l10n.monthlySubscription,
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textMuted),
                                 ),
                                 Text(
@@ -164,7 +166,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Total',
+                                  l10n.totalLabel,
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textPrimary),
                                 ),
                                 Text(
@@ -178,7 +180,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                       const SizedBox(height: 48),
                       PaymentField(
-                        label: 'Card Number',
+                        label: l10n.cardNumberLabel,
                         controller: _cardNumberController,
                         hint: '1234 5678 9012 3456',
                         validator: PaymentValidators.cardNumber,
@@ -191,7 +193,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         children: [
                           Expanded(
                             child: PaymentField(
-                              label: 'Expiry Date',
+                              label: l10n.expiryDateLabel,
                               controller: _expiryController,
                               hint: 'MM/YY',
                               validator: PaymentValidators.expiry,
@@ -202,7 +204,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: PaymentField(
-                              label: 'CVV',
+                              label: l10n.cvvLabel,
                               controller: _cvvController,
                               hint: '123',
                               validator: PaymentValidators.cvv,
@@ -222,7 +224,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         children: [
                           Expanded(
                             child: OutlinedSecondaryButton(
-                              label: 'Back',
+                              label: l10n.backButton,
                               buttonHeight: 36,
                               borderWidth: 1,
                               onPressed: _isPaying ? null : () => Navigator.of(context).maybePop(),
@@ -231,7 +233,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: GradientButton(
-                              label: _isPaying ? 'Paying…' : 'Pay \$${plan.priceDollars}',
+                              label: _isPaying ? l10n.payingEllipsis : l10n.payAmountButton('\$${plan.priceDollars}'),
                               height: 36,
                               fontSize: 14,
                               onPressed: _isPaying ? null : _pay,

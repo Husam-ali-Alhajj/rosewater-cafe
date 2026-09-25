@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/profile.dart';
 import '../../services/avatar_service.dart';
 import '../../services/profile_service.dart';
@@ -86,6 +87,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _choosePhoto() async {
     if (_saving) return;
+    final l10n = AppLocalizations.of(context);
     final source = await showModalBottomSheet<_PhotoSource>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -94,12 +96,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Take Photo'),
+              title: Text(l10n.takePhotoOption),
               onTap: () => Navigator.of(ctx).pop(_PhotoSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from Gallery'),
+              title: Text(l10n.chooseFromGalleryOption),
               onTap: () => Navigator.of(ctx).pop(_PhotoSource.gallery),
             ),
           ],
@@ -118,7 +120,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      setState(() => _photoError = 'Could not access the camera/gallery. Check app permissions and try again.');
+      setState(() => _photoError = l10n.cameraGalleryAccessError);
       return;
     }
     if (file == null) return; // user cancelled
@@ -127,10 +129,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       widget.avatarService.validate(fileName: file.name, sizeBytes: bytes.length);
     } on AvatarInvalidType {
-      setState(() => _photoError = 'Please choose a PNG, JPG or WebP image.');
+      setState(() => _photoError = l10n.photoTypeError);
       return;
     } on AvatarTooLarge catch (e) {
-      setState(() => _photoError = 'That photo is too large (max ${e.maxBytes ~/ (1024 * 1024)}MB).');
+      setState(() => _photoError = l10n.photoTooLargeError(e.maxBytes ~/ (1024 * 1024)));
       return;
     }
     setState(() {
@@ -194,7 +196,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _errorMessage = "Couldn't save your changes. Check your connection and try again.";
+        _errorMessage = AppLocalizations.of(context).couldntSaveChangesError;
       });
     }
   }
@@ -203,6 +205,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final memberId = widget.profile.memberId;
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         // The Figma frame's own fill: the same soft 3-stop page wash.
@@ -215,7 +218,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ScreenHeader(title: 'Edit Profile', onBack: _saving ? null : () => Navigator.of(context).pop()),
+                ScreenHeader(
+                  title: l10n.editProfileButton,
+                  onBack: _saving ? null : () => Navigator.of(context).pop(),
+                ),
                 const SizedBox(height: 24),
                 _PhotoCard(
                   avatarPath: widget.profile.avatarUrl,
@@ -233,10 +239,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _CardTitle('Personal Information'),
+                        _CardTitle(l10n.personalInformationTitle),
                         const SizedBox(height: 40),
                         _EditField(
-                          label: 'Full Name',
+                          label: l10n.fullNameLabel,
                           icon: Icons.person_outline,
                           controller: _nameController,
                           validator: Validators.fullName,
@@ -248,7 +254,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         _ReadOnlyEmailField(email: widget.profile.email),
                         const SizedBox(height: 16),
                         _EditField(
-                          label: 'Phone Number',
+                          label: l10n.phoneNumberLabel,
                           icon: Icons.phone_outlined,
                           controller: _phoneController,
                           validator: Validators.phone,
@@ -266,16 +272,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const _CardTitle('Membership Information'),
+                      _CardTitle(l10n.membershipInformationTitle),
                       const SizedBox(height: 40),
                       if (memberId != null && memberId.isNotEmpty) ...[
-                        _InfoRow(label: 'Member ID', value: memberId),
+                        _InfoRow(label: l10n.memberIdFieldLabel, value: memberId),
                         const SizedBox(height: 12),
                       ],
-                      _InfoRow(label: 'Subscription Type', value: widget.membership.planName),
+                      _InfoRow(label: l10n.subscriptionTypeLabel, value: widget.membership.planName),
                       const SizedBox(height: 12),
                       Text(
-                        'Contact support to change membership type',
+                        l10n.contactSupportNote,
                         style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
                       ),
                     ],
@@ -294,11 +300,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: CancelButton(onTap: _saving ? null : () => Navigator.of(context).pop()),
+                      child: CancelButton(
+                        label: l10n.cancelButton,
+                        onTap: _saving ? null : () => Navigator.of(context).pop(),
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: SaveButton(label: 'Save Changes', saving: _saving, onTap: _saving ? null : _save),
+                      child: SaveButton(
+                        label: l10n.saveChangesButton,
+                        savingLabel: l10n.savingEllipsis,
+                        saving: _saving,
+                        onTap: _saving ? null : _save,
+                      ),
                     ),
                   ],
                 ),
@@ -340,6 +354,7 @@ class _PhotoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: _cardDecoration(colors),
@@ -356,11 +371,11 @@ class _PhotoCard extends StatelessWidget {
                   previewBytes: previewBytes,
                   avatarService: avatarService,
                 ),
-                Positioned(
-                  right: 0,
+                PositionedDirectional(
+                  end: 0,
                   bottom: 0,
                   child: Tooltip(
-                    message: 'Change photo',
+                    message: l10n.changePhotoTooltip,
                     child: Material(
                       color: colors.surface,
                       shape: CircleBorder(side: BorderSide(color: colors.border, width: 1.545)),
@@ -383,7 +398,7 @@ class _PhotoCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Tap camera icon to change photo',
+            l10n.tapCameraIconHint,
             style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           if (errorText != null) ...[
@@ -485,7 +500,12 @@ class _EditField extends StatelessWidget {
                 isDense: true,
                 filled: true,
                 fillColor: colors.inputFill,
-                contentPadding: const EdgeInsets.fromLTRB(44, 8.5, 12, 8.5),
+                // Sprint 8 Task 6: this custom icon overlay isn't
+                // InputDecoration.prefixIcon (which auto-mirrors), so the
+                // padding/position have to be made directional by hand --
+                // exactly the "form field icons" RTL trap the task's
+                // acceptance criteria calls out.
+                contentPadding: const EdgeInsetsDirectional.fromSTEB(44, 8.5, 12, 8.5),
                 border: border(),
                 enabledBorder: border(),
                 disabledBorder: border(),
@@ -495,8 +515,8 @@ class _EditField extends StatelessWidget {
                 errorStyle: TextStyle(fontSize: 12, color: colors.danger),
               ),
             ),
-            Positioned(
-              left: 12,
+            PositionedDirectional(
+              start: 12,
               top: 8,
               child: IgnorePointer(child: Icon(icon, size: 20, color: colors.textMuted)),
             ),
@@ -518,14 +538,15 @@ class _ReadOnlyEmailField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Email Address', style: _labelStyle(colors)),
+        Text(l10n.emailAddressLabel, style: _labelStyle(colors)),
         const SizedBox(height: 8),
         Semantics(
           readOnly: true,
-          label: 'Email Address',
+          label: l10n.emailAddressLabel,
           value: email,
           child: ExcludeSemantics(
             child: Container(
@@ -533,16 +554,16 @@ class _ReadOnlyEmailField extends StatelessWidget {
               decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(8)),
               child: Stack(
                 children: [
-                  Positioned(
-                    left: 12,
+                  PositionedDirectional(
+                    start: 12,
                     top: 8,
                     child: Icon(Icons.mail_outline, size: 20, color: colors.textMuted),
                   ),
                   Padding(
                     // Text starts at x=44, same as the editable inputs.
-                    padding: const EdgeInsets.only(left: 44, right: 12),
+                    padding: const EdgeInsetsDirectional.only(start: 44, end: 12),
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: Text(email, maxLines: 1, overflow: TextOverflow.ellipsis, style: _valueStyle(colors)),
                     ),
                   ),
@@ -553,7 +574,7 @@ class _ReadOnlyEmailField extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          "Your email can't be changed in the app.",
+          l10n.emailCantBeChangedNote,
           style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
         ),
       ],

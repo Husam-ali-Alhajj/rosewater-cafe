@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/app_page_route.dart';
@@ -26,6 +27,7 @@ class AuthLandingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
@@ -67,7 +69,7 @@ class AuthLandingScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'VIP Membership & Lounge',
+                      l10n.authLandingTagline,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 16,
@@ -80,21 +82,21 @@ class AuthLandingScreen extends StatelessWidget {
                     const SizedBox(height: 56),
                     Column(
                       children: [
-                        _FeatureRow(icon: Icons.wifi, label: 'Premium Lounge'),
+                        _FeatureRow(icon: Icons.wifi, label: l10n.featurePremiumLounge),
                         const SizedBox(height: 16),
-                        _FeatureRow(icon: Icons.music_note, label: 'Exclusive Services'),
+                        _FeatureRow(icon: Icons.music_note, label: l10n.featureExclusiveServices),
                         const SizedBox(height: 16),
-                        _FeatureRow(icon: Icons.people, label: 'Bring Guests'),
+                        _FeatureRow(icon: Icons.people, label: l10n.featureBringGuests),
                       ],
                     ),
                     const SizedBox(height: 56),
                     GradientButton(
-                      label: 'Sign In',
+                      label: l10n.signInButton,
                       onPressed: () => _goToSignIn(context),
                     ),
                     const SizedBox(height: 12),
                     OutlinedSecondaryButton(
-                      label: 'Create Account',
+                      label: l10n.createAccount,
                       onPressed: () => _goToCreateAccount(context),
                       borderColor: colors.accent.withValues(alpha: 0.4),
                       textColor: colors.accent,
@@ -104,7 +106,7 @@ class AuthLandingScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 56),
                     Text(
-                      'Premium hookah lounge & café experience',
+                      l10n.authLandingFooter,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,

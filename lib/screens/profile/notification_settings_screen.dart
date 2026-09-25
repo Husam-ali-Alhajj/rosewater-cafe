@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/notification_prefs.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/form_buttons.dart';
@@ -22,24 +23,25 @@ class _ToggleSpec {
   const _ToggleSpec(this.setting, this.icon, this.iconSize, this.label, this.description);
 }
 
-const _communicationToggles = [
-  _ToggleSpec(NotificationSetting.push, Icons.notifications_none, 20, 'Push Notifications',
-      'Receive notifications on your device'),
-  _ToggleSpec(NotificationSetting.email, Icons.mail_outline, 20, 'Email Notifications', 'Get updates via email'),
-  _ToggleSpec(NotificationSetting.sms, Icons.chat_bubble_outline, 16.29, 'SMS Notifications',
-      'Receive text messages for important updates'),
-  _ToggleSpec(NotificationSetting.sound, Icons.volume_up_outlined, 20, 'Sound & Vibration',
-      'Play sound when notifications arrive'),
-];
+List<_ToggleSpec> _communicationToggles(AppLocalizations l10n) => [
+      _ToggleSpec(NotificationSetting.push, Icons.notifications_none, 20, l10n.pushNotificationsLabel,
+          l10n.pushNotificationsDescription),
+      _ToggleSpec(
+          NotificationSetting.email, Icons.mail_outline, 20, l10n.emailNotificationsLabel, l10n.emailNotificationsDescription),
+      _ToggleSpec(NotificationSetting.sms, Icons.chat_bubble_outline, 16.29, l10n.smsNotificationsLabel,
+          l10n.smsNotificationsDescription),
+      _ToggleSpec(NotificationSetting.sound, Icons.volume_up_outlined, 20, l10n.soundVibrationLabel,
+          l10n.soundVibrationDescription),
+    ];
 
-const _typeToggles = [
-  _ToggleSpec(NotificationSetting.eventReminders, Icons.calendar_today_outlined, 15.31, 'Event Reminders',
-      'Get reminded about your upcoming reservations'),
-  _ToggleSpec(NotificationSetting.allowanceAlerts, Icons.warning_amber_outlined, 18.49, 'Allowance Alerts',
-      'Notify when allowances are running low'),
-  _ToggleSpec(NotificationSetting.promotions, Icons.card_giftcard_outlined, 16.99, 'Promotions & Offers',
-      'Receive special deals and member benefits'),
-];
+List<_ToggleSpec> _typeToggles(AppLocalizations l10n) => [
+      _ToggleSpec(NotificationSetting.eventReminders, Icons.calendar_today_outlined, 15.31, l10n.eventRemindersLabel,
+          l10n.eventRemindersDescription),
+      _ToggleSpec(NotificationSetting.allowanceAlerts, Icons.warning_amber_outlined, 18.49, l10n.allowanceAlertsLabel,
+          l10n.allowanceAlertsDescription),
+      _ToggleSpec(NotificationSetting.promotions, Icons.card_giftcard_outlined, 16.99, l10n.promotionsOffersLabel,
+          l10n.promotionsOffersDescription),
+    ];
 
 /// Notification settings (Figma frame "NotificationsScreen", node
 /// 1217:2539): four "Communication Preferences" toggles (Push, Email, SMS,
@@ -100,7 +102,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       if (!mounted) return;
       setState(() => _settings = _settings?.copyWith(setting, !next));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't save that setting. Please try again.")),
+        SnackBar(content: Text(AppLocalizations.of(context).couldntSaveSettingError)),
       );
     }
   }
@@ -108,6 +110,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   @override
   Widget build(BuildContext context) {
     final settings = _settings;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
@@ -118,7 +121,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ScreenHeader(title: 'Notifications', onBack: () => Navigator.of(context).pop()),
+                ScreenHeader(title: l10n.notificationsLabel, onBack: () => Navigator.of(context).pop()),
                 const SizedBox(height: 24),
                 if (settings == null)
                   const Padding(
@@ -131,7 +134,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   _TypesCard(settings: settings, onToggle: _toggle),
                 ],
                 const SizedBox(height: 24),
-                CancelButton(label: 'Done', onTap: () => Navigator.of(context).pop()),
+                CancelButton(label: l10n.doneButton, onTap: () => Navigator.of(context).pop()),
               ],
             ),
           ),
@@ -181,6 +184,8 @@ class _CommunicationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+    final toggles = _communicationToggles(l10n);
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: _cardDecoration(colors),
@@ -193,9 +198,9 @@ class _CommunicationCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Communication Preferences',
-                  style: TextStyle(
+                Text(
+                  l10n.communicationPreferencesTitle,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                     height: 28 / 18,
@@ -205,7 +210,7 @@ class _CommunicationCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Choose how you want to be notified',
+                  l10n.communicationPreferencesSubtitle,
                   style: TextStyle(
                     fontSize: 14,
                     height: 20 / 14,
@@ -216,9 +221,9 @@ class _CommunicationCard extends StatelessWidget {
               ],
             ),
           ),
-          for (var i = 0; i < _communicationToggles.length; i++) ...[
+          for (var i = 0; i < toggles.length; i++) ...[
             const SizedBox(height: 24),
-            _row(_communicationToggles[i], settings, onToggle, showDivider: i < _communicationToggles.length - 1),
+            _row(toggles[i], settings, onToggle, showDivider: i < toggles.length - 1),
           ],
         ],
       ),
@@ -237,6 +242,8 @@ class _TypesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+    final toggles = _typeToggles(l10n);
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: _cardDecoration(colors),
@@ -248,9 +255,11 @@ class _TypesCard extends StatelessWidget {
             child: Container(
               height: 28,
               color: colors.inputFill,
-              alignment: Alignment.centerLeft,
+              // Sprint 8 Task 6: was Alignment.centerLeft -- a physical
+              // alignment that wouldn't flip to the trailing edge in RTL.
+              alignment: AlignmentDirectional.centerStart,
               child: Text(
-                'Notification Types',
+                l10n.notificationTypesTitle,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
@@ -262,9 +271,9 @@ class _TypesCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 40),
-          for (var i = 0; i < _typeToggles.length; i++) ...[
+          for (var i = 0; i < toggles.length; i++) ...[
             if (i > 0) const SizedBox(height: 24),
-            _row(_typeToggles[i], settings, onToggle, showDivider: i < _typeToggles.length - 1),
+            _row(toggles[i], settings, onToggle, showDivider: i < toggles.length - 1),
           ],
         ],
       ),

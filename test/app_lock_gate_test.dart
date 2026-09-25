@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/services/settings_provider.dart';
 import 'package:rosewater_cafe/widgets/app_lock_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,6 +26,10 @@ void main() {
       ChangeNotifierProvider<SettingsProvider>.value(
         value: settings,
         child: MaterialApp(
+          // Sprint 8 Task 6 Phase 2: the lock screen AppLockGate can show
+          // now reads AppLocalizations.
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: AppLockGate(
             now: now,
             hasSession: () => hasSession,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/app_settings_service.dart';
 import '../../services/settings_provider.dart';
 import '../../theme/app_semantic_colors.dart';
@@ -131,24 +132,24 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   void _clearCache() {
     widget.service.clearImageCache();
     setState(() => _cacheBytes = widget.service.cacheSizeBytes());
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cache cleared.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).cacheClearedMessage)),
+    );
   }
 
   Future<void> _confirmClearAllData() async {
     if (_clearingAll) return;
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear all app data?'),
-        content: const Text(
-          'This removes every saved preference from this device and signs you out. '
-          "Your account and its data aren't affected -- you can sign back in normally.",
-        ),
+        title: Text(l10n.clearAllAppDataTitle),
+        content: Text(l10n.clearAllAppDataBody),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.cancelButton)),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Clear & Sign Out', style: TextStyle(color: ctx.colors.danger)),
+            child: Text(l10n.clearAndSignOutButton, style: TextStyle(color: ctx.colors.danger)),
           ),
         ],
       ),
@@ -179,7 +180,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ScreenHeader(title: 'App Settings', onBack: () => Navigator.of(context).pop()),
+                ScreenHeader(title: AppLocalizations.of(context).appSettingsLabel, onBack: () => Navigator.of(context).pop()),
                 const SizedBox(height: 24),
                 const _AppearanceCard(),
                 const SizedBox(height: 24),
@@ -269,8 +270,9 @@ class _AppearanceCard extends StatelessWidget {
     // `MaterialApp` also watches, so the two never disagree).
     final settings = context.watch<SettingsProvider>();
     final isDark = settings.themeMode == ThemeMode.dark;
+    final l10n = AppLocalizations.of(context);
     return _Card(
-      title: 'Appearance',
+      title: l10n.appearanceCardTitle,
       icon: Icons.palette_outlined,
       gradientHeader: true,
       child: Column(
@@ -279,8 +281,8 @@ class _AppearanceCard extends StatelessWidget {
           SettingToggleRow(
             icon: Icons.dark_mode_outlined,
             iconSize: 20,
-            label: 'Dark Mode',
-            description: 'Switch to dark theme',
+            label: l10n.darkModeLabel,
+            description: l10n.darkModeDescription,
             value: isDark,
             onToggle: () => settings.setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark),
             showDivider: true,
@@ -289,8 +291,8 @@ class _AppearanceCard extends StatelessWidget {
           SettingToggleRow(
             icon: Icons.motion_photos_auto_outlined,
             iconSize: 20,
-            label: 'Animations',
-            description: 'Enable smooth animations throughout the app',
+            label: l10n.animationsLabel,
+            description: l10n.animationsDescription,
             // Real now (Sprint 8 Task 3): page transitions (AppPageRoute,
             // via every screen's `appRoute` call) and every explicit
             // Animated* widget duration (this very switch included --
@@ -305,7 +307,7 @@ class _AppearanceCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
             child: Text(
-              'Language',
+              l10n.languageSectionLabel,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -328,7 +330,7 @@ class _AppearanceCard extends StatelessWidget {
                 // picker rather than silently showing wrong text" -- this
                 // is that line, shown only while an untranslated language
                 // is actually the current pick.
-                'French and Spanish aren\'t translated yet -- the app will keep showing English text until they are.',
+                l10n.frenchSpanishNotTranslatedNote,
                 style: TextStyle(fontSize: 12, height: 16 / 12, color: context.colors.textMuted),
               ),
             ),
@@ -401,8 +403,9 @@ class _InteractionsCard extends StatelessWidget {
     // Mode/Animations above: this row's own switches need to reflect
     // SettingsProvider immediately.
     final settings = context.watch<SettingsProvider>();
+    final l10n = AppLocalizations.of(context);
     return _Card(
-      title: 'Interactions',
+      title: l10n.interactionsCardTitle,
       icon: Icons.touch_app_outlined,
       gradientHeader: false,
       child: Column(
@@ -411,8 +414,8 @@ class _InteractionsCard extends StatelessWidget {
           SettingToggleRow(
             icon: Icons.volume_up_outlined,
             iconSize: 20,
-            label: 'Sound Effects',
-            description: 'Play sounds for actions and notifications',
+            label: l10n.soundEffectsLabel,
+            description: l10n.soundEffectsDescription,
             value: settings.soundEnabled,
             onToggle: () => settings.setSoundEnabled(!settings.soundEnabled),
             showDivider: true,
@@ -421,8 +424,8 @@ class _InteractionsCard extends StatelessWidget {
           SettingToggleRow(
             icon: Icons.vibration,
             iconSize: 20,
-            label: 'Haptic Feedback',
-            description: 'Vibrate on button presses and interactions',
+            label: l10n.hapticFeedbackLabel,
+            description: l10n.hapticFeedbackDescription,
             value: settings.hapticsEnabled,
             onToggle: () => settings.setHapticsEnabled(!settings.hapticsEnabled),
             showDivider: false,
@@ -450,8 +453,9 @@ class _DataStorageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return _Card(
-      title: 'Data & Storage',
+      title: l10n.dataStorageCardTitle,
       icon: Icons.storage_outlined,
       gradientHeader: false,
       child: Padding(
@@ -467,7 +471,7 @@ class _DataStorageCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Cache Size',
+                    l10n.cacheSizeLabel,
                     style: TextStyle(fontSize: 14, letterSpacing: -0.15, color: colors.textMuted),
                   ),
                   Text(
@@ -480,7 +484,7 @@ class _DataStorageCard extends StatelessWidget {
             const SizedBox(height: 16),
             _OutlinedActionButton(
               icon: Icons.cleaning_services_outlined,
-              label: 'Clear Cache',
+              label: l10n.clearCacheButton,
               ink: colors.textPrimary,
               borderColor: colors.border,
               onTap: onClearCache,
@@ -488,7 +492,7 @@ class _DataStorageCard extends StatelessWidget {
             const SizedBox(height: 12),
             _OutlinedActionButton(
               icon: Icons.delete_sweep_outlined,
-              label: 'Clear All App Data',
+              label: l10n.clearAllAppDataButton,
               ink: colors.danger,
               borderColor: colors.danger.withValues(alpha: 0.4),
               onTap: onClearAllData,
@@ -557,16 +561,19 @@ class _FooterInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
+        // "Rosewater Café" is the app's own name, kept as-is in every
+        // locale -- same convention as versionFooter's brand tail elsewhere.
         Text(
           'Rosewater Café',
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
         ),
         const SizedBox(height: 4),
-        Text('Version $_appVersion', style: TextStyle(fontSize: 12, color: colors.textMuted)),
+        Text(l10n.versionLine(_appVersion), style: TextStyle(fontSize: 12, color: colors.textMuted)),
         const SizedBox(height: 2),
-        Text('Build $_appBuild', style: TextStyle(fontSize: 12, color: colors.textMuted)),
+        Text(l10n.buildLine(_appBuild), style: TextStyle(fontSize: 12, color: colors.textMuted)),
       ],
     );
   }

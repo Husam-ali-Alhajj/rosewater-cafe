@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/profile.dart';
 import '../../services/door_access_service.dart';
 import '../../services/subscription_service.dart';
@@ -81,7 +82,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Door unlocked! Enjoy your visit.'),
+          content: Text(AppLocalizations.of(context).doorUnlockedMessage),
           backgroundColor: context.colors.success,
         ),
       );
@@ -95,7 +96,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
       if (!mounted) return;
       setState(() {
         _isOpening = false;
-        _errorMessage = 'Something went wrong. Please try again.';
+        _errorMessage = AppLocalizations.of(context).genericTryAgainError;
       });
     }
   }
@@ -103,18 +104,20 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: TextButton.icon(
               onPressed: widget.onBackToDashboard,
-              icon: Icon(Icons.arrow_back, size: 16, color: colors.textPrimary),
+              icon: Icon(isRtl ? Icons.arrow_forward : Icons.arrow_back, size: 16, color: colors.textPrimary),
               label: Text(
-                'Back to Dashboard',
+                l10n.backToDashboard,
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
               ),
             ),
@@ -131,19 +134,19 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Door Access',
+                  l10n.doorAccessHeading,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: colors.textPrimary),
                 ),
                 const SizedBox(height: 48),
-                _buildQrSection(colors),
+                _buildQrSection(colors, l10n),
                 const SizedBox(height: 56),
-                _buildGuestCounter(colors),
+                _buildGuestCounter(colors, l10n),
                 const SizedBox(height: 48),
-                _buildNote(context),
+                _buildNote(context, l10n),
                 const SizedBox(height: 48),
                 GradientButton(
-                  label: _isOpening ? 'Opening…' : 'Open Door',
+                  label: _isOpening ? l10n.openingEllipsis : l10n.openDoorButton,
                   onPressed: _isOpening ? null : _openDoor,
                 ),
                 if (_errorMessage != null) ...[
@@ -162,7 +165,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
     );
   }
 
-  Widget _buildQrSection(AppSemanticColors colors) {
+  Widget _buildQrSection(AppSemanticColors colors, AppLocalizations l10n) {
     return Column(
       children: [
         Container(
@@ -177,16 +180,16 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
             border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
           ),
           child: (widget.profile?.memberId == null)
-              ? const SizedBox(
+              ? SizedBox(
                   width: 199,
                   height: 199,
                   child: Center(
                     child: Text(
-                      'Unable to load your member ID',
+                      l10n.unableToLoadMemberId,
                       textAlign: TextAlign.center,
                       // Fixed dark-on-white text to match the QR card's
                       // always-white fill above, not colors.textMuted.
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                     ),
                   ),
                 )
@@ -202,7 +205,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Scan this QR code at the entrance to unlock the door',
+          l10n.scanQrInstruction,
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textMuted),
         ),
@@ -210,18 +213,20 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
     );
   }
 
-  Widget _buildGuestCounter(AppSemanticColors colors) {
+  Widget _buildGuestCounter(AppSemanticColors colors, AppLocalizations l10n) {
     final plan = widget.membership.plan;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'How many people are with you?',
+          l10n.howManyPeopleQuestion,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colors.textPrimary),
         ),
         const SizedBox(height: 12),
         Text(
-          'You can bring up to $_maxGuests guest${_maxGuests == 1 ? '' : 's'} with your ${plan.name} membership',
+          _maxGuests == 1
+              ? l10n.guestAllowanceSingular(_maxGuests, plan.name)
+              : l10n.guestAllowancePlural(_maxGuests, plan.name),
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textMuted),
         ),
         const SizedBox(height: 12),
@@ -243,7 +248,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
                   ],
                 ),
                 Text(
-                  'Guests',
+                  l10n.guestsCounterLabel,
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: colors.textMuted),
                 ),
               ],
@@ -260,7 +265,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
   // amber tint (the design's exact light-mode colors; a dark amber-tinted
   // surface with light amber text in dark mode) rather than becoming an
   // undifferentiated `colors.surface` card.
-  Widget _buildNote(BuildContext context) {
+  Widget _buildNote(BuildContext context, AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF3A2E12) : const Color(0xFFFFFBEB);
     final border = isDark ? const Color(0xFF6B5518) : const Color(0xFFFEE685);
@@ -275,12 +280,9 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
       child: Text.rich(
         TextSpan(
           style: TextStyle(fontSize: 14, color: ink),
-          children: const [
-            TextSpan(text: 'Note: ', style: TextStyle(fontWeight: FontWeight.w700)),
-            TextSpan(
-              text: 'Your monthly allowance covers your orders only. Guest orders will receive '
-                  'member discounts but are paid separately.',
-            ),
+          children: [
+            TextSpan(text: l10n.noteLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
+            TextSpan(text: l10n.guestOrdersNote),
           ],
         ),
       ),

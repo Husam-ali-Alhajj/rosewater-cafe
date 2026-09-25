@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/auth_service.dart';
 import '../../services/supabase_client.dart';
 import '../../theme/app_semantic_colors.dart';
@@ -61,7 +62,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
   }
 
   String? _validateConfirm(String? value) {
-    if (value != _passwordController.text) return 'Passwords do not match';
+    if (value != _passwordController.text) return AppLocalizations.of(context).passwordsDoNotMatch;
     return null;
   }
 
@@ -99,7 +100,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
-        _formError = "Couldn't update your password. Check your connection and try again.";
+        _formError = AppLocalizations.of(context).couldNotUpdatePasswordError;
       });
     }
   }
@@ -144,16 +145,17 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
   }
 
   Widget _buildForm(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Form(
       key: _formKey,
       child: Column(
         children: [
           const OnboardingIconBadge(icon: Icons.lock_reset_outlined),
           const SizedBox(height: 24),
-          Text('Set New Password', style: AppTextStyles.heading1(context)),
+          Text(l10n.setNewPasswordHeading, style: AppTextStyles.heading1(context)),
           const SizedBox(height: 8),
           Text(
-            'Choose a new password for your account.',
+            l10n.chooseNewPasswordSubtitle,
             textAlign: TextAlign.center,
             style: AppTextStyles.bodyMuted(context),
           ),
@@ -162,9 +164,9 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
             controller: _passwordController,
             obscureText: _obscurePassword,
             decoration: InputDecoration(
-              labelText: 'New Password',
-              hintText: '••••••••',
-              helperText: '8+ characters, with uppercase, lowercase & a number',
+              labelText: l10n.newPasswordLabel,
+              hintText: l10n.passwordHint,
+              helperText: l10n.passwordHelperText,
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
@@ -182,8 +184,8 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
             controller: _confirmController,
             obscureText: _obscureConfirm,
             decoration: InputDecoration(
-              labelText: 'Confirm New Password',
-              hintText: '••••••••',
+              labelText: l10n.confirmNewPasswordLabel,
+              hintText: l10n.passwordHint,
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(_obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined),
@@ -199,7 +201,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
           ],
           const SizedBox(height: 24),
           GradientButton(
-            label: _isSubmitting ? 'Updating…' : 'Update Password',
+            label: _isSubmitting ? l10n.updatingEllipsis : l10n.updatePassword,
             onPressed: _isSubmitting ? null : _submit,
           ),
         ],
@@ -216,6 +218,7 @@ class _SuccessContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -226,15 +229,15 @@ class _SuccessContent extends StatelessWidget {
           child: Icon(Icons.check_circle_outline, color: colors.success, size: 44),
         ),
         const SizedBox(height: 24),
-        Text('Password Updated', style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
+        Text(l10n.passwordUpdatedHeading, style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
         const SizedBox(height: 8),
         Text(
-          "Your password has been changed. Please sign in with your new password.",
+          l10n.passwordUpdatedBody,
           textAlign: TextAlign.center,
           style: AppTextStyles.bodyMuted(context),
         ),
         const SizedBox(height: 24),
-        GradientButton(label: 'Continue to Sign In', onPressed: onContinue),
+        GradientButton(label: l10n.continueToSignIn, onPressed: onContinue),
       ],
     );
   }

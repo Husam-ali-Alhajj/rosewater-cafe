@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/membership_plan.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/app_page_route.dart';
@@ -34,6 +35,7 @@ class PaymentSuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
@@ -73,18 +75,18 @@ class PaymentSuccessScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      "You're a Member!",
+                      l10n.youAreMember,
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: colors.textPrimary),
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Welcome to Rosewater Café. Your ${plan.name} membership is now active.',
+                      l10n.welcomeMembershipActive(plan.name),
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 16, color: colors.textMuted, height: 1.4),
                     ),
                     const SizedBox(height: 32),
-                    GradientButton(label: 'Continue', onPressed: () => _continue(context)),
+                    GradientButton(label: l10n.continueButton, onPressed: () => _continue(context)),
                   ],
                 ),
               ),

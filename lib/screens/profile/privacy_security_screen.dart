@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/account_deletion_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
@@ -173,7 +174,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   String? _validateCurrent(String? value) {
     if (_serverCurrentError != null) return _serverCurrentError;
-    if (value == null || value.isEmpty) return 'Enter your current password';
+    if (value == null || value.isEmpty) return AppLocalizations.of(context).enterCurrentPasswordError;
     return null;
   }
 
@@ -181,12 +182,12 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     if (_serverNewError != null) return _serverNewError;
     final rule = Validators.password(value); // decision #10, same as signup
     if (rule != null) return rule;
-    if (value == _currentController.text) return 'Choose a password different from your current one.';
+    if (value == _currentController.text) return AppLocalizations.of(context).passwordMustDifferError;
     return null;
   }
 
   String? _validateConfirm(String? value) {
-    if (value != _newController.text) return 'Passwords do not match';
+    if (value != _newController.text) return AppLocalizations.of(context).passwordsDoNotMatch;
     return null;
   }
 
@@ -206,9 +207,10 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
         newPassword: _newController.text,
       );
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
       _closePasswordForm();
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password updated.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.passwordUpdatedMessage)));
     } on ChangePasswordFailure catch (e) {
       if (!mounted) return;
       setState(() {
@@ -226,7 +228,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _formError = "Couldn't update your password. Check your connection and try again.";
+        _formError = AppLocalizations.of(context).couldntUpdatePasswordError;
       });
     }
   }
@@ -247,7 +249,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   String? _validateDeletePassword(String? value) {
     if (_deletePasswordError != null) return _deletePasswordError;
-    if (value == null || value.isEmpty) return 'Enter your current password';
+    if (value == null || value.isEmpty) return AppLocalizations.of(context).enterCurrentPasswordError;
     return null;
   }
 
@@ -286,7 +288,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
       if (!mounted) return;
       setState(() {
         _deletingAccount = false;
-        _deleteFormError = "Couldn't delete your account. Please try again.";
+        _deleteFormError = AppLocalizations.of(context).couldntDeleteAccountError;
       });
     }
   }
@@ -314,7 +316,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   String? _validateEmailPassword(String? value) {
     if (_emailPasswordError != null) return _emailPasswordError;
-    if (value == null || value.isEmpty) return 'Enter your current password';
+    if (value == null || value.isEmpty) return AppLocalizations.of(context).enterCurrentPasswordError;
     return null;
   }
 
@@ -360,7 +362,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
       if (!mounted) return;
       setState(() {
         _changingEmail = false;
-        _emailFormError = "Couldn't update your email. Check your connection and try again.";
+        _emailFormError = AppLocalizations.of(context).couldntUpdateEmailError;
       });
     }
   }
@@ -371,6 +373,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
@@ -381,21 +384,21 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ScreenHeader(title: 'Privacy & Security', onBack: () => Navigator.of(context).pop()),
+                ScreenHeader(title: l10n.privacySecurityLabel, onBack: () => Navigator.of(context).pop()),
                 const SizedBox(height: 24),
                 _SecurityOptionsCard(biometricService: widget.biometricService),
                 const SizedBox(height: 24),
                 _SectionCard(
-                  title: 'Password',
+                  title: l10n.passwordSectionTitle,
                   child: _changingPassword ? _buildPasswordForm() : _buildPasswordPrompt(),
                 ),
                 const SizedBox(height: 24),
                 _SectionCard(
-                  title: 'Email',
+                  title: l10n.emailSectionTitle,
                   child: _changingEmailForm ? _buildEmailForm() : _buildEmailPrompt(),
                 ),
                 const SizedBox(height: 24),
-                _SectionCard(title: 'Privacy', child: _buildPrivacyRows()),
+                _SectionCard(title: l10n.privacySectionTitle, child: _buildPrivacyRows()),
               ],
             ),
           ),
@@ -406,13 +409,14 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   Widget _buildPasswordPrompt() {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Keep your account secure by using a strong password',
+            l10n.strongPasswordPrompt,
             style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           const SizedBox(height: 16),
@@ -433,7 +437,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     Icon(Icons.lock_outline, size: 16, color: colors.textPrimary),
                     const SizedBox(width: 17),
                     Text(
-                      'Change Password',
+                      l10n.changePasswordButton,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -453,6 +457,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   }
 
   Widget _buildPasswordForm() {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -461,8 +466,8 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _PasswordField(
-              label: 'Current Password',
-              hint: 'Enter current password',
+              label: l10n.currentPasswordLabel,
+              hint: l10n.enterCurrentPasswordHint,
               controller: _currentController,
               visible: _showCurrent,
               onToggleVisible: () => setState(() => _showCurrent = !_showCurrent),
@@ -471,8 +476,8 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
             ),
             const SizedBox(height: 24),
             _PasswordField(
-              label: 'New Password',
-              hint: 'Enter new password',
+              label: l10n.newPasswordLabel,
+              hint: l10n.enterNewPasswordHint,
               controller: _newController,
               visible: _showNew,
               onToggleVisible: () => setState(() => _showNew = !_showNew),
@@ -481,8 +486,8 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
             ),
             const SizedBox(height: 24),
             _PasswordField(
-              label: 'Confirm New Password',
-              hint: 'Confirm new password',
+              label: l10n.confirmNewPasswordLabel,
+              hint: l10n.confirmNewPasswordHint,
               controller: _confirmController,
               visible: _showConfirm,
               onToggleVisible: () => setState(() => _showConfirm = !_showConfirm),
@@ -501,12 +506,12 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: CancelButton(onTap: _saving ? null : _closePasswordForm)),
+                Expanded(child: CancelButton(label: l10n.cancelButton, onTap: _saving ? null : _closePasswordForm)),
                 const SizedBox(width: 16),
                 Expanded(
                   child: SaveButton(
-                    label: 'Update Password',
-                    savingLabel: 'Updating…',
+                    label: l10n.updatePasswordButton,
+                    savingLabel: l10n.updatingEllipsis,
                     saving: _saving,
                     onTap: _saving ? null : _submitPassword,
                   ),
@@ -521,6 +526,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   Widget _buildEmailPrompt() {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     final currentEmail = widget.authService.currentUserEmail ?? '';
     final pendingEmail = _justRequestedEmail ?? widget.authService.pendingEmailChange;
     return Padding(
@@ -535,8 +541,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
           if (pendingEmail != null) ...[
             const SizedBox(height: 8),
             Text(
-              'Confirmation sent to $pendingEmail -- click the link there to finish. '
-              'Your current email still works until then.',
+              l10n.confirmationSentToEmail(pendingEmail),
               style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
             ),
           ],
@@ -558,7 +563,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     Icon(Icons.mail_outline, size: 16, color: colors.textPrimary),
                     const SizedBox(width: 17),
                     Text(
-                      'Change Email',
+                      l10n.changeEmailButton,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -579,6 +584,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   Widget _buildEmailForm() {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -587,14 +593,12 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Enter your new email address and current password. We\'ll send a '
-              'confirmation link to the new address -- your current email keeps '
-              'working until you click it.',
+              l10n.newEmailFormInstructions,
               style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
             ),
             const SizedBox(height: 16),
             Text(
-              'New Email Address',
+              l10n.newEmailAddressLabel,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -617,8 +621,8 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
             ),
             const SizedBox(height: 24),
             _PasswordField(
-              label: 'Current Password',
-              hint: 'Enter current password',
+              label: l10n.currentPasswordLabel,
+              hint: l10n.enterCurrentPasswordHint,
               controller: _emailPasswordController,
               visible: _showEmailPassword,
               onToggleVisible: () => setState(() => _showEmailPassword = !_showEmailPassword),
@@ -637,12 +641,12 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: CancelButton(onTap: _changingEmail ? null : _closeEmailForm)),
+                Expanded(child: CancelButton(label: l10n.cancelButton, onTap: _changingEmail ? null : _closeEmailForm)),
                 const SizedBox(width: 16),
                 Expanded(
                   child: SaveButton(
-                    label: 'Send Confirmation',
-                    savingLabel: 'Sending…',
+                    label: l10n.sendConfirmationButton,
+                    savingLabel: l10n.sendingEllipsis,
                     saving: _changingEmail,
                     onTap: _changingEmail ? null : _submitChangeEmail,
                   ),
@@ -656,19 +660,20 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   }
 
   Widget _buildPrivacyRows() {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _PrivacyRow(label: 'View Privacy Policy', onTap: () => _openComingSoon('Privacy Policy')),
+          _PrivacyRow(label: l10n.viewPrivacyPolicyLabel, onTap: () => _openComingSoon(l10n.privacyPolicy)),
           const SizedBox(height: 12),
-          _PrivacyRow(label: 'Terms of Service', onTap: () => _openComingSoon('Terms of Service')),
+          _PrivacyRow(label: l10n.termsOfService, onTap: () => _openComingSoon(l10n.termsOfService)),
           const SizedBox(height: 12),
           if (_deletingAccountForm)
             _buildDeleteAccountForm()
           else
-            _PrivacyRow(label: 'Delete Account', danger: true, onTap: _openDeleteForm),
+            _PrivacyRow(label: l10n.deleteAccountLabel, danger: true, onTap: _openDeleteForm),
         ],
       ),
     );
@@ -676,21 +681,20 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   Widget _buildDeleteAccountForm() {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Form(
       key: _deleteFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'This immediately and permanently deletes your account and everything in it -- '
-            'your profile, membership, payment methods, and reservation history. '
-            'This cannot be undone.',
+            l10n.deleteAccountWarning,
             style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           const SizedBox(height: 16),
           _PasswordField(
-            label: 'Current Password',
-            hint: 'Enter current password',
+            label: l10n.currentPasswordLabel,
+            hint: l10n.enterCurrentPasswordHint,
             controller: _deletePasswordController,
             visible: _showDeletePassword,
             onToggleVisible: () => setState(() => _showDeletePassword = !_showDeletePassword),
@@ -709,12 +713,12 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: CancelButton(onTap: _deletingAccount ? null : _closeDeleteForm)),
+              Expanded(child: CancelButton(label: l10n.cancelButton, onTap: _deletingAccount ? null : _closeDeleteForm)),
               const SizedBox(width: 16),
               Expanded(
                 child: _DangerButton(
-                  label: 'Delete Permanently',
-                  savingLabel: 'Deleting…',
+                  label: l10n.deletePermanentlyButton,
+                  savingLabel: l10n.deletingEllipsis,
                   saving: _deletingAccount,
                   onTap: _deletingAccount ? null : _submitDeleteAccount,
                 ),
@@ -801,9 +805,7 @@ class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
     setState(() => _checkingBiometric = false);
     if (!available) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No biometrics available on this device. Set up a fingerprint or face unlock first.'),
-        ),
+        SnackBar(content: Text(AppLocalizations.of(context).noBiometricsAvailableError)),
       );
       return;
     }
@@ -813,6 +815,7 @@ class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     // `watch`, not `read` -- this card's own switches (Biometric, Auto-Lock)
     // need to reflect SettingsProvider immediately, same reasoning as every
     // other real toggle this sprint.
@@ -830,13 +833,13 @@ class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(gradient: colors.accentGradient),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.shield_outlined, size: 20, color: Colors.white),
-                SizedBox(width: 12),
+                const Icon(Icons.shield_outlined, size: 20, color: Colors.white),
+                const SizedBox(width: 12),
                 Text(
-                  'Security Options',
-                  style: TextStyle(
+                  l10n.securityOptionsTitle,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                     height: 28 / 18,
@@ -851,31 +854,31 @@ class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
           SettingToggleRow(
             icon: Icons.fingerprint,
             iconSize: 20,
-            label: 'Biometric Authentication',
-            description: 'Use fingerprint or face ID to sign in',
+            label: l10n.biometricAuthLabel,
+            description: l10n.biometricAuthDescription,
             value: settings.biometricEnabled,
             onToggle: _checkingBiometric ? null : () => _toggleBiometric(settings),
             showDivider: true,
             switchKey: const ValueKey('biometric-authentication'),
           ),
           const SizedBox(height: 24),
-          const SettingToggleRow(
+          SettingToggleRow(
             icon: Icons.smartphone_outlined,
             iconSize: 20,
-            label: 'Two-Factor Authentication',
-            description: 'Add an extra layer of security',
+            label: l10n.twoFactorAuthLabel,
+            description: l10n.twoFactorAuthDescription,
             value: false,
             onToggle: null, // a separate later task, not #62 -- decision #45
             showDivider: true,
-            note: '(Coming Soon)',
-            switchKey: ValueKey('placeholder-two-factor'),
+            note: l10n.comingSoonNote,
+            switchKey: const ValueKey('placeholder-two-factor'),
           ),
           const SizedBox(height: 24),
           SettingToggleRow(
             icon: Icons.lock_outline,
             iconSize: 20,
-            label: 'Auto-Lock',
-            description: 'Automatically lock app when inactive',
+            label: l10n.autoLockLabel,
+            description: l10n.autoLockDescription,
             value: settings.autoLockEnabled,
             onToggle: () => settings.setAutoLockEnabled(!settings.autoLockEnabled),
             showDivider: false,
@@ -949,7 +952,12 @@ class _PasswordField extends StatelessWidget {
                 fillColor: colors.inputFill,
                 hintText: hint,
                 hintStyle: textStyle.copyWith(color: colors.textMuted),
-                contentPadding: const EdgeInsets.fromLTRB(12, 8.5, 44, 8.5),
+                // Sprint 8 Task 6: EdgeInsetsDirectional, not EdgeInsets --
+                // this custom eye-icon overlay isn't InputDecoration.suffixIcon
+                // (which auto-mirrors), so the padding has to be made
+                // directional by hand, same as edit_profile_screen.dart's
+                // _EditField.
+                contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 8.5, 44, 8.5),
                 border: border(),
                 enabledBorder: border(),
                 disabledBorder: border(),
@@ -959,11 +967,13 @@ class _PasswordField extends StatelessWidget {
                 errorStyle: TextStyle(fontSize: 12, color: colors.danger),
               ),
             ),
-            Positioned(
-              right: 12,
+            PositionedDirectional(
+              end: 12,
               top: 10,
               child: Tooltip(
-                message: visible ? 'Hide password' : 'Show password',
+                message: visible
+                    ? AppLocalizations.of(context).hidePasswordTooltip
+                    : AppLocalizations.of(context).showPasswordTooltip,
                 child: InkWell(
                   onTap: enabled ? onToggleVisible : null,
                   customBorder: const CircleBorder(),
@@ -1045,9 +1055,11 @@ class _PrivacyRow extends StatelessWidget {
       child: SizedBox(
         height: 36,
         child: Padding(
-          padding: const EdgeInsets.only(left: 16),
+          // Sprint 8 Task 6: was EdgeInsets.only(left:)/Alignment.centerLeft
+          // -- physical values that wouldn't flip to the trailing edge in RTL.
+          padding: const EdgeInsetsDirectional.only(start: 16),
           child: Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: Text(
               label,
               style: TextStyle(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/models/payment_method.dart';
 import 'package:rosewater_cafe/screens/profile/add_payment_method_screen.dart';
 import 'package:rosewater_cafe/screens/profile/payment_methods_screen.dart';
@@ -82,7 +83,15 @@ Future<void> _pumpList(WidgetTester tester, _FakeService service) async {
   tester.view.physicalSize = const Size(800, 3000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(home: PaymentMethodsScreen(service: service)));
+  await tester.pumpWidget(
+    MaterialApp(
+      // Sprint 8 Task 6 Phase 2: ScreenHeader now reads AppLocalizations for
+      // its back button -- this screen's own strings aren't localized yet.
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: PaymentMethodsScreen(service: service),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -100,6 +109,10 @@ Future<_AddResult> _openAdd(WidgetTester tester, _FakeService service, {required
   final result = _AddResult();
   await tester.pumpWidget(
     MaterialApp(
+      // Sprint 8 Task 6 Phase 2: ScreenHeader now reads AppLocalizations for
+      // its back button -- this screen's own strings aren't localized yet.
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(
         builder: (context) => Scaffold(
           body: TextButton(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../utils/app_animations.dart';
 import '../../widgets/app_page_route.dart';
@@ -33,16 +34,12 @@ class _FaqItem {
 /// for real content (see docs/decisions.md #46). This gap was already logged
 /// (Sprint 2 checkpoint, decision #32/#45's open-questions list) as "only 1 of
 /// 4 FAQ answers exported."
-const _faqItems = [
-  _FaqItem(
-    'How do I use my QR code to enter the café?',
-    'Simply open the QR Code section from your dashboard, show it to the '
-        'scanner at the entrance, and specify how many guests are with you.',
-  ),
-  _FaqItem('What happens when my monthly allowance runs out?', null),
-  _FaqItem('Can I bring guests to the café?', null),
-  _FaqItem("What's the difference between full service and self-service hours?", null),
-];
+List<_FaqItem> _faqItems(AppLocalizations l10n) => [
+      _FaqItem(l10n.faqQuestion1, l10n.faqAnswer1),
+      _FaqItem(l10n.faqQuestion2, null),
+      _FaqItem(l10n.faqQuestion3, null),
+      _FaqItem(l10n.faqQuestion4, null),
+    ];
 
 /// Help & Support (Figma frame "HelpSupportScreen", node 1217:3158): three
 /// static contact cards, an FAQ accordion, and a Resources list.
@@ -82,6 +79,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
@@ -92,38 +90,38 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ScreenHeader(title: 'Help & Support', onBack: () => Navigator.of(context).pop()),
+                ScreenHeader(title: l10n.helpSupportLabel, onBack: () => Navigator.of(context).pop()),
                 const SizedBox(height: 24),
                 _ContactCard(
                   icon: Icons.chat_bubble_outline,
                   // The design's own accent color -- now theme-aware so it
                   // goes blue in dark mode along with every other accent use.
                   iconColor: context.colors.accent,
-                  title: 'Live Chat',
-                  description: 'Chat with our team',
+                  title: l10n.liveChatTitle,
+                  description: l10n.liveChatDescription,
                 ),
                 // Gap between the three contact cards -- not confirmed via
                 // the API; 16 matches this app's usual gap between stacked
                 // cards (e.g. Payment Methods' list, decision #43).
                 const SizedBox(height: 16),
-                const _ContactCard(
+                _ContactCard(
                   icon: Icons.mail_outline,
                   // Not confirmed via the API (rate-limited): inferred from
                   // the rendered design -- purple, matching the app's other
                   // membership-purple accents. Worth a real check once the
                   // API allows (same caveat as decision #20's early passes).
-                  iconColor: Color(0xFF9810FA),
-                  title: 'Email Us',
-                  description: 'Get help via email',
+                  iconColor: const Color(0xFF9810FA),
+                  title: l10n.emailUsTitle,
+                  description: l10n.emailUsDescription,
                 ),
                 const SizedBox(height: 16),
-                const _ContactCard(
+                _ContactCard(
                   icon: Icons.phone_outlined,
                   // Also inferred (green, matching the app's other
                   // confirmation/positive-action green) -- same caveat.
-                  iconColor: Color(0xFF00A63E),
-                  title: 'Call Us',
-                  description: 'Speak to support',
+                  iconColor: const Color(0xFF00A63E),
+                  title: l10n.callUsTitle,
+                  description: l10n.callUsDescription,
                 ),
                 const SizedBox(height: 24),
                 _FaqCard(expandedIndex: _expandedIndex, onToggle: _toggle),
@@ -208,6 +206,8 @@ class _FaqCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+    final items = _faqItems(l10n);
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -221,13 +221,13 @@ class _FaqCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(gradient: colors.accentGradient),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.help_outline, size: 20, color: Colors.white),
-                SizedBox(width: 12),
+                const Icon(Icons.help_outline, size: 20, color: Colors.white),
+                const SizedBox(width: 12),
                 Text(
-                  'Frequently Asked Questions',
-                  style: TextStyle(
+                  l10n.faqCardTitle,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                     height: 28 / 18,
@@ -238,12 +238,12 @@ class _FaqCard extends StatelessWidget {
               ],
             ),
           ),
-          for (var i = 0; i < _faqItems.length; i++)
+          for (var i = 0; i < items.length; i++)
             _FaqRow(
-              item: _faqItems[i],
+              item: items[i],
               expanded: expandedIndex == i,
               onTap: () => onToggle(i),
-              showDivider: i < _faqItems.length - 1,
+              showDivider: i < items.length - 1,
             ),
         ],
       ),
@@ -305,7 +305,10 @@ class _FaqRow extends StatelessWidget {
                       duration: context.animDuration(const Duration(milliseconds: 150)),
                       turns: expanded ? 0.25 : 0, // right-pointing -> down-pointing
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 8, top: 2),
+                        // Sprint 8 Task 6: the gap between the question text
+                        // and this chevron -- EdgeInsetsDirectional so it
+                        // stays on the chevron's near side in RTL too.
+                        padding: const EdgeInsetsDirectional.only(start: 8, top: 2),
                         child: Icon(Icons.chevron_right, size: 20, color: colors.textMuted),
                       ),
                     ),
@@ -325,7 +328,7 @@ class _FaqRow extends StatelessWidget {
                   : Text(
                       // Deliberately NOT a fabricated answer -- see the class
                       // doc comment on HelpSupportScreen and decision #46.
-                      'Answer not available yet.',
+                      AppLocalizations.of(context).faqAnswerNotAvailable,
                       style: TextStyle(
                         fontSize: 14,
                         height: 20 / 14,
@@ -352,7 +355,12 @@ class _ResourcesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    const resources = ['User Guide', 'Membership Benefits', 'Community Guidelines'];
+    final l10n = AppLocalizations.of(context);
+    // Sprint 8 Task 6: same "leads forward" reasoning as ProfileScreen's
+    // _SettingsRow -- this chevron flips in RTL, unlike the FAQ accordion's
+    // own chevron (a rotation-driven open/closed state, not a navigation cue).
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final resources = [l10n.userGuideLabel, l10n.membershipBenefitsLabel, l10n.communityGuidelinesLabel];
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -369,7 +377,7 @@ class _ResourcesCard extends StatelessWidget {
               border: Border(bottom: BorderSide(color: colors.border, width: _hairline)),
             ),
             child: Text(
-              'Resources',
+              l10n.resourcesCardTitle,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
@@ -402,7 +410,7 @@ class _ResourcesCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Icon(Icons.chevron_right, size: 20, color: colors.textMuted),
+                    Icon(isRtl ? Icons.chevron_left : Icons.chevron_right, size: 20, color: colors.textMuted),
                   ],
                 ),
               ),
