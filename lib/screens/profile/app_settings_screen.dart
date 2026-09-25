@@ -48,16 +48,22 @@ const _appBuild = '1';
 /// list -- nothing here is tappable); selecting Arabic/French/Spanish was
 /// never in scope, so there's nothing to half-build.
 ///
-/// **Animations, Sound Effects and Haptic Feedback are the same kind of
-/// placeholder**, for the same reason: this task's acceptance bar is "no
-/// functionality built beyond what's decided in scope," and only Dark
-/// Mode/Language were explicitly scoped. They're drawn at the state the
-/// design shows (on) and are inert -- no `AnimatedContainer` app-wide setting,
-/// no `HapticFeedback` calls wired up. (This app's Sound & Vibration toggle on
-/// the Notifications screen is a *different* setting -- notification sound,
-/// not general UI sound -- kept deliberately separate, the same kind of
-/// naming collision decision #33 already called out for two different
-/// "guests" fields.)
+/// **Animations is real too** (Sprint 8 Task 3, decision #60): the toggle
+/// reads/writes `SettingsProvider.animationsEnabled`, which
+/// `AppPageRoute`/`appRoute` (every screen transition) and
+/// `context.animDuration` (every explicit `Animated*` widget duration)
+/// read at the moment they'd animate.
+///
+/// **Sound Effects and Haptic Feedback are real as of Sprint 8 Task 4**
+/// (decision #61): each toggle reads/writes its own
+/// `SettingsProvider.soundEnabled`/`.hapticsEnabled`, and
+/// `context.triggerButtonPress`/`.triggerSuccess`/`.triggerError`
+/// (`lib/utils/app_feedback.dart`) gate sound and haptics independently
+/// through them at a small, fixed set of real trigger points -- not every
+/// tap. (This app's Sound & Vibration toggle on the Notifications screen is
+/// a *different* setting -- notification sound, not general UI sound --
+/// kept deliberately separate, the same kind of naming collision decision
+/// #33 already called out for two different "guests" fields.)
 ///
 /// **Data & Storage is real**, by this task's explicit "your call": this app
 /// has almost nothing to manage locally (no bulk asset/network image
@@ -338,7 +344,11 @@ class _InteractionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _Card(
+    // Real now (Sprint 8 Task 4) -- same `watch` reasoning as Dark
+    // Mode/Animations above: this row's own switches need to reflect
+    // SettingsProvider immediately.
+    final settings = context.watch<SettingsProvider>();
+    return _Card(
       title: 'Interactions',
       icon: Icons.touch_app_outlined,
       gradientHeader: false,
@@ -350,20 +360,20 @@ class _InteractionsCard extends StatelessWidget {
             iconSize: 20,
             label: 'Sound Effects',
             description: 'Play sounds for actions and notifications',
-            value: true,
-            onToggle: null, // out of scope; see the class doc comment
+            value: settings.soundEnabled,
+            onToggle: () => settings.setSoundEnabled(!settings.soundEnabled),
             showDivider: true,
-            switchKey: ValueKey('placeholder-sound-effects'),
+            switchKey: const ValueKey('sound-effects'),
           ),
           SettingToggleRow(
             icon: Icons.vibration,
             iconSize: 20,
             label: 'Haptic Feedback',
             description: 'Vibrate on button presses and interactions',
-            value: true,
-            onToggle: null,
+            value: settings.hapticsEnabled,
+            onToggle: () => settings.setHapticsEnabled(!settings.hapticsEnabled),
             showDivider: false,
-            switchKey: ValueKey('placeholder-haptic-feedback'),
+            switchKey: const ValueKey('haptic-feedback'),
           ),
         ],
       ),

@@ -6,6 +6,7 @@ import '../../services/door_access_service.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../utils/app_feedback.dart';
 import '../../widgets/gradient_button.dart';
 
 /// Door Access / QR Code screen (Figma node 1215:1616). `membership` comes
@@ -73,6 +74,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
     try {
       await _doorAccessService.logDoorAccess(_guestCount);
       if (!mounted) return;
+      context.triggerSuccess(); // Sprint 8 Task 4: door opened
       setState(() {
         _isOpening = false;
         _guestCount = 0;

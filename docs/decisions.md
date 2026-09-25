@@ -3862,6 +3862,90 @@ own to do.
 
 ---
 
+### 61. Sprint 8 Task 4 — Real Sound & Haptic Feedback
+
+**Three real decisions, put to the user before building anything** (per the
+standing rule):
+
+1. *How to play the sound?* **Chosen: `SystemSound.play()`** -- Flutter's
+   built-in platform sound (generic click/alert), zero new dependency, over
+   bundling distinct success/error audio assets (would need an audio-player
+   package and real sound files this project doesn't have). Matches "a
+   short system sound" from the task text literally.
+2. *Does a button press also play a sound, or is sound reserved for
+   success/error?* **Chosen: haptic only on button presses.** Sound is
+   reserved for the success/error moments; most apps don't click on every
+   tap, and the task's own examples list sound and haptics somewhat
+   separately ("HapticFeedback... for button presses... a short system
+   sound... for success/error").
+3. *Real-device verification* -- the acceptance criterion explicitly
+   requires a real device (haptics don't exist in a browser), and this
+   session only has Chrome/web automation. **Chosen: same split as every
+   other look-and-feel check this sprint** (decisions #59/#60) -- built and
+   tested everything code-verifiable, the user does the real haptic/sound
+   check on their own device.
+
+**What was built:**
+
+- **`context.triggerButtonPress()`/`.triggerSuccess()`/`.triggerError()`**
+  (new, `lib/utils/app_feedback.dart`): a small, fixed set of real trigger
+  points, not instrumenting every tap, per the task's own framing.
+  Sound and haptics are gated **independently** through
+  `SettingsProvider.soundEnabled`/`.hapticsEnabled` -- two separate `if`s,
+  not one combined gate -- so sound off + haptics on still vibrates, and
+  vice versa, exactly as the acceptance criterion requires. `triggerSuccess`
+  uses `SystemSoundType.click`, `triggerError` uses `.alert` -- Flutter's
+  only two system sound types, picked so a success and a failure don't
+  sound identical even without custom audio assets. Falls back to both
+  enabled when no `SettingsProvider` is in the tree, same fallback
+  `context.colors`/`context.animDuration` already use.
+- **`GradientButton`** wired once, centrally, at its own `InkWell.onTap`
+  (`context.triggerButtonPress()` before calling the real `onPressed`) --
+  every primary CTA in the app gets it for free, rather than adding a call
+  at each of `GradientButton`'s dozens of call sites.
+- **The three named success trigger points**: payment confirmed
+  (`payment_screen.dart`, right after `confirmSubscriptionPayment`
+  succeeds), door opened (`qr_access_screen.dart`, right after
+  `logDoorAccess` succeeds), reservation confirmed
+  (`reserve_event_screen.dart`, right before handing off to
+  `onConfirmed`).
+- **The two named error trigger points**: failed sign-in
+  (`sign_in_screen.dart`'s `SignInFailure` catch, and its generic
+  catch-all too), failed payment (`payment_screen.dart`'s
+  `ConfirmPaymentFailure` catch, and its generic catch-all). Deliberately
+  did NOT add error feedback to door-access or reservation failures --
+  only the two the task explicitly named, matching "a small fixed set,"
+  not "every catch block in the app."
+- **App Settings' Sound Effects / Haptic Feedback rows are real now**
+  (were inert placeholders since decision #47) -- same
+  read/write-`SettingsProvider` pattern as Dark Mode (#59) and Animations
+  (#60).
+- **New test coverage proving the acceptance criterion directly**,
+  `test/app_feedback_test.dart`: records the actual
+  `HapticFeedback`/`SystemSound` platform-channel calls a mocked
+  `SystemChannels.platform` handler receives (rather than trusting the
+  wiring by inspection), across all four on/off combinations of the two
+  toggles -- explicitly proving the independent-gating requirement, plus
+  the no-`SettingsProvider` fallback. `test/app_settings_screen_test.dart`'s
+  old "Sound Effects / Haptic Feedback: drawn at the design state, inert"
+  test replaced with one proving each toggle reads/writes its own
+  `SettingsProvider` field independently (flipping one leaves the other
+  alone).
+
+**Verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+241/241 (9 new: 8 in `app_feedback_test.dart`, 1 replacing the old inert-
+placeholder test). Real-device haptic/sound verification is, like decisions
+#59/#60's look-and-feel checks, the user's own to do -- this environment has
+no physical device or emulator, and haptics are meaningless in a browser
+regardless.
+
+**Sign-off:** every named trigger point fires the right channel(s), gated
+independently and provably (not just by code review) -- **code-side signed
+off; real-device confirmation is still open**, the same honest gap #59/#60
+already established this sprint's pattern for.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

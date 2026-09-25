@@ -4,6 +4,7 @@ import '../../services/remember_me_prefs.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../utils/app_feedback.dart';
 import '../../utils/validators.dart';
 import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
@@ -95,12 +96,14 @@ class _SignInScreenState extends State<SignInScreen> {
       );
     } on SignInFailure catch (e) {
       if (!mounted) return;
+      context.triggerError(); // Sprint 8 Task 4: failed sign-in
       setState(() {
         _isSubmitting = false;
         _credentialsError = e.message;
       });
     } catch (_) {
       if (!mounted) return;
+      context.triggerError();
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Something went wrong. Check your connection and try again.')),

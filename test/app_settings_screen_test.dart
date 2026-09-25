@@ -176,18 +176,43 @@ void main() {
     });
   });
 
-  group('Sound Effects / Haptic Feedback: drawn at the design state, inert', () {
-    testWidgets('both are on and not tappable', (tester) async {
-      await _pump(tester);
+  group('Sound Effects / Haptic Feedback are real (Sprint 8 Task 4)', () {
+    testWidgets('each reflects its own SettingsProvider value and tapping flips only that one', (tester) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
 
-      // Animations is real now (Sprint 8 Task 3) -- its own group above --
-      // Sound Effects and Haptic Feedback are still exactly the inert
-      // placeholders decision #47 left them as.
-      for (final key in ['placeholder-sound-effects', 'placeholder-haptic-feedback']) {
-        final sw = tester.widget<SettingSwitch>(find.byKey(ValueKey(key)));
-        expect(sw.value, isTrue, reason: key);
-        expect(sw.onTap, isNull, reason: key);
-      }
+      expect(settings.soundEnabled, isTrue);
+      expect(settings.hapticsEnabled, isTrue);
+      expect(_isOn(tester, 'sound-effects'), isTrue);
+      expect(_isOn(tester, 'haptic-feedback'), isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('sound-effects')));
+      await tester.pumpAndSettle();
+
+      expect(settings.soundEnabled, isFalse);
+      expect(settings.hapticsEnabled, isTrue); // untouched
+      expect(_isOn(tester, 'sound-effects'), isFalse);
+      expect(_isOn(tester, 'haptic-feedback'), isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('haptic-feedback')));
+      await tester.pumpAndSettle();
+
+      expect(settings.soundEnabled, isFalse); // still off
+      expect(settings.hapticsEnabled, isFalse);
+      expect(_isOn(tester, 'sound-effects'), isFalse);
+      expect(_isOn(tester, 'haptic-feedback'), isFalse);
+    });
+
+    testWidgets('start off when SettingsProvider already has them disabled', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'settings.sound_enabled': false,
+        'settings.haptics_enabled': false,
+      });
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(_isOn(tester, 'sound-effects'), isFalse);
+      expect(_isOn(tester, 'haptic-feedback'), isFalse);
     });
   });
 

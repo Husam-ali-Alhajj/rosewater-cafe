@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_semantic_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/app_feedback.dart';
 
 class GradientButton extends StatelessWidget {
   final String label;
@@ -64,7 +65,16 @@ class GradientButton extends StatelessWidget {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
-            onTap: onPressed,
+            // Sprint 8 Task 4: every primary CTA's press point, wired once
+            // here rather than at each of this button's call sites --
+            // "a small fixed set of real trigger points," not
+            // instrumenting every tap individually.
+            onTap: onPressed == null
+                ? null
+                : () {
+                    context.triggerButtonPress();
+                    onPressed!();
+                  },
             borderRadius: BorderRadius.circular(8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

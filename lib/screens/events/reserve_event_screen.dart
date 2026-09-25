@@ -6,6 +6,7 @@ import '../../models/reservation_summary.dart';
 import '../../services/event_reservation_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../utils/app_feedback.dart';
 import '../../widgets/gradient_button.dart';
 
 /// Reserve an Event screen (Figma node App-12). `eventType`'s four options
@@ -132,6 +133,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
         guestCount: guestCount,
       );
       if (!mounted) return;
+      context.triggerSuccess(); // Sprint 8 Task 4: reservation confirmed
       // Handing off to onConfirmed swaps this whole screen out for
       // ReservationConfirmedScreen (see EventsTab) -- this State gets
       // discarded, not reused, so there's nothing to reset here. The next

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../models/membership_plan.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../utils/app_feedback.dart';
 import '../../utils/payment_validators.dart';
 import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
@@ -62,6 +63,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     try {
       await _subscriptionService.confirmSubscriptionPayment(widget.subscriptionId);
       if (!mounted) return;
+      context.triggerSuccess(); // Sprint 8 Task 4: payment confirmed
       // Card fields are discarded here, never read again after validation —
       // clearing explicitly before navigating away, on top of dispose().
       _cardNumberController.clear();
@@ -73,12 +75,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
     } on ConfirmPaymentFailure catch (e) {
       if (!mounted) return;
+      context.triggerError(); // Sprint 8 Task 4: failed payment
       setState(() {
         _isPaying = false;
         _errorMessage = e.message;
       });
     } catch (_) {
       if (!mounted) return;
+      context.triggerError();
       setState(() {
         _isPaying = false;
         _errorMessage = 'Payment failed. Check your connection and try again.';
