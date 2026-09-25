@@ -7,6 +7,7 @@ import 'services/auth_deep_link_listener.dart';
 import 'services/secure_local_storage.dart';
 import 'services/settings_provider.dart';
 import 'theme/app_theme.dart';
+import 'widgets/app_lock_gate.dart';
 
 /// Shared across the app so `listenForPasswordRecovery` can push the "set
 /// new password" screen from outside any BuildContext, the moment a
@@ -76,6 +77,12 @@ class RosewaterCafeApp extends StatelessWidget {
           darkTheme: AppTheme.dark,
           themeMode: settings.themeMode,
           home: const AppEntryPoint(),
+          // Sprint 8 Task 5: wraps the app's whole navigated content (every
+          // route, regardless of which one is on top) so Auto-Lock's lock
+          // screen can appear on resume no matter where the user was --
+          // MaterialApp's own `builder`, not something bolted onto
+          // AppEntryPoint, which only ever runs once at cold start.
+          builder: (context, child) => AppLockGate(child: child!),
         ),
       ),
     );

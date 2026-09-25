@@ -3946,6 +3946,125 @@ already established this sprint's pattern for.
 
 ---
 
+### 62. Sprint 8 Task 5 — Real Auto-Lock + Biometric login
+
+**Three real decisions, put to the user before building anything** (per the
+standing rule -- this task had the most open architecture questions of the
+sprint):
+
+1. *Where does the lock screen live, and does it gate the whole app or only
+   signed-in screens?* **Chosen: `MaterialApp.builder` wraps the entire
+   navigated app in `AppLockGate`, scoped to signed-in sessions only.**
+   Auto-Lock needs to appear over whatever screen is on top when the app
+   RESUMES, not just at cold start -- `AppEntryPoint`'s existing
+   session-based routing (decision #15) only ever runs once, at the very
+   start, so it can't be where this lives. Nothing sensitive exists before
+   sign-in, so Onboarding/Auth Landing/Sign In are never gated -- locking
+   them would be a confusing dead end, not a security feature.
+2. *Does the very first cold start also require biometric, per the task's
+   own "optionally"?* **Chosen: no, resume-only** -- matches the
+   acceptance criteria exactly (background-past-timeout-then-resume, and
+   the no-biometric fallback), and a cold-start lock check would be a real
+   behavior change to `AppEntryPoint`'s existing flow beyond what either
+   the task or the acceptance bar actually asked for.
+3. *What happens when someone tries to turn Biometric Authentication on but
+   the device has none enrolled?* **Chosen: block it with a real message**
+   (`BiometricService.isAvailable()` checked before the toggle is allowed
+   to flip on at all) -- matches the task's own "fail gracefully... rather
+   than a toggle that silently does nothing" literally. Turning it back
+   off never needs the check.
+
+**What was built:**
+
+- **`local_auth: ^2.3.0`** added. Platform config done, but **unbuildable
+  and unverifiable in this environment** (no Android SDK, no Xcode, no
+  physical device --confirmed via `flutter doctor`): `MainActivity.kt`
+  changed from `FlutterActivity` to `FlutterFragmentActivity` (required for
+  Android's `BiometricPrompt`), `AndroidManifest.xml` gained the
+  `USE_BIOMETRIC` permission, `Info.plist` gained
+  `NSFaceIDUsageDescription`. All three are standard, documented
+  `local_auth` setup steps, not guesses -- but genuinely can't be proven to
+  compile here.
+- **`BiometricService`** (new, `lib/services/biometric_service.dart`): a
+  thin wrapper around `local_auth`'s `LocalAuthentication`, matching this
+  project's constructor-injection pattern for every other real service
+  (`AuthService`, `AccountDeletionService`, ...) so a fake can stand in
+  without a real device. `isAvailable()` checks both
+  `isDeviceSupported()` AND `canCheckBiometrics` (device capable of
+  biometrics at all, AND something actually enrolled) and never throws --
+  any plugin-level error is treated the same as "not available."
+  `authenticate()` uses `biometricOnly: true` deliberately: never falls
+  through to the OS's own device-PIN prompt, so this app's own "Use
+  Password Instead" is the one fallback path, not two stacked ones.
+- **`AppLockGate`** (new, `lib/widgets/app_lock_gate.dart`): a
+  `WidgetsBindingObserver` watching `AppLifecycleState.paused`/`.resumed`
+  specifically (not `.inactive`, which flickers during perfectly normal use
+  -- a system dialog, an incoming call banner -- without the app ever
+  actually leaving the foreground). Records a timestamp on pause; on
+  resume, if there's a signed-in session AND `autoLockEnabled` AND elapsed
+  time exceeds `autoLockTimeoutSeconds`, shows [AppLockScreen] in a `Stack`
+  on top of the app's own content rather than replacing it -- the
+  Navigator underneath keeps its state (scroll position, form values)
+  instead of losing it, since it's covered, not torn down. Takes injectable
+  `now`/`hasSession` functions (default to the real clock / real Supabase
+  session) so tests can control elapsed time and sign-in state without
+  waiting on a real clock or a real session.
+- **`AppLockScreen`** (new, `lib/widgets/app_lock_screen.dart`): fires a
+  biometric prompt automatically (once the first frame is up, not from
+  `initState` directly) when Biometric is on; "Try Again" and "Use Password
+  Instead" are BOTH always visible, never revealed only after a failed
+  attempt -- the acceptance criterion's own point is a real path forward,
+  not a dead end for a device/user without working biometrics. The
+  password path calls the already-existing
+  [AuthService.verifyCurrentPassword] (the same re-authentication check
+  Change Password/Delete Account already use, decision #54) -- reused, not
+  reimplemented.
+- **Security Options' Biometric Authentication and Auto-Lock rows are real
+  now** (were disabled "(Coming Soon)" placeholders since decision #45).
+  **Two-Factor Authentication stays a placeholder** -- a separate later
+  task, not this one.
+- **New test coverage**, each targeting a different layer since none of
+  this can be proven on a real device here: `test/app_lock_gate_test.dart`
+  (7 tests) -- does resuming show the lock screen or not, for every
+  combination (elapsed under/over the timeout, Auto-Lock on/off, signed in
+  or not, a transient `.inactive` blip that never actually paused) --
+  using `tester.binding.handleAppLifecycleStateChanged` to simulate real
+  lifecycle transitions and the injectable clock to control elapsed time
+  without waiting on it. `test/app_lock_screen_test.dart` (7 tests) -- the
+  unlock interaction itself: auto-attempt on show, failed-attempt UI state,
+  the password fallback (right password unlocks, wrong password shows the
+  real error and stays locked), switching back and forth between the two
+  paths. `test/biometric_service_test.dart` (5 tests) -- against a fake
+  `LocalAuthPlatform` (the plugin's own platform interface), not the real
+  plugin: `isAvailable()`'s two independent checks, `authenticate()`
+  swallowing a plugin-level error into `false` rather than throwing.
+  `test/privacy_security_screen_test.dart`'s old "Security Options are
+  disabled placeholders" group split: Two-Factor keeps its own (still
+  accurate) inert-placeholder test; Biometric/Auto-Lock get real ones,
+  including the capability-check-blocks-with-a-message case.
+
+**Verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+264/264 (19 new). **Real-device verification is explicitly NOT done and
+can't be from here** -- no Android SDK, no Xcode, no physical device or
+emulator (`flutter doctor` confirms), and biometrics are meaningless in a
+browser regardless, same root cause as decision #61's sound/haptics gap.
+This is the task this sprint where that gap matters most: the acceptance
+criteria's two real-device scenarios (background-past-timeout-then-resume
+blocking content until biometric succeeds; the no-biometric-capability
+fallback actually working, not a dead end) are UNVERIFIED, not just
+"the polish is the user's call" the way #59/#60's look-and-feel checks were.
+
+**Sign-off:** architecture and logic are real and covered by 19 tests
+proving the decision points directly (not just by inspection) --
+**explicitly not signed off end-to-end.** The user needs to confirm, on an
+actual Android/iOS device or emulator: (1) backgrounding the app past the
+timeout and resuming shows the lock screen and it actually blocks content;
+(2) with biometrics disabled/unavailable, the password fallback is a real
+path forward, not a dead end; (3) the Android/iOS build actually compiles
+with the `MainActivity.kt`/manifest/`Info.plist` changes above.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

@@ -1,9 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:rosewater_cafe/screens/profile/privacy_security_screen.dart';
 import 'package:rosewater_cafe/services/account_deletion_service.dart';
 import 'package:rosewater_cafe/services/auth_service.dart';
+import 'package:rosewater_cafe/services/biometric_service.dart';
+import 'package:rosewater_cafe/services/settings_provider.dart';
 import 'package:rosewater_cafe/widgets/setting_toggle_row.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// A fake with no real `local_auth` platform channel behind it -- a widget
+/// test environment has none, so this stands in, matching the
+/// constructor-injection pattern every other real service in this file's
+/// fakes already follows.
+class _FakeBiometricService extends BiometricService {
+  _FakeBiometricService({this.available = true});
+
+  final bool available;
+  int isAvailableCalls = 0;
+
+  @override
+  Future<bool> isAvailable() async {
+    isAvailableCalls++;
+    return available;
+  }
+}
 
 /// Records every password change / email change the screen asks for, and
 /// lets a test make either fail the way the real ones can. Also stands in
@@ -62,20 +83,30 @@ Future<void> _pump(
   WidgetTester tester, {
   _FakeAuthService? auth,
   _FakeAccountDeletionService? deletion,
+  BiometricService? biometricService,
+  SettingsProvider? settings,
   Future<void> Function(BuildContext)? onAccountDeleted,
 }) async {
   tester.view.physicalSize = const Size(800, 3000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  // Security Options' Biometric Authentication / Auto-Lock rows are real
+  // now (Sprint 8 Task 5) -- they read/write SettingsProvider, so this
+  // screen needs one in its own widget tree here too, same as App
+  // Settings' own test file.
   await tester.pumpWidget(
-    MaterialApp(
-      home: PrivacySecurityScreen(
-        authService: auth ?? _FakeAuthService(),
-        accountDeletionService: deletion ?? _FakeAccountDeletionService(),
-        // Real default is signOutAndShowLanding, which needs a live Supabase
-        // client -- tests substitute a harmless no-op unless one wants to
-        // prove this step runs (see the "confirming" test below).
-        onAccountDeleted: onAccountDeleted ?? (_) async {},
+    ChangeNotifierProvider<SettingsProvider>.value(
+      value: settings ?? await SettingsProvider.load(),
+      child: MaterialApp(
+        home: PrivacySecurityScreen(
+          authService: auth ?? _FakeAuthService(),
+          accountDeletionService: deletion ?? _FakeAccountDeletionService(),
+          biometricService: biometricService ?? _FakeBiometricService(),
+          // Real default is signOutAndShowLanding, which needs a live Supabase
+          // client -- tests substitute a harmless no-op unless one wants to
+          // prove this step runs (see the "confirming" test below).
+          onAccountDeleted: onAccountDeleted ?? (_) async {},
+        ),
       ),
     ),
   );
@@ -111,6 +142,8 @@ Future<void> _fill(WidgetTester tester, {String current = 'OldPass1', String nex
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   group('layout', () {
     testWidgets('shows the three cards and every row from the design', (tester) async {
       await _pump(tester);
@@ -140,28 +173,81 @@ void main() {
     });
   });
 
-  group('Security Options are disabled placeholders', () {
-    const keys = ['placeholder-biometric', 'placeholder-two-factor', 'placeholder-auto-lock'];
-
-    testWidgets('all three are off, disabled, and marked Coming Soon', (tester) async {
+  group('Two-Factor Authentication is still a disabled placeholder', () {
+    testWidgets('off, disabled, and marked Coming Soon', (tester) async {
       await _pump(tester);
 
-      expect(find.text('(Coming Soon)'), findsNWidgets(3));
-      for (final key in keys) {
-        final sw = tester.widget<SettingSwitch>(find.byKey(ValueKey(key)));
-        expect(sw.value, isFalse, reason: key); // even Auto-Lock, which the design draws on
-        expect(sw.onTap, isNull, reason: key); // no handler: cannot be flipped
-      }
+      expect(find.text('(Coming Soon)'), findsOneWidget);
+      final sw = tester.widget<SettingSwitch>(find.byKey(const ValueKey('placeholder-two-factor')));
+      expect(sw.value, isFalse);
+      expect(sw.onTap, isNull);
     });
 
-    testWidgets('tapping one changes nothing', (tester) async {
+    testWidgets('tapping it changes nothing', (tester) async {
       await _pump(tester);
 
-      for (final key in keys) {
-        await tester.tap(find.byKey(ValueKey(key)), warnIfMissed: false);
-        await tester.pumpAndSettle();
-        expect(tester.widget<SettingSwitch>(find.byKey(ValueKey(key))).value, isFalse, reason: key);
-      }
+      await tester.tap(find.byKey(const ValueKey('placeholder-two-factor')), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SettingSwitch>(find.byKey(const ValueKey('placeholder-two-factor'))).value, isFalse);
+    });
+  });
+
+  group('Auto-Lock is real (Sprint 8 Task 5)', () {
+    testWidgets('reflects SettingsProvider.autoLockEnabled and tapping flips it', (tester) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(settings.autoLockEnabled, isFalse); // decision #45's original reasoning: never on by default
+      expect(tester.widget<SettingSwitch>(find.byKey(const ValueKey('auto-lock'))).value, isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('auto-lock')));
+      await tester.pumpAndSettle();
+
+      expect(settings.autoLockEnabled, isTrue);
+      expect(tester.widget<SettingSwitch>(find.byKey(const ValueKey('auto-lock'))).value, isTrue);
+    });
+  });
+
+  group('Biometric Authentication is real (Sprint 8 Task 5)', () {
+    testWidgets('turning it on checks device capability first, and enables it when available', (tester) async {
+      final settings = await SettingsProvider.load();
+      final biometrics = _FakeBiometricService(available: true);
+      await _pump(tester, settings: settings, biometricService: biometrics);
+
+      expect(settings.biometricEnabled, isFalse);
+      await tester.tap(find.byKey(const ValueKey('biometric-authentication')));
+      await tester.pumpAndSettle();
+
+      expect(biometrics.isAvailableCalls, 1);
+      expect(settings.biometricEnabled, isTrue);
+      expect(tester.widget<SettingSwitch>(find.byKey(const ValueKey('biometric-authentication'))).value, isTrue);
+    });
+
+    testWidgets('turning it on when unavailable shows a real message and stays off', (tester) async {
+      final settings = await SettingsProvider.load();
+      final biometrics = _FakeBiometricService(available: false);
+      await _pump(tester, settings: settings, biometricService: biometrics);
+
+      await tester.tap(find.byKey(const ValueKey('biometric-authentication')));
+      await tester.pumpAndSettle();
+
+      expect(biometrics.isAvailableCalls, 1);
+      expect(settings.biometricEnabled, isFalse);
+      expect(tester.widget<SettingSwitch>(find.byKey(const ValueKey('biometric-authentication'))).value, isFalse);
+      expect(find.textContaining('No biometrics available'), findsOneWidget);
+    });
+
+    testWidgets('turning it off never checks device capability', (tester) async {
+      final settings = await SettingsProvider.load();
+      await settings.setBiometricEnabled(true);
+      final biometrics = _FakeBiometricService(available: true);
+      await _pump(tester, settings: settings, biometricService: biometrics);
+
+      await tester.tap(find.byKey(const ValueKey('biometric-authentication')));
+      await tester.pumpAndSettle();
+
+      expect(biometrics.isAvailableCalls, 0);
+      expect(settings.biometricEnabled, isFalse);
     });
   });
 

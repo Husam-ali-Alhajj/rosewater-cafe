@@ -58,6 +58,9 @@ dependencies:
   # Formatting dates (event reservations, membership "valid until")
   intl: ^0.19.0
 
+  # Sprint 8 Task 5: Auto-Lock + Biometric login -- Face ID/Touch ID/fingerprint
+  local_auth: ^2.3.0
+
   # The Figma design uses Inter as its typeface throughout the app
   google_fonts: ^6.2.1
 
@@ -68,6 +71,10 @@ dev_dependencies:
   # Used only in tests, to fake the secure-storage platform channel so
   # SecureLocalStorage's read/write logic can be tested without a device
   flutter_secure_storage_platform_interface: ^1.1.2
+
+  # Used only in tests, to fake local_auth's platform channel so
+  # BiometricService's logic can be tested without a real device
+  local_auth_platform_interface: ^1.1.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

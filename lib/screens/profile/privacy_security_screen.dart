@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../services/account_deletion_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/biometric_service.dart';
+import '../../services/settings_provider.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../utils/validators.dart';
 import '../../widgets/app_page_route.dart';
@@ -28,15 +31,16 @@ const _hairline = 0.515; // Figma's fractional hairline stroke width
 /// Privacy & Security (Figma frames 1217:2644 / 1217:2946): Security Options,
 /// Password, and Privacy.
 ///
-/// **Security Options are disabled placeholders** (decision #45, confirmed
-/// with the project owner): Biometric Authentication, Two-Factor
-/// Authentication and Auto-Lock are drawn as in the design but switched off,
-/// dimmed, inert, and marked "(Coming Soon)" -- the way the design already
-/// labels Dark Mode. Nothing is stored and nothing is enforced. They are shown
-/// off (the design draws Auto-Lock on) so nothing looks like it is protecting
-/// the account when it isn't. "Lock after inactivity" and "require biometric to
-/// unlock" are two different features that share the Auto-Lock toggle; neither
-/// is built.
+/// **Biometric Authentication and Auto-Lock are real** (Sprint 8 Task 5,
+/// decision #62). Auto-Lock reads/writes `SettingsProvider.autoLockEnabled`;
+/// [AppLockGate] (mounted once, above `MaterialApp` in `main.dart`) is what
+/// actually tracks elapsed background time and shows the lock screen on
+/// resume -- this row is just the switch. Biometric Authentication checks
+/// [BiometricService.isAvailable] before it's allowed to turn on at all
+/// ("fail gracefully... rather than a toggle that silently does nothing");
+/// turning it off never needs that check. **Two-Factor Authentication stays
+/// a disabled placeholder** (decision #45) -- a separate later task, not
+/// this one.
 ///
 /// **Change Password is real.** It asks for the CURRENT password first and
 /// re-authenticates with it before anything is changed (see
@@ -76,6 +80,11 @@ class PrivacySecurityScreen extends StatefulWidget {
   final AuthService authService;
   final AccountDeletionService accountDeletionService;
 
+  /// Passed straight through to `_SecurityOptionsCard` -- private to this
+  /// file, so a test can't construct it directly and inject a fake here
+  /// instead, the same shape as [authService]/[accountDeletionService].
+  final BiometricService biometricService;
+
   /// What runs right after the account is deleted server-side. Defaults to
   /// [signOutAndShowLanding] -- the real thing, which needs a live Supabase
   /// client. Overridable so this can be proven without one (widget tests
@@ -88,6 +97,7 @@ class PrivacySecurityScreen extends StatefulWidget {
     super.key,
     this.authService = const AuthService(),
     this.accountDeletionService = const AccountDeletionService(),
+    this.biometricService = const BiometricService(),
     this.onAccountDeleted,
   });
 
@@ -373,7 +383,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
               children: [
                 ScreenHeader(title: 'Privacy & Security', onBack: () => Navigator.of(context).pop()),
                 const SizedBox(height: 24),
-                const _SecurityOptionsCard(),
+                _SecurityOptionsCard(biometricService: widget.biometricService),
                 const SizedBox(height: 24),
                 _SectionCard(
                   title: 'Password',
@@ -766,12 +776,47 @@ class _SectionCard extends StatelessWidget {
 /// The gradient-banded "Security Options" card (Figma node 1217:2653): a 60px
 /// band with a shield icon and title, then the three toggles 24px apart. All
 /// three are disabled placeholders -- see [PrivacySecurityScreen].
-class _SecurityOptionsCard extends StatelessWidget {
-  const _SecurityOptionsCard();
+class _SecurityOptionsCard extends StatefulWidget {
+  final BiometricService biometricService;
+
+  const _SecurityOptionsCard({this.biometricService = const BiometricService()});
+
+  @override
+  State<_SecurityOptionsCard> createState() => _SecurityOptionsCardState();
+}
+
+class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
+  bool _checkingBiometric = false;
+
+  Future<void> _toggleBiometric(SettingsProvider settings) async {
+    if (_checkingBiometric) return;
+    if (settings.biometricEnabled) {
+      // Turning it off never needs a capability check.
+      await settings.setBiometricEnabled(false);
+      return;
+    }
+    setState(() => _checkingBiometric = true);
+    final available = await widget.biometricService.isAvailable();
+    if (!mounted) return;
+    setState(() => _checkingBiometric = false);
+    if (!available) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No biometrics available on this device. Set up a fingerprint or face unlock first.'),
+        ),
+      );
+      return;
+    }
+    await settings.setBiometricEnabled(true);
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    // `watch`, not `read` -- this card's own switches (Biometric, Auto-Lock)
+    // need to reflect SettingsProvider immediately, same reasoning as every
+    // other real toggle this sprint.
+    final settings = context.watch<SettingsProvider>();
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -803,16 +848,15 @@ class _SecurityOptionsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          const SettingToggleRow(
+          SettingToggleRow(
             icon: Icons.fingerprint,
             iconSize: 20,
             label: 'Biometric Authentication',
             description: 'Use fingerprint or face ID to sign in',
-            value: false,
-            onToggle: null, // placeholder: disabled
+            value: settings.biometricEnabled,
+            onToggle: _checkingBiometric ? null : () => _toggleBiometric(settings),
             showDivider: true,
-            note: '(Coming Soon)',
-            switchKey: ValueKey('placeholder-biometric'),
+            switchKey: const ValueKey('biometric-authentication'),
           ),
           const SizedBox(height: 24),
           const SettingToggleRow(
@@ -821,22 +865,21 @@ class _SecurityOptionsCard extends StatelessWidget {
             label: 'Two-Factor Authentication',
             description: 'Add an extra layer of security',
             value: false,
-            onToggle: null,
+            onToggle: null, // a separate later task, not #62 -- decision #45
             showDivider: true,
             note: '(Coming Soon)',
             switchKey: ValueKey('placeholder-two-factor'),
           ),
           const SizedBox(height: 24),
-          const SettingToggleRow(
+          SettingToggleRow(
             icon: Icons.lock_outline,
             iconSize: 20,
             label: 'Auto-Lock',
             description: 'Automatically lock app when inactive',
-            value: false,
-            onToggle: null,
+            value: settings.autoLockEnabled,
+            onToggle: () => settings.setAutoLockEnabled(!settings.autoLockEnabled),
             showDivider: false,
-            note: '(Coming Soon)',
-            switchKey: ValueKey('placeholder-auto-lock'),
+            switchKey: const ValueKey('auto-lock'),
           ),
         ],
       ),
