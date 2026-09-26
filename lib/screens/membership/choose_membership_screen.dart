@@ -4,6 +4,7 @@ import '../../models/membership_plan.dart';
 import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../utils/membership_localization.dart';
 import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
@@ -292,7 +293,7 @@ class _MembershipCard extends StatelessWidget {
           const SizedBox(height: 48),
           Column(
             children: [
-              for (final bullet in plan.featureBullets)
+              for (final bullet in localizedFeatureBullets(plan, l10n))
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(

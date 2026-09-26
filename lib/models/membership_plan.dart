@@ -39,10 +39,11 @@ class MembershipPlan {
 
   int get priceDollars => priceCents ~/ 100;
 
-  List<String> get featureBullets => [
-    hookahLimit == null ? 'Unlimited Hookah' : '$hookahLimit Hookah sessions/month',
-    drinksLimit == null ? 'Unlimited Drinks' : '$drinksLimit Drinks included',
-    'Bring $maxGuests guest${maxGuests == 1 ? '' : 's'}',
-    ...features,
-  ];
+  // The English-only bullet list this getter used to build (Unlimited
+  // Hookah/Drinks, "Bring N guest(s)", plus the raw `features` strings
+  // verbatim) is gone -- every caller needs real Arabic text now, and this
+  // is a plain data model with no BuildContext to translate through.
+  // See `utils/membership_localization.dart`'s `localizedFeatureBullets`,
+  // which both of this getter's two call sites (Choose Membership, Home's
+  // Benefits card) now use instead.
 }

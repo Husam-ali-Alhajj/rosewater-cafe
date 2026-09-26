@@ -8,6 +8,7 @@ import '../../services/subscription_service.dart';
 import '../../services/usage_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../utils/membership_localization.dart';
 import '../../utils/service_hours.dart';
 import '../../widgets/app_page_route.dart';
 import '../../widgets/coming_soon_screen.dart';
@@ -807,7 +808,7 @@ class _ServiceHoursRow extends StatelessWidget {
 }
 
 /// Membership Benefits card (Figma node 1217:3673). Deliberately renders
-/// [MembershipPlan.featureBullets] -- the exact getter Choose Membership's
+/// [localizedFeatureBullets] -- the exact same helper Choose Membership's
 /// own cards already call, not a hand-copied list -- so this card and
 /// Choose Membership can't drift out of sync for the same plan (#31).
 class _BenefitsCard extends StatelessWidget {
@@ -817,9 +818,7 @@ class _BenefitsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Real data from the plan, never translated (same reasoning as the
-    // plan name itself in _MembershipStatusCard.memberSuffix).
-    final bullets = plan.featureBullets;
+    final bullets = localizedFeatureBullets(plan, AppLocalizations.of(context));
     final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),

@@ -153,6 +153,38 @@
     "placeholders": {"plan": {"type": "String"}}
   },
 
+  "unlimitedHookahFeature": "Unlimited Hookah",
+  "@unlimitedHookahFeature": {"description": "Plan bullet (Choose Membership + Home Benefits) when hookah_limit is null"},
+  "hookahSessionsPerMonth": "{count} Hookah sessions/month",
+  "@hookahSessionsPerMonth": {
+    "description": "Plan bullet (Choose Membership + Home Benefits) with a numeric hookah_limit",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "unlimitedDrinksFeature": "Unlimited Drinks",
+  "@unlimitedDrinksFeature": {"description": "Plan bullet (Choose Membership + Home Benefits) when drinks_limit is null"},
+  "drinksIncludedCount": "{count} Drinks included",
+  "@drinksIncludedCount": {
+    "description": "Plan bullet (Choose Membership + Home Benefits) with a numeric drinks_limit",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "bringGuestBulletSingular": "Bring 1 guest",
+  "@bringGuestBulletSingular": {"description": "Plan bullet (Choose Membership + Home Benefits), max_guests == 1"},
+  "bringGuestBulletPlural": "Bring {max} guests",
+  "@bringGuestBulletPlural": {
+    "description": "Plan bullet (Choose Membership + Home Benefits), max_guests > 1",
+    "placeholders": {"max": {"type": "int"}}
+  },
+
+  "planFeatureStandardSeating": "Standard seating",
+  "planFeatureMemberDiscounts": "Member discounts",
+  "planFeaturePrioritySeating": "Priority seating",
+  "planFeatureWeekendAccess": "Weekend access",
+  "planFeaturePrivateBooth": "Private booth",
+  "planFeature247Access": "24/7 access",
+  "planFeatureEventPriority": "Event priority",
+  "planFeatureExclusiveMenu": "Exclusive menu",
+  "@planFeatureStandardSeating": {"description": "membership_plans.features -- real DB content from a small fixed catalog (see the Task 2 migration); translated by exact-string lookup in utils/membership_localization.dart, unrecognized strings fall back to the raw DB value"},
+
   "couldNotLoadDetailsError": "Could not load your details. Check your connection and try again.",
   "takePhoto": "Take Photo",
   "chooseFromGallery": "Choose from Gallery",

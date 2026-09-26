@@ -9,6 +9,7 @@ import 'package:rosewater_cafe/models/profile.dart';
 import 'package:rosewater_cafe/models/usage_allowance.dart';
 import 'package:rosewater_cafe/screens/home/home_screen.dart';
 import 'package:rosewater_cafe/services/subscription_service.dart';
+import 'package:rosewater_cafe/utils/membership_localization.dart';
 
 MembershipPlan _plan(String name, {int? hookah = 20, int? drinks = 20, int maxGuests = 2}) => MembershipPlan(
   id: 'plan-$name',
@@ -173,12 +174,13 @@ void main() {
     expect(find.textContaining('Full service available', findRichText: true), findsNothing);
   });
 
-  testWidgets('benefits list is the plan\'s own featureBullets', (tester) async {
+  testWidgets('benefits list is the plan\'s own localized feature bullets', (tester) async {
     final plan = _plan('Premium');
     await _pump(tester, plan: plan);
 
     expect(find.text('Membership Benefits'), findsOneWidget);
-    for (final bullet in plan.featureBullets) {
+    final l10n = AppLocalizations.of(tester.element(find.text('Membership Benefits')));
+    for (final bullet in localizedFeatureBullets(plan, l10n)) {
       expect(find.text('• $bullet'), findsOneWidget, reason: bullet);
     }
   });
@@ -261,12 +263,21 @@ void main() {
         'ساعات الخدمة الكاملة',
         'ساعات الخدمة الذاتية',
         'مزايا العضوية',
+        '• أولوية في الجلوس', // localizedFeatureBullets -- the plan's own real "Priority seating" perk
+        '• خصومات للأعضاء', // localizedFeatureBullets -- "Member discounts"
       ]) {
         expect(find.text(text), findsWidgets, reason: text);
       }
 
       // No missing-key fallback to the English original anywhere on screen.
-      for (final english in ['Membership Status', 'Access Café', 'Reserve Event', 'Service Hours']) {
+      for (final english in [
+        'Membership Status',
+        'Access Café',
+        'Reserve Event',
+        'Service Hours',
+        '• Priority seating', // the plan's raw DB feature string -- must be translated, not leaked
+        '• Member discounts',
+      ]) {
         expect(find.text(english), findsNothing, reason: english);
       }
     });

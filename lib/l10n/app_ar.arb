@@ -103,6 +103,22 @@
   "selectingEllipsis": "جارٍ الاختيار…",
   "selectPlanButton": "اختيار {plan}",
 
+  "unlimitedHookahFeature": "شيشة غير محدودة",
+  "hookahSessionsPerMonth": "{count} جلسة شيشة شهريًا",
+  "unlimitedDrinksFeature": "مشروبات غير محدودة",
+  "drinksIncludedCount": "{count} مشروب ضمن الاشتراك",
+  "bringGuestBulletSingular": "إحضار ضيف واحد",
+  "bringGuestBulletPlural": "إحضار حتى {max} ضيوف",
+
+  "planFeatureStandardSeating": "مقاعد عادية",
+  "planFeatureMemberDiscounts": "خصومات للأعضاء",
+  "planFeaturePrioritySeating": "أولوية في الجلوس",
+  "planFeatureWeekendAccess": "دخول في عطلة نهاية الأسبوع",
+  "planFeaturePrivateBooth": "مقصورة خاصة",
+  "planFeature247Access": "دخول على مدار الساعة",
+  "planFeatureEventPriority": "أولوية حضور الفعاليات",
+  "planFeatureExclusiveMenu": "قائمة حصرية",
+
   "couldNotLoadDetailsError": "تعذر تحميل بياناتك. تحقق من اتصالك وحاول مرة أخرى.",
   "takePhoto": "التقاط صورة",
   "chooseFromGallery": "الاختيار من المعرض",

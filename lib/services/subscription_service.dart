@@ -26,10 +26,11 @@ class StartSubscriptionFailure implements Exception {
 /// Wrapping the real [MembershipPlan] -- rather than re-declaring
 /// `hookahLimit`/`drinksLimit`/`features` a second time on this class --
 /// is deliberate: Task 7 needs the exact same benefits list Choose
-/// Membership already renders via [MembershipPlan.featureBullets], and
-/// the only way to guarantee the two screens can never drift apart is for
-/// both to call the same getter on the same model, not two independently
-/// maintained copies of the same logic.
+/// Membership already renders via `localizedFeatureBullets`
+/// (utils/membership_localization.dart), and the only way to guarantee
+/// the two screens can never drift apart is for both to call the same
+/// helper on the same model, not two independently maintained copies of
+/// the same logic.
 class ActiveMembership {
   final MembershipPlan plan;
   final DateTime validUntil;
