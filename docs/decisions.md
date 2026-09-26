@@ -4320,6 +4320,146 @@ same scope boundary as `Validators`.
 
 ---
 
+### 65. Sprint 9 Task 1 — Notifications schema
+
+Answers the open question this same file already flagged below
+("Notifications feed and its backing schema... all undecided", raised by
+Sprint 3 Task 8): a notification here is a payment activation or an event
+reservation confirmation, in-app only, read/unread tracked by a real
+`is_read` flag. The `notifications` table itself already existed
+(initial_schema.sql) but nothing had ever written to it -- this task is
+what makes it real, and locks it down properly now that it's about to
+hold real content. **Scope note: this is the backing schema only** --
+the Home bell (decision #32) stays the same stub screen it's always
+been; wiring an actual feed UI to read this table is its own future
+task, not attempted here.
+
+**Migration:** `20260928100000_notifications_schema_and_triggers.sql`.
+
+- **`related_id`** (new, nullable `uuid`): points at whichever
+  `subscriptions.id`/`event_reservations.id` triggered the row. Not a
+  foreign key -- one column can't reference two different tables, so
+  referential integrity here is the inserting function's job (it always
+  writes a row id it just created/updated in the same transaction), not
+  the schema's.
+- **INSERT dropped entirely, no replacement** -- same "RLS enabled, zero
+  INSERT policies, client default-denied" pattern already proven live for
+  `subscriptions` (decision #16: a raw insert as `authenticated` got a
+  real `42501`, not a silent pass). Every notification row is now
+  server-side-only, same as `door_access_logs`.
+- **UPDATE: RLS alone was never going to be enough.** The existing
+  own-row `USING`/`WITH CHECK` policy already correctly scopes WHICH ROWS
+  a client can touch, and is left alone -- but RLS row policies have no
+  way to restrict WHICH COLUMNS an UPDATE touches, and this table's only
+  legitimately client-editable field is `is_read`. Fixed with a
+  column-level GRANT instead: `revoke update on notifications from
+  authenticated` (removing the blanket UPDATE Supabase grants every new
+  table by default) then `grant update (is_read) on notifications to
+  authenticated`. A client PATCHing `is_read` still works exactly as
+  before; a client trying to also touch `title`/`body`/`type` on a row it
+  genuinely owns now gets a real Postgres `permission denied for column`,
+  enforced before RLS is even consulted -- not just discouraged by a
+  policy a crafted request could still satisfy.
+- **`confirm_subscription_payment` and `create_event_reservation`** (both
+  already `SECURITY DEFINER`, both already the only path that can write
+  their respective tables) each gained one more `insert` into
+  `notifications`, inside the same function, same transaction -- no new
+  trigger mechanism. Content is read back from what each function itself
+  just validated/computed (the real plan name + the `valid_until` it set;
+  the real event type/date/guest count it already range-checked), never
+  re-derived from anything client-supplied beyond the already-validated
+  parameters.
+
+**Verification method, changed out of necessity, disclosed rather than
+glossed over:** this project's own standing rule (decision #16's
+correction) is that Supabase SQL Editor / live role-impersonation
+verification is driven directly against the real project, not handed to
+the user as a script. **Could not do that here** -- this session's
+network egress to the project's own Supabase host
+(`iliayouejnpkgicvudtv.supabase.co`) is blocked by this environment
+(`CONNECT tunnel failed, response 403`), the same restriction that
+already blocked Figma and font.thmanyah.com earlier this same session,
+not something specific to Supabase.
+
+So instead of the real project, **verified against a from-scratch local
+Postgres 16 instance built to be a faithful stand-in**, not a toy schema:
+every real migration file in `supabase/migrations/` (in order, unmodified,
+skipping only `expire_subscriptions_cron.sql` -- pg_cron isn't installed
+locally and it has zero relationship to notifications) replayed against
+it cleanly with zero errors, including this task's own migration. The
+stand-in reproduces the two Supabase-platform behaviors this project's
+own migrations already depend on and work around: `auth.uid()` reading
+the `sub` claim off a `request.jwt.claims` setting (exactly what `set
+local request.jwt.claims = '...'` populates), and -- via an event trigger
+firing on every `CREATE TABLE`/`CREATE FUNCTION` -- the automatic
+per-object grant to `anon`/`authenticated`/`service_role` that decision
+#16 first identified as the reason a bare `revoke ... from public` isn't
+enough on Supabase. Without reproducing that second part, this
+migration's own `revoke update ... from authenticated` would have had
+nothing real to revoke, and the column-grant test would have passed for
+the wrong reason (no privilege at all, rather than a narrowed one).
+
+**All five acceptance points confirmed, real output below** (seeded a
+real `auth.users` row -- through the real `handle_new_user` trigger, not
+a hand-inserted profile -- a real membership plan, and a second unrelated
+user for isolation; impersonated `authenticated` via `set local role` +
+`request.jwt.claims`, the same mechanism decision #16 established):
+
+1. **INSERT blocked entirely**, even with the caller's own real
+   `user_id`: `ERROR: new row violates row-level security policy for
+   table "notifications"`.
+2. **UPDATE of `is_read` succeeds** on the caller's own row: `UPDATE 1`,
+   re-selected value `is_read = true`.
+3. **UPDATE of `title` fails on the exact same row** `is_read` just
+   succeeded on two statements earlier (so this is the column grant
+   firing, not a stale/wrong row): `ERROR: permission denied for table
+   notifications` -- a real Postgres privilege error, not a silent
+   no-op and not an RLS row-filter (confirmed distinct from #4 below,
+   which IS a silent RLS no-op, as expected for a different row).
+4. **A real `confirm_subscription_payment` call produced a matching
+   notification row**, inspected after commit:
+   `type='subscription_activated'`, `title='Membership Activated'`,
+   `body='Your TestPlan membership is now active until Oct 26, 2026.'`
+   (the real seeded plan's name, the real `valid_until` the function
+   itself just computed), `related_id` equal to the real subscription id
+   `confirm_subscription_payment` returned, `is_read=false`.
+5. **A real `create_event_reservation('Birthday', <date>, '19:00', 3, 10)`
+   call produced a matching notification row**: `type=
+   'event_reservation_confirmed'`, `title='Event Reservation Confirmed'`,
+   `body='Your Birthday reservation on Oct 03, 2026 at 07:00 PM for 10
+   guests is confirmed.'` (the real event type/date/time/guest count just
+   passed in), `related_id` equal to the real reservation id, `is_read=false`.
+
+Bonus check run alongside #3: the same UPDATE of `is_read = true`
+against a row belonging to the *second* seeded user returned `UPDATE 0`
+-- silently row-filtered by RLS, not an error, confirming the two
+enforcement layers are doing the jobs they're each supposed to (RLS for
+rows, the column grant for columns), not overlapping or leaving a gap
+between them.
+
+One real bug this local replay caught before it ever reached a live
+project: the first draft of `create_event_reservation`'s notification
+body called `to_char(p_start_time, ...)` directly on the bare `time`
+parameter -- `to_char` has no overload for `time` and no implicit cast
+gets it there either, so `CREATE OR REPLACE FUNCTION` itself would have
+failed immediately (`check_function_bodies` catches this at creation,
+not first call). Fixed by combining it with the date first
+(`p_event_date + p_start_time`, Postgres's own `date + time -> timestamp`
+operator) before formatting -- confirmed by the real "07:00 PM" in
+result #5 above.
+
+**What this method does not claim:** Supabase's actual JWT
+verification/issuance, GoTrue's own triggers beyond the two ported
+verbatim (`handle_new_user`, `sync_profile_email`), and real
+storage/pg_cron behavior are not reproduced, only stubbed enough for
+unrelated migrations to replay without error. Nothing about this task
+touches any of those, so the gap doesn't bear on what's being verified
+here -- but it's why this is "a faithful local replica," not "the same
+thing as testing the real project," and worth re-confirming once this
+session (or any session) has real network access to the project itself.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before
@@ -4386,15 +4526,14 @@ need to think about them now:
   setting only (`shared_preferences`), no table. Moving them to the backend stays
   tied to the open notifications-feed question below.
 - **Notifications feed and its backing schema** (raised explicitly by
-  Sprint 3, Task 8): what a notification actually is here (payment
-  receipts? event reminders? door-access alerts? some mix?), whether it
-  needs its own table or is synthesized from existing tables
-  (`subscriptions`, `door_access_logs`, `event_reservations`), how
-  read/unread state is tracked, and whether delivery
-  is in-app-only or also push/email — all undecided. The Home bell
-  (decision #32) deliberately stays a stub with no unread-count badge
-  until this is answered, rather than a schema getting invented to make
-  a badge number appear.
+  Sprint 3, Task 8): **the backing schema half is answered by decision
+  #65** — a notification is a payment activation or an event reservation
+  confirmation, its own real table (already existed, now actually written
+  to and locked down), read/unread tracked by a real `is_read` column,
+  in-app only (no push/email — not attempted). **Still open:** the Home
+  bell (decision #32) deliberately stays the same stub screen, no
+  unread-count badge, until an actual feed UI reading this table gets
+  built as its own task.
 
 ---
 
