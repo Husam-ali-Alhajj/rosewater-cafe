@@ -327,7 +327,7 @@ class _IdUploadScreenState extends State<IdUploadScreen> {
                     // TextAlign.start, not physical TextAlign.left (Sprint 8
                     // Task 6).
                     textAlign: TextAlign.start,
-                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.w500, letterSpacing: 0.4, color: colors.textPrimary),
+                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 48),
                   _ReadOnlyField(label: l10n.fullNameLabel, value: profile.fullName),

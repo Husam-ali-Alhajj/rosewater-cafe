@@ -129,7 +129,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       Text(
                         l10n.completePayment,
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500, letterSpacing: 0.07, color: colors.textPrimary),
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 0.07, color: colors.textPrimary),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -171,7 +171,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 ),
                                 Text(
                                   '\$${plan.priceDollars}',
-                                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w400, letterSpacing: 0.07, color: colors.textPrimary),
+                                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 0.07, color: colors.textPrimary),
                                 ),
                               ],
                             ),

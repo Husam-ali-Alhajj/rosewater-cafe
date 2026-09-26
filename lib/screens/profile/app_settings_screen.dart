@@ -242,7 +242,7 @@ class _Card extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                     height: 28 / 18,
                     letterSpacing: -0.44,
                     color: gradientHeader ? Colors.white : colors.textPrimary,

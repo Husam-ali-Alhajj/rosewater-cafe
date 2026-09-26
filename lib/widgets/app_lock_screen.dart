@@ -128,7 +128,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
                   const SizedBox(height: 24),
                   Text(
                     l10n.appLockedTitle,
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: colors.textPrimary),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 8),
                   Text(

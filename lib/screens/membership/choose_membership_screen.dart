@@ -132,7 +132,7 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
                               l10n.chooseYourMembership,
                               style: TextStyle(
                                 fontSize: 36,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w700,
                                 letterSpacing: 0.37,
                                 color: colors.textPrimary,
                               ),
@@ -263,7 +263,7 @@ class _MembershipCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             plan.name,
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500, letterSpacing: 0.07, color: colors.textPrimary),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 0.07, color: colors.textPrimary),
           ),
           const SizedBox(height: 4),
           RichText(
@@ -273,7 +273,7 @@ class _MembershipCard extends StatelessWidget {
                   text: '\$${plan.priceDollars}',
                   style: TextStyle(
                     fontSize: 36,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 0.37,
                     color: colors.textPrimary,
                   ),

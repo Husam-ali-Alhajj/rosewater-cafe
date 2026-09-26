@@ -136,7 +136,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
                 Text(
                   l10n.doorAccessHeading,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: colors.textPrimary),
+                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: colors.textPrimary),
                 ),
                 const SizedBox(height: 48),
                 _buildQrSection(colors, l10n),
@@ -220,7 +220,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
       children: [
         Text(
           l10n.howManyPeopleQuestion,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colors.textPrimary),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colors.textPrimary),
         ),
         const SizedBox(height: 12),
         Text(
@@ -243,7 +243,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
                     const SizedBox(width: 8),
                     Text(
                       '$_guestCount',
-                      style: TextStyle(fontSize: 30, fontWeight: FontWeight.w400, color: colors.textPrimary),
+                      style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: colors.textPrimary),
                     ),
                   ],
                 ),

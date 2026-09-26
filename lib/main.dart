@@ -73,7 +73,7 @@ class RosewaterCafeApp extends StatelessWidget {
         builder: (context, settings, _) {
           // Inter (this app's Latin typeface) has no Arabic glyphs at all,
           // so it can't just stay the fontFamily when the locale is Arabic
-          // -- see AppTheme's own doc comment on why Cairo, specifically,
+          // -- see AppTheme's own doc comment on why Noto Naskh Arabic,
           // replaces it. Re-evaluated on every rebuild (this Consumer
           // already rebuilds on any SettingsProvider change, locale
           // included), so switching languages in App Settings swaps the

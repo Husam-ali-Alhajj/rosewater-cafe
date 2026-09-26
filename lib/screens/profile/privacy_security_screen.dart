@@ -762,7 +762,7 @@ class _SectionCard extends StatelessWidget {
               title,
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
                 height: 28 / 18,
                 letterSpacing: -0.44,
                 color: colors.textPrimary,
@@ -841,7 +841,7 @@ class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
                   l10n.securityOptionsTitle,
                   style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                     height: 28 / 18,
                     letterSpacing: -0.44,
                     color: Colors.white,

@@ -49,7 +49,7 @@ class ScreenHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 26,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
                 height: 40 / 26,
                 letterSpacing: 0.369,
                 color: colors.textPrimary,

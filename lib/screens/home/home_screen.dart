@@ -332,7 +332,7 @@ class _HomeHeader extends StatelessWidget {
                 firstName == null ? l10n.welcomeGeneric : l10n.welcomeNamed(firstName),
                 style: TextStyle(
                   fontSize: 36,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w700,
                   height: 40 / 36,
                   letterSpacing: 0.369,
                   color: context.colors.textPrimary,
@@ -469,7 +469,7 @@ class _MembershipStatusCard extends StatelessWidget {
                           l10n.memberSuffix(membership.planName),
                           style: const TextStyle(
                             fontSize: 30,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w700,
                             height: 36 / 30,
                             letterSpacing: 0.4,
                             color: Colors.white,
@@ -585,6 +585,7 @@ class _UsageCard extends StatelessWidget {
                     planLimit == null ? l10n.unlimited : '$used / $planLimit',
                     style: TextStyle(
                       fontSize: 24,
+                      fontWeight: FontWeight.w700,
                       height: 32 / 24,
                       letterSpacing: 0.07,
                       color: colors.textPrimary,
@@ -716,7 +717,7 @@ class _ServiceHoursCard extends StatelessWidget {
                 l10n.serviceHours,
                 style: TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w700,
                   height: 28 / 20,
                   letterSpacing: -0.45,
                   color: context.colors.textPrimary,
@@ -830,7 +831,7 @@ class _BenefitsCard extends StatelessWidget {
             AppLocalizations.of(context).membershipBenefits,
             style: TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w700,
               height: 28 / 20,
               letterSpacing: -0.45,
               color: colors.textPrimary,

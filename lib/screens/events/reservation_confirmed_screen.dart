@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/reservation_summary.dart';
 import '../../theme/app_semantic_colors.dart';
-import '../../widgets/arabic_trial_font.dart';
 import '../../widgets/gradient_button.dart';
 
 /// Reservation Confirmed screen (Figma App-13). Takes the just-created
@@ -90,7 +89,7 @@ class ReservationConfirmedScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 28,
-                    fontWeight: ArabicTrialFont.boldInArabic(context, FontWeight.w600),
+                    fontWeight: FontWeight.w700,
                     color: colors.textPrimary,
                   ),
                 ),
@@ -106,13 +105,13 @@ class ReservationConfirmedScreen extends StatelessWidget {
                   decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
                   child: Column(
                     children: [
-                      _detailRow(context, colors, l10n.dateColonLabel, dateText),
+                      _detailRow(colors, l10n.dateColonLabel, dateText),
                       const SizedBox(height: 8),
-                      _detailRow(context, colors, l10n.timeColonLabel, timeText),
+                      _detailRow(colors, l10n.timeColonLabel, timeText),
                       const SizedBox(height: 8),
-                      _detailRow(context, colors, l10n.durationColonLabel, durationText),
+                      _detailRow(colors, l10n.durationColonLabel, durationText),
                       const SizedBox(height: 8),
-                      _detailRow(context, colors, l10n.guestsColonLabel, guestsText),
+                      _detailRow(colors, l10n.guestsColonLabel, guestsText),
                     ],
                   ),
                 ),
@@ -126,14 +125,14 @@ class ReservationConfirmedScreen extends StatelessWidget {
     );
   }
 
-  Widget _detailRow(BuildContext context, AppSemanticColors colors, String label, String value) {
+  Widget _detailRow(AppSemanticColors colors, String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textMuted)),
         Text(
           value,
-          style: TextStyle(fontSize: 16, fontWeight: ArabicTrialFont.boldInArabic(context, FontWeight.w400), color: colors.textPrimary),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary),
         ),
       ],
     );

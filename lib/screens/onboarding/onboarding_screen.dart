@@ -236,7 +236,7 @@ class _OnboardingCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 30,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 0.4,
                 height: 36 / 30,
                 color: colors.textPrimary,

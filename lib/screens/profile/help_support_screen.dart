@@ -178,7 +178,7 @@ class _ContactCard extends StatelessWidget {
             title,
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w700,
               height: 28 / 18,
               letterSpacing: -0.44,
               color: colors.textPrimary,
@@ -229,7 +229,7 @@ class _FaqCard extends StatelessWidget {
                   l10n.faqCardTitle,
                   style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                     height: 28 / 18,
                     letterSpacing: -0.44,
                     color: Colors.white,
@@ -380,7 +380,7 @@ class _ResourcesCard extends StatelessWidget {
               l10n.resourcesCardTitle,
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
                 height: 28 / 18,
                 letterSpacing: -0.44,
                 color: colors.textPrimary,

@@ -242,7 +242,7 @@ class ProfileContent extends StatelessWidget {
             l10n.profileHeading,
             style: TextStyle(
               fontSize: 36,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w700,
               height: 40 / 36,
               letterSpacing: 0.369,
               color: colors.textPrimary,
@@ -358,7 +358,7 @@ class _ProfileCard extends StatelessWidget {
                       profile.fullName,
                       style: TextStyle(
                         fontSize: 24,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w700,
                         height: 32 / 24,
                         letterSpacing: 0.07,
                         color: colors.textPrimary,
@@ -596,7 +596,7 @@ class _CardTitle extends StatelessWidget {
       text,
       style: TextStyle(
         fontSize: 18,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w700,
         height: 28 / 18,
         letterSpacing: -0.44,
         color: context.colors.textPrimary,
