@@ -5,7 +5,6 @@ import '../../services/subscription_service.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/app_page_route.dart';
-import '../../widgets/arabic_trial_font.dart';
 import '../events/events_tab.dart';
 import '../membership/choose_membership_screen.dart';
 import '../profile/profile_screen.dart';
@@ -110,22 +109,18 @@ class _MainShellState extends State<MainShell> {
   /// keeps every tab's State across these rebuilds because each keeps its
   /// position and type in the `IndexedStack`.
   List<Widget> _buildTabs() => [
-    // TRIAL: Home and Events render Arabic in Thmanyah Sans (see
-    // ArabicTrialFont); QR Code and Profile stay on Cairo for comparison.
-    ArabicTrialFont(
-      child: HomeScreen(
-        membership: _membership,
-        profile: _profile,
-        onGoToQrCode: () => _goToTab(_qrCodeTab),
-        onGoToEvents: () => _goToTab(_eventsTab),
-      ),
+    HomeScreen(
+      membership: _membership,
+      profile: _profile,
+      onGoToQrCode: () => _goToTab(_qrCodeTab),
+      onGoToEvents: () => _goToTab(_eventsTab),
     ),
     QrAccessScreen(
       membership: _membership,
       profile: _profile,
       onBackToDashboard: () => _goToTab(_homeTab),
     ),
-    ArabicTrialFont(child: EventsTab(onGoToHome: () => _goToTab(_homeTab))),
+    EventsTab(onGoToHome: () => _goToTab(_homeTab)),
     ProfileScreen(
       membership: _membership,
       profile: _profile,
