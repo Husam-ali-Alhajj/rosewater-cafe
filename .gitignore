@@ -50,3 +50,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Thmanyah font files: licensed for bundling in the app, NOT for
+# redistribution -- and this repo is public, so they must never be
+# committed. Also the raw download (zip leftovers + license PDFs).
+/assets/fonts/thmanyah/
+/thmanyah typeface/
+/__MACOSX/
+/LICENSE.pdf
+/*.pdf

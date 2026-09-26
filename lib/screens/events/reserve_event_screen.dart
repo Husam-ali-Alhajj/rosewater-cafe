@@ -8,6 +8,7 @@ import '../../services/event_reservation_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../utils/app_feedback.dart';
+import '../../widgets/arabic_trial_font.dart';
 import '../../widgets/gradient_button.dart';
 
 /// Reserve an Event screen (Figma node App-12). `eventType`'s four options
@@ -91,12 +92,18 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
       initialDate: _eventDate ?? firstDate,
       firstDate: firstDate,
       lastDate: DateTime(today.year + 2),
+      // Dialogs open above the Events tab, outside its ArabicTrialFont.
+      builder: (context, child) => ArabicTrialFont(child: child!),
     );
     if (picked != null) setState(() => _eventDate = picked);
   }
 
   Future<void> _pickStartTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _startTime ?? TimeOfDay.now());
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _startTime ?? TimeOfDay.now(),
+      builder: (context, child) => ArabicTrialFont(child: child!),
+    );
     if (picked != null) setState(() => _startTime = picked);
   }
 
@@ -216,7 +223,11 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
                 children: [
                   Text(
                     l10n.reserveAnEvent,
-                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: colors.textPrimary),
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: ArabicTrialFont.boldInArabic(context, FontWeight.w500),
+                      color: colors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -404,13 +415,17 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
           label,
           style: TextStyle(
             fontSize: emphasize ? 16 : 14,
-            fontWeight: FontWeight.w400,
+            fontWeight: emphasize ? ArabicTrialFont.boldInArabic(context, FontWeight.w400) : FontWeight.w400,
             color: emphasize ? colors.textPrimary : colors.textMuted,
           ),
         ),
         Text(
           value,
-          style: TextStyle(fontSize: emphasize ? 24 : 14, fontWeight: FontWeight.w400, color: colors.textPrimary),
+          style: TextStyle(
+            fontSize: emphasize ? 24 : 14,
+            fontWeight: emphasize ? ArabicTrialFont.boldInArabic(context, FontWeight.w400) : FontWeight.w400,
+            color: colors.textPrimary,
+          ),
         ),
       ],
     );
@@ -435,7 +450,11 @@ class _FieldLabel extends StatelessWidget {
         ],
         Text(
           required ? '$label *' : label,
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: ArabicTrialFont.boldInArabic(context, FontWeight.w500),
+            color: colors.textPrimary,
+          ),
         ),
       ],
     );

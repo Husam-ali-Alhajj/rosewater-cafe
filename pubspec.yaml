@@ -105,6 +105,25 @@ flutter:
   assets:
     - assets/images/
 
+  # TRIAL: Thmanyah Sans for Arabic, applied on the Home screen only so it
+  # can be compared against Cairo on every other screen. The files are
+  # licensed for bundling inside the app but NOT for redistribution, and
+  # this repo is public -- so assets/fonts/thmanyah/ is gitignored and each
+  # machine needs its own copy from font.thmanyah.com to build.
+  fonts:
+    - family: ThmanyahSans
+      fonts:
+        - asset: assets/fonts/thmanyah/thmanyahsans-Light.otf
+          weight: 300
+        - asset: assets/fonts/thmanyah/thmanyahsans-Regular.otf
+          weight: 400
+        - asset: assets/fonts/thmanyah/thmanyahsans-Medium.otf
+          weight: 500
+        - asset: assets/fonts/thmanyah/thmanyahsans-Bold.otf
+          weight: 700
+        - asset: assets/fonts/thmanyah/thmanyahsans-Black.otf
+          weight: 900
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
