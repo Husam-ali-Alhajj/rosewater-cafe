@@ -5062,6 +5062,79 @@ a `CheckboxListTile` that can't paint on this screen's coloured card
 
 ---
 
+### 78. Sprint 9 Task 5 — Privacy Policy & Terms of Service copy
+
+**This is draft, placeholder text, pending real review -- not company-approved
+copy.** Flagging that up front and as plainly as the task itself asked for:
+neither document below was written or reviewed by a lawyer. It is fine as
+placeholder content so this training project's UI isn't shipping blank
+stubs; it is **not** fine as the actual legal text of a live consumer app
+that handles ID documents and payment metadata. Before this app is a real
+product, both documents need to go through the company (or an actual lawyer)
+and get replaced with approved copy -- this entry, and the in-app banner
+described below, exist specifically so that replacement never gets confused
+with "already done."
+
+**What was built:**
+
+- **`lib/widgets/legal_document_screen.dart`** -- a shared `LegalDocumentScreen`
+  (title + an ordered list of `LegalSection(heading, body)`) used by both
+  documents, so the two screens are just data, not two copies of the same
+  layout. It renders a persistent **draft-disclaimer banner** above the
+  document body -- not just a note in this file -- reading (in English or
+  Arabic, via a new `legalDraftDisclaimer` ARB key): *"Draft placeholder text
+  -- not written or reviewed by a lawyer. This is not final legal coverage
+  and will be replaced with company-approved copy before launch."* Putting
+  this in the running app, not only here, was the point of the task's "needs
+  saying plainly, not just implied."
+- **`lib/screens/profile/privacy_policy_screen.dart`** / **`terms_of_service_screen.dart`**
+  -- the actual draft copy, structured the way a real policy/terms document
+  is (numbered sections: what's collected, how it's used, sharing, retention,
+  security, rights, liability, governing law placeholder, contact, etc.),
+  but written against *this app's actual schema and behavior* rather than
+  generic filler:
+  - Data categories named are real tables (`profiles`, `id_documents`,
+    `payment_methods`, `door_access_logs`, `event_reservations`,
+    `subscriptions`, `usage_allowances`, `notifications`), and the payment
+    section is accurate to decision #4/#16/#43: only card brand/last 4/expiry
+    are ever stored, never a full card number.
+  - The account-deletion section in both documents describes decision #52's
+    *actual* current behavior -- immediate, self-service, password-gated,
+    no recovery period, no staff-processed request queue -- not decision
+    #45's older queued-request design, which no longer exists.
+  - The Terms' billing section states this app's real upgrade-only rule
+    (decision #75: `upgrade_subscription` rejects anything that isn't a
+    strictly higher-priced plan) instead of a generic "you may change plans"
+    line that wouldn't be true here.
+  - Placeholders that a real legal review must fill in are marked as such
+    in-line (a bracketed governing-law jurisdiction; a `support@example.com`
+    contact address flagged as one to replace) rather than left as
+    unexplained gaps or invented as if real.
+- **`PrivacySecurityScreen`**: "View Privacy Policy" / "Terms of Service" now
+  push these real screens instead of `ComingSoonScreen`; the now-unused
+  `_openComingSoon` helper and `coming_soon_screen.dart` import were removed
+  from that file (checked first that nothing else in it still used them).
+- **Scope call, stated explicitly rather than silently decided:** the
+  document *body* text stays English-only regardless of
+  `SettingsProvider.locale` -- only the screen chrome (title, back button,
+  and the disclaimer banner itself) is run through `AppLocalizations`. This
+  draws the same line decision #64 already drew for RPC exception messages
+  (some text stays outside the i18n rollout), for a different reason here:
+  this body text is *known to be temporary* pending a real legal rewrite, so
+  translating it now would be translation work redone from scratch the
+  moment real copy replaces it. Once a lawyer-reviewed version exists, it
+  should absolutely be localized like every other real screen in this app --
+  this is a decision about draft text, not a standing exemption.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 334/334, including
+a new `legal_document_screens_test.dart` (both screens render their real
+section headings and the disclaimer text, neither shows "coming soon", the
+back button pops correctly) and two new cases in
+`privacy_security_screen_test.dart` proving both rows now open the real
+screens instead of the old coming-soon page.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

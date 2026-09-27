@@ -374,6 +374,7 @@
   "sendingEllipsis": "جارٍ الإرسال…",
   "couldntUpdateEmailError": "تعذر تحديث بريدك الإلكتروني. تحقق من اتصالك وحاول مرة أخرى.",
   "viewPrivacyPolicyLabel": "عرض سياسة الخصوصية",
+  "legalDraftDisclaimer": "نص مسودة مؤقت -- لم تتم كتابته أو مراجعته من قبل محامٍ. هذا ليس نصاً قانونياً نهائياً وسيتم استبداله بنص معتمد من الشركة قبل الإطلاق.",
   "showPasswordTooltip": "إظهار كلمة المرور",
   "hidePasswordTooltip": "إخفاء كلمة المرور",
 

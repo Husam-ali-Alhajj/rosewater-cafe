@@ -494,6 +494,7 @@
   "sendingEllipsis": "Sending…",
   "couldntUpdateEmailError": "Couldn't update your email. Check your connection and try again.",
   "viewPrivacyPolicyLabel": "View Privacy Policy",
+  "legalDraftDisclaimer": "Draft placeholder text -- not written or reviewed by a lawyer. This is not final legal coverage and will be replaced with company-approved copy before launch.",
   "showPasswordTooltip": "Show password",
   "hidePasswordTooltip": "Hide password",
 
