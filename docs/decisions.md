@@ -4929,6 +4929,92 @@ that flow is touched.
 
 ---
 
+### 76. Sprint 9 Task 4 — Upgrade Membership screen
+
+Wires the real `upgrade_subscription` RPC (#75) into a real screen,
+reachable from Profile's existing stub button.
+
+**What was built:**
+
+- **`MembershipPlanCard`** (new, `widgets/membership_plan_card.dart`) --
+  Choose Membership's own `_MembershipCard` extracted and made shared,
+  the same reasoning `localizedFeatureBullets` already established for
+  the two screens' benefit lists: one card, one place, so Choose
+  Membership and Upgrade Membership can't drift apart. `rank` (which
+  tier icon/gradient a card gets) is deliberately the plan's index in
+  the FULL price-sorted catalog, not whichever list happens to be
+  showing it -- a Premium card on Upgrade Membership (where Basic is
+  filtered out) still has to render as Premium, not "whatever's first in
+  this shorter list." `actionLabel`/`submittingLabel` are the only
+  things that differ per caller ("Select {plan}" vs. "Upgrade to
+  {plan}"), passed in rather than hardcoded.
+- **`UpgradeMembershipScreen`** (new) -- fetches the full plan catalog
+  live (same `fetchPlans()` Choose Membership already uses), filters to
+  `price_cents > currentPlan.price_cents` while keeping each surviving
+  plan's true rank, and routes a selection straight into `PaymentScreen`
+  -- no ID Upload step, unlike the signup flow: an upgrading member is
+  already verified. Carries a defensive "no plan available" message for
+  the narrow race where prices changed between Profile's own gate (below)
+  and this screen's fetch -- expected to be unreachable in the ordinary
+  case, not a real empty state users should ever see.
+- **`PaymentScreen.upgrade`** (new named constructor, same class) --
+  the task's own "reused as-is": identical card form, identical "Pay"
+  button; only `_pay()` branches on a new `isUpgrade` flag to call
+  `upgradeSubscription(plan.id)` instead of
+  `confirmSubscriptionPayment(subscriptionId)`. `subscriptionId` is now
+  nullable (null in upgrade mode -- there's no separate pending row to
+  confirm) rather than duplicating the whole screen. `PaymentSuccessScreen`
+  needed no changes at all: it already pushes a brand new `MainShell`
+  and clears the stack, which is exactly why Home already shows the new
+  plan immediately after any successful payment, upgrade included --
+  `MainShell._load()` re-fetches `ActiveMembership` from scratch every
+  time a fresh instance is created.
+- **`SubscriptionService.hasUpgradeOption(currentPriceCents)`** (new) --
+  a `.limit(1)` existence check ("does any plan cost more"), not a full
+  `fetchPlans()`: Profile only needs a yes/no to decide whether to show
+  the button at all. **`SubscriptionService.upgradeSubscription`** (new)
+  -- calls the RPC, maps its four failure cases
+  (`not_authenticated`/`no_active_subscription`/`plan_not_found`/
+  `downgrade_not_supported`) to a new `UpgradeSubscriptionFailure` with a
+  safe message, the same one-type-per-RPC shape every other RPC-calling
+  method here already uses. Kept English-only, on purpose, matching the
+  already-documented scope boundary (#64) that service-layer exception
+  messages don't get translated the way screen chrome does.
+- **Profile's gate**: `ProfileScreen` now calls `hasUpgradeOption` once
+  in `initState`, defaulting to hidden (not shown-then-hidden) while
+  that resolves or if it errors -- the task's own "disable/hide the
+  entry point entirely... rather than showing an empty screen," read as
+  literally as possible: the button doesn't exist in the tree at all
+  when there's nothing to upgrade to, not a disabled/greyed-out one.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 317/317,
+including new coverage in `profile_content_test.dart` for both states
+of the gate (shows and fires its callback when a higher plan exists;
+hidden entirely, rest of the card still shown, when it doesn't -- run
+against a VIP membership specifically, the case the task calls out by
+name).
+
+**Not verified here, disclosed rather than assumed passing:** the
+task's own acceptance bar is a live test -- real Basic -> Premium and
+Premium -> VIP upgrades, watching Home update immediately after, and
+confirming a VIP account genuinely shows no upgrade path. Same
+constraint as #65/#75: this session has no network path to the live
+Supabase project, and (checked this time, not just assumed) no working
+local alternative either -- `docker ps` can't reach a daemon in this
+sandbox, so standing up a full local Supabase stack (PostgREST + GoTrue,
+not just Postgres itself) the way #65/#75 approximated with a bare
+Postgres replay isn't possible for a change that has to be driven
+through the real Flutter app, not SQL directly. What's confirmed here is
+that the code compiles, type-checks, and behaves correctly at the
+widget level for the one state (`hasUpgradeOption`) that's actually
+unit-testable without a live backend. The live click-through -- both
+upgrade paths, Home's immediate refresh, and the VIP hidden-button
+check -- is still the user's own to run, the same way #65/#75's SQL
+needs a live re-check whenever this session (or one with real access)
+next can.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

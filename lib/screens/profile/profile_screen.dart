@@ -9,9 +9,9 @@ import '../../services/subscription_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/app_page_route.dart';
-import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/profile_avatar.dart';
 import '../auth/sign_out.dart';
+import '../membership/upgrade_membership_screen.dart';
 import 'edit_profile_screen.dart';
 import 'app_settings_screen.dart';
 import 'help_support_screen.dart';
@@ -58,11 +58,14 @@ const _appVersion = '1.0.0';
 /// Notifications the real, local-only [NotificationSettingsScreen] (Task 4),
 /// Privacy & Security the real [PrivacySecurityScreen] (Task 5), and Help &
 /// Support the real [HelpSupportScreen] (Task 6), and App Settings the
-/// real [AppSettingsScreen] (Task 7).
-/// Every other row/button except Sign Out opens a [ComingSoonScreen] for now
-/// -- their real screens are later Sprint 5 tasks. Sign Out is the real,
-/// permanent one (decisions #21/#26): it ends the session and clears the
-/// whole navigation stack so Back can't return to an authenticated screen.
+/// real [AppSettingsScreen] (Task 7). Upgrade Membership opens the real
+/// [UpgradeMembershipScreen] (Sprint 9 Task 4) -- but only shows at all
+/// once [SubscriptionService.hasUpgradeOption] confirms a higher-priced
+/// plan actually exists; a VIP member (already the most expensive plan)
+/// never sees the button, rather than a tap leading into an empty screen.
+/// Sign Out is the real, permanent one (decisions #21/#26): it ends the
+/// session and clears the whole navigation stack so Back can't return to
+/// an authenticated screen.
 class ProfileScreen extends StatefulWidget {
   final ActiveMembership membership;
 
@@ -87,9 +90,33 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _profileService = const ProfileService();
+  final _subscriptionService = const SubscriptionService();
 
   bool _loading = false;
   bool _isSigningOut = false;
+
+  /// Null while the check is still in flight -- treated the same as
+  /// `false` (hidden) rather than `true`, so the button never appears and
+  /// then vanishes a moment later; it can only pop in once genuinely
+  /// confirmed, never flash and disappear.
+  bool? _hasUpgradeOption;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUpgradeOption();
+  }
+
+  Future<void> _loadUpgradeOption() async {
+    bool has;
+    try {
+      has = await _subscriptionService.hasUpgradeOption(widget.membership.plan.priceCents);
+    } catch (_) {
+      has = false; // fail closed -- hide rather than risk a button into a broken screen
+    }
+    if (!mounted) return;
+    setState(() => _hasUpgradeOption = has);
+  }
 
   /// Retry after `MainShell`'s profile fetch failed.
   Future<void> _loadProfile() async {
@@ -143,9 +170,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (updated != null && mounted) widget.onProfileChanged(updated);
   }
 
-  void _openComingSoon(String label) {
+  void _openUpgradeMembership() {
     Navigator.of(context).push(
-      appRoute(context, (_) => ComingSoonScreen(label: label)),
+      appRoute(context, (_) => UpgradeMembershipScreen(currentPlan: widget.membership.plan)),
     );
   }
 
@@ -170,10 +197,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             : ProfileContent(
                 profile: widget.profile,
                 membership: widget.membership,
+                hasUpgradeOption: _hasUpgradeOption ?? false,
                 onRetry: _loadProfile,
                 onEditProfile: _editProfile,
-                onUpgradeMembership: () =>
-                    _openComingSoon(AppLocalizations.of(context).upgradeMembershipButton),
+                onUpgradeMembership: _openUpgradeMembership,
                 onPaymentMethods: _openPaymentMethods,
                 onNotifications: _openNotificationSettings,
                 onPrivacySecurity: _openPrivacySecurity,
@@ -195,6 +222,13 @@ class ProfileContent extends StatelessWidget {
   /// details, settings, Sign Out) still work.
   final Profile? profile;
   final ActiveMembership membership;
+
+  /// Sprint 9 Task 4: whether a plan priced above [membership]'s exists at
+  /// all -- when false (VIP, already the most expensive plan), the
+  /// Upgrade Membership button is hidden entirely, not shown disabled or
+  /// leading into an empty screen.
+  final bool hasUpgradeOption;
+
   final VoidCallback onRetry;
   final VoidCallback onEditProfile;
   final VoidCallback onUpgradeMembership;
@@ -209,6 +243,7 @@ class ProfileContent extends StatelessWidget {
     super.key,
     required this.profile,
     required this.membership,
+    required this.hasUpgradeOption,
     required this.onRetry,
     required this.onEditProfile,
     required this.onUpgradeMembership,
@@ -259,7 +294,11 @@ class ProfileContent extends StatelessWidget {
             onTap: onEditProfile,
           ),
           const SizedBox(height: 24),
-          _MembershipDetailsCard(membership: membership, onUpgrade: onUpgradeMembership),
+          _MembershipDetailsCard(
+            membership: membership,
+            hasUpgradeOption: hasUpgradeOption,
+            onUpgrade: onUpgradeMembership,
+          ),
           const SizedBox(height: 24),
           _SettingsCard(
             onPaymentMethods: onPaymentMethods,
@@ -524,9 +563,14 @@ class _OutlinedActionButton extends StatelessWidget {
 
 class _MembershipDetailsCard extends StatelessWidget {
   final ActiveMembership membership;
+  final bool hasUpgradeOption;
   final VoidCallback onUpgrade;
 
-  const _MembershipDetailsCard({required this.membership, required this.onUpgrade});
+  const _MembershipDetailsCard({
+    required this.membership,
+    required this.hasUpgradeOption,
+    required this.onUpgrade,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -547,33 +591,38 @@ class _MembershipDetailsCard extends StatelessWidget {
           _DetailRow(label: l10n.validUntilLabel, value: DateFormat('M/d/yyyy').format(membership.validUntil)),
           const SizedBox(height: 12),
           _DetailRow(label: l10n.maxGuestsLabel, value: '${membership.plan.maxGuests}'),
-          const SizedBox(height: 40),
-          SizedBox(
-            height: 36,
-            child: Material(
-              color: colors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: colors.accent.withValues(alpha: 0.4), width: _hairline),
-              ),
-              child: InkWell(
-                onTap: onUpgrade,
-                customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                child: Center(
-                  child: Text(
-                    l10n.upgradeMembershipButton,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 20 / 14,
-                      letterSpacing: -0.15,
-                      color: colors.accent,
+          // Sprint 9 Task 4: hidden entirely (not disabled) when there's no
+          // higher-priced plan to upgrade to -- the task's own "disable/hide
+          // the entry point entirely... rather than showing an empty screen".
+          if (hasUpgradeOption) ...[
+            const SizedBox(height: 40),
+            SizedBox(
+              height: 36,
+              child: Material(
+                color: colors.surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: colors.accent.withValues(alpha: 0.4), width: _hairline),
+                ),
+                child: InkWell(
+                  onTap: onUpgrade,
+                  customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  child: Center(
+                    child: Text(
+                      l10n.upgradeMembershipButton,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 20 / 14,
+                        letterSpacing: -0.15,
+                        color: colors.accent,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

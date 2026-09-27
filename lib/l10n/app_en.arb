@@ -338,6 +338,17 @@
   "validUntilLabel": "Valid Until",
   "maxGuestsLabel": "Max Guests",
   "upgradeMembershipButton": "Upgrade Membership",
+  "upgradeMembershipSubtitle": "Choose a higher-tier plan to unlock more benefits",
+  "upgradingEllipsis": "Upgrading…",
+  "upgradeToPlanButton": "Upgrade to {plan}",
+  "@upgradeToPlanButton": {
+    "description": "Upgrade Membership card button -- {plan} is the real plan name, not translated",
+    "placeholders": {"plan": {"type": "String"}}
+  },
+  "noUpgradeAvailable": "No higher-tier plan is available right now.",
+  "@noUpgradeAvailable": {
+    "description": "Upgrade Membership screen's defensive empty state -- should be unreachable in practice since Profile hides the entry point when this is true, see hasUpgradeOption"
+  },
   "settingsTitle": "Settings",
   "paymentMethodsLabel": "Payment Methods",
   "notificationsLabel": "Notifications",

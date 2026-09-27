@@ -21,11 +21,24 @@ import '../../widgets/payment_fields.dart';
 ///
 /// Plan comes in via constructor from IdUploadScreen's own already-fetched
 /// state, not re-fetched here — this screen makes zero database reads.
+///
+/// Sprint 9 Task 4: reused as-is for Upgrade Membership too, via the
+/// [PaymentScreen.upgrade] constructor -- same card form, same "Pay"
+/// button, same success screen; only [_pay] branches on [isUpgrade] to
+/// call `upgrade_subscription(plan.id)` instead of
+/// `confirm_subscription_payment(subscriptionId)`. [subscriptionId] is
+/// null in that mode: an upgrade has no separate pending row to confirm,
+/// unlike a brand-new signup.
 class PaymentScreen extends StatefulWidget {
-  final String subscriptionId;
+  final String? subscriptionId;
   final MembershipPlan plan;
+  final bool isUpgrade;
 
-  const PaymentScreen({super.key, required this.subscriptionId, required this.plan});
+  const PaymentScreen({super.key, required this.subscriptionId, required this.plan}) : isUpgrade = false;
+
+  const PaymentScreen.upgrade({super.key, required this.plan})
+    : subscriptionId = null,
+      isUpgrade = true;
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -62,7 +75,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _errorMessage = null;
     });
     try {
-      await _subscriptionService.confirmSubscriptionPayment(widget.subscriptionId);
+      if (widget.isUpgrade) {
+        await _subscriptionService.upgradeSubscription(widget.plan.id);
+      } else {
+        await _subscriptionService.confirmSubscriptionPayment(widget.subscriptionId!);
+      }
       if (!mounted) return;
       context.triggerSuccess(); // Sprint 8 Task 4: payment confirmed
       // Card fields are discarded here, never read again after validation —
@@ -77,6 +94,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } on ConfirmPaymentFailure catch (e) {
       if (!mounted) return;
       context.triggerError(); // Sprint 8 Task 4: failed payment
+      setState(() {
+        _isPaying = false;
+        _errorMessage = e.message;
+      });
+    } on UpgradeSubscriptionFailure catch (e) {
+      if (!mounted) return;
+      context.triggerError();
       setState(() {
         _isPaying = false;
         _errorMessage = e.message;
