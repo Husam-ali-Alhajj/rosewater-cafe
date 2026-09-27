@@ -16,9 +16,9 @@ void main() {
   group('SettingsProvider -- fresh-install defaults', () {
     test('themeMode defaults to light, not system', () async {
       final settings = await SettingsProvider.load();
-      // Not ThemeMode.system: AppTheme.dark is currently just Flutter's bare
-      // ThemeData.dark() -- defaulting to system would show that unstyled
-      // stub on any device already in dark mode.
+      // Not ThemeMode.system: App Settings' Dark Mode row is a plain on/off
+      // switch, not a System/Light/Dark picker, so a fresh install starts in
+      // the state that switch shows as off.
       expect(settings.themeMode, ThemeMode.light);
     });
 
@@ -152,6 +152,20 @@ void main() {
       'settings.auto_lock_enabled',
       'settings.auto_lock_timeout_seconds',
       'settings.biometric_enabled',
+    });
+  });
+
+  group('SettingsProvider -- locale', () {
+    test('a French/Spanish pick saved before they were disabled falls back to English', () async {
+      for (final stale in ['fr', 'es']) {
+        SharedPreferences.setMockInitialValues({'settings.locale': stale});
+        expect((await SettingsProvider.load()).locale, 'en', reason: stale);
+      }
+    });
+
+    test('English and Arabic picks are kept', () async {
+      SharedPreferences.setMockInitialValues({'settings.locale': 'ar'});
+      expect((await SettingsProvider.load()).locale, 'ar');
     });
   });
 }

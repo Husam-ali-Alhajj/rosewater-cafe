@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/app_settings_service.dart';
-import '../../theme/app_colors.dart';
+import '../../services/settings_provider.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/screen_header.dart';
 import '../../widgets/setting_toggle_row.dart';
 import '../auth/sign_out.dart';
@@ -9,21 +12,41 @@ import '../auth/sign_out.dart';
 // Values follow the same shared/established patterns as the rest of the
 // Profile section (Notification settings, Privacy & Security, Help &
 // Support), reused rather than re-measured -- the Figma REST API was still
-// rate-limited when this screen was built (see decision #47).
-const _titleInk = Color(0xFF1E2939);
-const _bodyInk = Color(0xFF4A5565);
-const _rowFill = Color(0xFFF9FAFB);
-const _dividerInk = Color(0xFFF3F4F6);
-const _rowValue = Color(0xFF101828);
-const _mutedText = Color(0xFF6A7282);
-const _languageSelectedFill = Color(0xFFFFF1F2);
-const _languageSelectedBorder = Color(0xFFFFA1AD);
-const _destructiveInk = Color(0xFFE7000B);
-const _destructiveBorder = Color(0xFFFFA2A2);
+// rate-limited when this screen was built (see decision #47). Sprint 8 Task
+// 2 made this screen theme-aware (it's where Dark Mode itself is toggled,
+// so it has to actually look right the instant that switch flips): the
+// fixed neutral inks/fills this file used to hardcode (title/body text, the
+// cache-size row fill, the card divider) are gone -- every build() below
+// reads them from `context.colors` instead. The v3 accent rebuild went
+// further and tokenized the language-selected wash and the
+// destructive-action ink/border too (`colors.accent`/`colors.danger`), so
+// both react to the blue-in-dark-mode accent instead of staying the
+// design's fixed pink/red literals.
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
-const _languages = ['English', 'Arabic', 'French', 'Spanish'];
+/// One row in the Language list. [label] is always shown in that
+/// language's OWN script ("العربية", not "Arabic") -- the standard
+/// convention for a language picker, and not something that needs
+/// `AppLocalizations` at all, unlike everything else this task touches.
+/// [translated] is false for French/Spanish: shown (the design lists all
+/// four) but not selectable -- greyed out with "(Coming Soon)" until they
+/// have translations (decision #72, which replaced #63's "selectable, but
+/// shows English text" approach at the user's request).
+class _Language {
+  final String code;
+  final String label;
+  final bool translated;
+
+  const _Language({required this.code, required this.label, required this.translated});
+}
+
+const _languages = [
+  _Language(code: 'en', label: 'English', translated: true),
+  _Language(code: 'ar', label: 'العربية', translated: true),
+  _Language(code: 'fr', label: 'Français', translated: false),
+  _Language(code: 'es', label: 'Español', translated: false),
+];
 
 // pubspec.yaml's real `version: 1.0.0+1` -- shown instead of the design's
 // mock "Build 2024.01.14" (a demo date, not anything this project tracks).
@@ -35,23 +58,40 @@ const _appBuild = '1';
 /// App Settings (Figma frame "AppSettingsScreen"): Appearance, Language,
 /// Interactions, Data & Storage.
 ///
-/// **Dark Mode and Language are exactly decision #5: shown for visual
-/// accuracy, built for real nowhere.** Dark Mode is drawn off and inert with
-/// the design's own "(Coming Soon)" label. The language list always shows
-/// English selected (a plain, static list -- nothing here is tappable);
-/// selecting Arabic/French/Spanish was never in scope, so there's nothing to
-/// half-build.
+/// **Dark Mode is real now (Sprint 8 Task 2)** -- decision #5 originally
+/// scoped it out alongside Language, but this task un-scopes exactly Dark
+/// Mode: the toggle reads and writes `SettingsProvider.themeMode` (the same
+/// provider `main.dart`'s `MaterialApp` watches for `themeMode`), so
+/// flipping it here changes every screen's theme immediately, with no
+/// restart and no "(Coming Soon)" label anymore.
 ///
-/// **Animations, Sound Effects and Haptic Feedback are the same kind of
-/// placeholder**, for the same reason: this task's acceptance bar is "no
-/// functionality built beyond what's decided in scope," and only Dark
-/// Mode/Language were explicitly scoped. They're drawn at the state the
-/// design shows (on) and are inert -- no `AnimatedContainer` app-wide setting,
-/// no `HapticFeedback` calls wired up. (This app's Sound & Vibration toggle on
-/// the Notifications screen is a *different* setting -- notification sound,
-/// not general UI sound -- kept deliberately separate, the same kind of
-/// naming collision decision #33 already called out for two different
-/// "guests" fields.)
+/// **Language is real for English/Arabic as of Sprint 8 Task 6** (decision
+/// #63, superseding decision #5's original "shown for visual accuracy,
+/// built nowhere"): tapping a row calls `SettingsProvider.setLocale`, which
+/// `main.dart`'s `MaterialApp.locale` reads -- Arabic switches every
+/// translated string AND flips `Directionality` to RTL app-wide, live, no
+/// restart. French/Spanish are real, storable picks too (the row is
+/// tappable and shows selected), they just have no ARB translation yet --
+/// `MaterialApp.supportedLocales` only lists en/ar, so picking one of them
+/// falls back to English TEXT, with a caption saying so, rather than a
+/// missing-key crash or silently wrong text.
+///
+/// **Animations is real too** (Sprint 8 Task 3, decision #60): the toggle
+/// reads/writes `SettingsProvider.animationsEnabled`, which
+/// `AppPageRoute`/`appRoute` (every screen transition) and
+/// `context.animDuration` (every explicit `Animated*` widget duration)
+/// read at the moment they'd animate.
+///
+/// **Sound Effects and Haptic Feedback are real as of Sprint 8 Task 4**
+/// (decision #61): each toggle reads/writes its own
+/// `SettingsProvider.soundEnabled`/`.hapticsEnabled`, and
+/// `context.triggerButtonPress`/`.triggerSuccess`/`.triggerError`
+/// (`lib/utils/app_feedback.dart`) gate sound and haptics independently
+/// through them at a small, fixed set of real trigger points -- not every
+/// tap. (This app's Sound & Vibration toggle on the Notifications screen is
+/// a *different* setting -- notification sound, not general UI sound --
+/// kept deliberately separate, the same kind of naming collision decision
+/// #33 already called out for two different "guests" fields.)
 ///
 /// **Data & Storage is real**, by this task's explicit "your call": this app
 /// has almost nothing to manage locally (no bulk asset/network image
@@ -91,24 +131,24 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   void _clearCache() {
     widget.service.clearImageCache();
     setState(() => _cacheBytes = widget.service.cacheSizeBytes());
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cache cleared.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).cacheClearedMessage)),
+    );
   }
 
   Future<void> _confirmClearAllData() async {
     if (_clearingAll) return;
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear all app data?'),
-        content: const Text(
-          'This removes every saved preference from this device and signs you out. '
-          "Your account and its data aren't affected -- you can sign back in normally.",
-        ),
+        title: Text(l10n.clearAllAppDataTitle),
+        content: Text(l10n.clearAllAppDataBody),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.cancelButton)),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Clear & Sign Out', style: TextStyle(color: _destructiveInk)),
+            child: Text(l10n.clearAndSignOutButton, style: TextStyle(color: ctx.colors.danger)),
           ),
         ],
       ),
@@ -132,14 +172,14 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ScreenHeader(title: 'App Settings', onBack: () => Navigator.of(context).pop()),
+                ScreenHeader(title: AppLocalizations.of(context).appSettingsLabel, onBack: () => Navigator.of(context).pop()),
                 const SizedBox(height: 24),
                 const _AppearanceCard(),
                 const SizedBox(height: 24),
@@ -175,12 +215,13 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: colors.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -188,22 +229,22 @@ class _Card extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: gradientHeader
-                ? const BoxDecoration(gradient: AppColors.primaryGradient)
-                : const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: _dividerInk, width: _hairline)),
+                ? BoxDecoration(gradient: colors.accentGradient)
+                : BoxDecoration(
+                    border: Border(bottom: BorderSide(color: colors.border, width: _hairline)),
                   ),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: gradientHeader ? Colors.white : _titleInk),
+                Icon(icon, size: 20, color: gradientHeader ? Colors.white : colors.textPrimary),
                 const SizedBox(width: 12),
                 Text(
                   title,
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                     height: 28 / 18,
                     letterSpacing: -0.44,
-                    color: gradientHeader ? Colors.white : _titleInk,
+                    color: gradientHeader ? Colors.white : colors.textPrimary,
                   ),
                 ),
               ],
@@ -221,47 +262,66 @@ class _AppearanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Real now (Sprint 8 Task 2) -- `watch`, not `read`, so this row's
+    // switch reflects `SettingsProvider.themeMode` immediately if it's
+    // changed anywhere else (there's nowhere else yet, but the same
+    // `ChangeNotifierProvider` this reads from is what `main.dart`'s
+    // `MaterialApp` also watches, so the two never disagree).
+    final settings = context.watch<SettingsProvider>();
+    final isDark = settings.themeMode == ThemeMode.dark;
+    final l10n = AppLocalizations.of(context);
     return _Card(
-      title: 'Appearance',
+      title: l10n.appearanceCardTitle,
       icon: Icons.palette_outlined,
       gradientHeader: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SettingToggleRow(
+          SettingToggleRow(
             icon: Icons.dark_mode_outlined,
             iconSize: 20,
-            label: 'Dark Mode',
-            description: 'Switch to dark theme',
-            value: false,
-            onToggle: null, // decision #5: shown, never built
+            label: l10n.darkModeLabel,
+            description: l10n.darkModeDescription,
+            value: isDark,
+            onToggle: () => settings.setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark),
             showDivider: true,
-            note: '(Coming Soon)',
-            switchKey: ValueKey('placeholder-dark-mode'),
+            switchKey: const ValueKey('dark-mode'),
           ),
-          const SettingToggleRow(
+          SettingToggleRow(
             icon: Icons.motion_photos_auto_outlined,
             iconSize: 20,
-            label: 'Animations',
-            description: 'Enable smooth animations throughout the app',
-            value: true,
-            onToggle: null, // out of this task's scope; drawn at the design's state
+            label: l10n.animationsLabel,
+            description: l10n.animationsDescription,
+            // Real now (Sprint 8 Task 3): page transitions (AppPageRoute,
+            // via every screen's `appRoute` call) and every explicit
+            // Animated* widget duration (this very switch included --
+            // SettingSwitch's AnimatedContainer/AnimatedPositioned read
+            // `context.animDuration`) collapse to near-zero the instant
+            // this flips off.
+            value: settings.animationsEnabled,
+            onToggle: () => settings.setAnimationsEnabled(!settings.animationsEnabled),
             showDivider: false,
-            switchKey: ValueKey('placeholder-animations'),
+            switchKey: const ValueKey('animations'),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
             child: Text(
-              'Language',
-              style: const TextStyle(
+              l10n.languageSectionLabel,
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 letterSpacing: -0.15,
-                color: _titleInk,
+                color: context.colors.textPrimary,
               ),
             ),
           ),
-          for (final language in _languages) _LanguageRow(language: language, selected: language == 'English'),
+          for (final language in _languages)
+            _LanguageRow(
+              language: language,
+              selected: language.code == settings.locale,
+              // Untranslated languages can't be picked (decision #72).
+              onTap: language.translated ? () => settings.setLocale(language.code) : null,
+            ),
           const SizedBox(height: 8),
         ],
       ),
@@ -269,41 +329,64 @@ class _AppearanceCard extends StatelessWidget {
   }
 }
 
-/// One language option. Decision #5: only English actually works, so this
-/// list is entirely static -- English always shows selected, and no row is
-/// tappable (there's nothing a tap could meaningfully do yet).
+/// One language option (Sprint 8 Task 6, decision #63): English and Arabic
+/// are real (tapping one calls `SettingsProvider.setLocale`, live-switching
+/// the whole app -- and, for Arabic, its `Directionality`). French/Spanish
+/// have no translations yet, so their rows are disabled ([onTap] null):
+/// greyed out, not tappable, marked "(Coming Soon)" (decision #72).
 class _LanguageRow extends StatelessWidget {
-  final String language;
+  final _Language language;
   final bool selected;
 
-  const _LanguageRow({required this.language, required this.selected});
+  /// Null disables the row.
+  final VoidCallback? onTap;
+
+  const _LanguageRow({required this.language, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final enabled = onTap != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: selected ? _languageSelectedFill : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: selected ? Border.all(color: _languageSelectedBorder, width: _hairline) : null,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                language,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? AppColors.bottomNavActive : _bodyInk,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            // A light accent wash, not the design's fixed pink literals --
+            // derived from `colors.accent` so it's pink-tinted in light mode
+            // and blue-tinted in dark, matching whatever the accent is.
+            color: selected ? colors.accent.withValues(alpha: 0.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: selected ? Border.all(color: colors.accent.withValues(alpha: 0.4), width: _hairline) : null,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  language.label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected
+                        ? colors.accent
+                        : enabled
+                        ? colors.textMuted
+                        : colors.textMuted.withValues(alpha: 0.45),
+                  ),
                 ),
               ),
-            ),
-            if (selected) const Icon(Icons.check, size: 18, color: AppColors.bottomNavActive),
-          ],
+              if (selected) Icon(Icons.check, size: 18, color: colors.accent),
+              if (!enabled)
+                Text(
+                  AppLocalizations.of(context).comingSoonNote,
+                  style: TextStyle(fontSize: 12, color: colors.textMuted.withValues(alpha: 0.6)),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -315,8 +398,13 @@ class _InteractionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _Card(
-      title: 'Interactions',
+    // Real now (Sprint 8 Task 4) -- same `watch` reasoning as Dark
+    // Mode/Animations above: this row's own switches need to reflect
+    // SettingsProvider immediately.
+    final settings = context.watch<SettingsProvider>();
+    final l10n = AppLocalizations.of(context);
+    return _Card(
+      title: l10n.interactionsCardTitle,
       icon: Icons.touch_app_outlined,
       gradientHeader: false,
       child: Column(
@@ -325,22 +413,22 @@ class _InteractionsCard extends StatelessWidget {
           SettingToggleRow(
             icon: Icons.volume_up_outlined,
             iconSize: 20,
-            label: 'Sound Effects',
-            description: 'Play sounds for actions and notifications',
-            value: true,
-            onToggle: null, // out of scope; see the class doc comment
+            label: l10n.soundEffectsLabel,
+            description: l10n.soundEffectsDescription,
+            value: settings.soundEnabled,
+            onToggle: () => settings.setSoundEnabled(!settings.soundEnabled),
             showDivider: true,
-            switchKey: ValueKey('placeholder-sound-effects'),
+            switchKey: const ValueKey('sound-effects'),
           ),
           SettingToggleRow(
             icon: Icons.vibration,
             iconSize: 20,
-            label: 'Haptic Feedback',
-            description: 'Vibrate on button presses and interactions',
-            value: true,
-            onToggle: null,
+            label: l10n.hapticFeedbackLabel,
+            description: l10n.hapticFeedbackDescription,
+            value: settings.hapticsEnabled,
+            onToggle: () => settings.setHapticsEnabled(!settings.hapticsEnabled),
             showDivider: false,
-            switchKey: ValueKey('placeholder-haptic-feedback'),
+            switchKey: const ValueKey('haptic-feedback'),
           ),
         ],
       ),
@@ -363,8 +451,10 @@ class _DataStorageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return _Card(
-      title: 'Data & Storage',
+      title: l10n.dataStorageCardTitle,
       icon: Icons.storage_outlined,
       gradientHeader: false,
       child: Padding(
@@ -375,17 +465,17 @@ class _DataStorageCard extends StatelessWidget {
             Container(
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(color: _rowFill, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Cache Size',
-                    style: TextStyle(fontSize: 14, letterSpacing: -0.15, color: _bodyInk),
+                  Text(
+                    l10n.cacheSizeLabel,
+                    style: TextStyle(fontSize: 14, letterSpacing: -0.15, color: colors.textMuted),
                   ),
                   Text(
                     _format(cacheBytes),
-                    style: const TextStyle(fontSize: 16, letterSpacing: -0.31, color: _rowValue),
+                    style: TextStyle(fontSize: 16, letterSpacing: -0.31, color: colors.textPrimary),
                   ),
                 ],
               ),
@@ -393,17 +483,17 @@ class _DataStorageCard extends StatelessWidget {
             const SizedBox(height: 16),
             _OutlinedActionButton(
               icon: Icons.cleaning_services_outlined,
-              label: 'Clear Cache',
-              ink: _titleInk,
-              borderColor: Colors.black.withValues(alpha: 0.1),
+              label: l10n.clearCacheButton,
+              ink: colors.textPrimary,
+              borderColor: colors.border,
               onTap: onClearCache,
             ),
             const SizedBox(height: 12),
             _OutlinedActionButton(
               icon: Icons.delete_sweep_outlined,
-              label: 'Clear All App Data',
-              ink: _destructiveInk,
-              borderColor: _destructiveBorder,
+              label: l10n.clearAllAppDataButton,
+              ink: colors.danger,
+              borderColor: colors.danger.withValues(alpha: 0.4),
               onTap: onClearAllData,
             ),
           ],
@@ -436,7 +526,7 @@ class _OutlinedActionButton extends StatelessWidget {
     return Opacity(
       opacity: onTap == null ? 0.5 : 1,
       child: Material(
-        color: Colors.white,
+        color: context.colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(color: borderColor, width: 1.545),
@@ -469,16 +559,20 @@ class _FooterInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+    return Column(
       children: [
+        // "Rosewater Café" is the app's own name, kept as-is in every
+        // locale -- same convention as versionFooter's brand tail elsewhere.
         Text(
           'Rosewater Café',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _titleInk),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
         ),
-        SizedBox(height: 4),
-        Text('Version $_appVersion', style: TextStyle(fontSize: 12, color: _mutedText)),
-        SizedBox(height: 2),
-        Text('Build $_appBuild', style: TextStyle(fontSize: 12, color: _mutedText)),
+        const SizedBox(height: 4),
+        Text(l10n.versionLine(_appVersion), style: TextStyle(fontSize: 12, color: colors.textMuted)),
+        const SizedBox(height: 2),
+        Text(l10n.buildLine(_appBuild), style: TextStyle(fontSize: 12, color: colors.textMuted)),
       ],
     );
   }

@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/reservation_details.dart';
 import 'supabase_client.dart';
 
 /// Which of create_event_reservation's checked failure cases this is --
@@ -66,6 +67,18 @@ class EventReservationService {
     } on PostgrestException catch (e) {
       throw _failureFor(e);
     }
+  }
+
+  /// One of the signed-in user's own reservations, or null if there's no
+  /// such row visible to them (RLS only returns the caller's own rows, so
+  /// another user's id reads as "not found", never as their data).
+  Future<ReservationDetails?> fetchReservation(String id) async {
+    final row = await supabase
+        .from('event_reservations')
+        .select('id, event_type, event_date, start_time, duration_hours, guest_count, status, total_price')
+        .eq('id', id)
+        .maybeSingle();
+    return row == null ? null : ReservationDetails.fromMap(row);
   }
 
   CreateEventReservationFailure _failureFor(PostgrestException e) {

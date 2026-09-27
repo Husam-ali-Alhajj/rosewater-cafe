@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../l10n/app_localizations.dart';
 import '../../models/profile.dart';
 import '../../services/profile_service.dart';
 import '../../services/notification_prefs.dart';
 import '../../services/subscription_service.dart';
-import '../../services/supabase_client.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/profile_avatar.dart';
 import '../auth/sign_out.dart';
@@ -21,17 +23,13 @@ import 'privacy_security_screen.dart';
 // the REST API -- see docs/decisions.md. Kept private to this file rather
 // than added to AppColors, the same way the other exact-Figma screens keep
 // their one-off literals local (decision #20).
-const _iconGrey = Color(0xFF4A5565);
-const _chevronGrey = Color(0xFF99A1AF);
-const _rowFill = Color(0xFFF9FAFB);
-const _rowLabel = Color(0xFF364153);
-const _rowValue = Color(0xFF101828);
-const _versionText = Color(0xFF6A7282);
-const _editProfileBorder = Color(0xFFD1D5DC);
-const _editProfileInk = Color(0xFF0A0A0A);
-const _upgradeBorder = Color(0xFFFFA1AD);
-const _signOutInk = Color(0xFFE7000B);
-const _signOutBorder = Color(0xFFFFA2A2);
+//
+// Sprint 8 Task 2 (dark mode rebuild): the neutral greys/blacks this frame
+// exported (icon/label/value/border/fill) are now sourced from
+// `context.colors` instead, so they invert correctly. The v3 accent rebuild
+// went further and tokenized "Upgrade Membership"'s pink border/text too
+// (`colors.accent`), so it goes blue in dark mode with every other accent
+// use, instead of staying the design's fixed pink literal.
 
 // Figma's own hairline stroke width on the cards / Upgrade button (a
 // fractional value from the design export, kept exactly).
@@ -108,29 +106,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openAppSettings() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AppSettingsScreen()));
+    Navigator.of(context).push(appRoute(context, (_) => const AppSettingsScreen()));
   }
 
   void _openHelpSupport() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HelpSupportScreen()));
+    Navigator.of(context).push(appRoute(context, (_) => const HelpSupportScreen()));
   }
 
   void _openNotificationSettings() {
-    // The user id only namespaces the saved choices on this device (so two
-    // people sharing a phone don't share settings); reading it from the
-    // session is local, not a network call.
-    final prefs = NotificationPrefs(userId: supabase.auth.currentUser?.id);
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => NotificationSettingsScreen(prefs: prefs)),
+      appRoute(context, (_) => const NotificationSettingsScreen(prefs: SupabaseNotificationPrefs())),
     );
   }
 
   void _openPrivacySecurity() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacySecurityScreen()));
+    Navigator.of(context).push(appRoute(context, (_) => const PrivacySecurityScreen()));
   }
 
   void _openPaymentMethods() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentMethodsScreen()));
+    Navigator.of(context).push(appRoute(context, (_) => const PaymentMethodsScreen()));
   }
 
   Future<void> _editProfile() async {
@@ -141,8 +135,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
     final updated = await Navigator.of(context).push<Profile>(
-      MaterialPageRoute(
-        builder: (_) => EditProfileScreen(profile: profile, membership: widget.membership),
+      appRoute(
+        context,
+        (_) => EditProfileScreen(profile: profile, membership: widget.membership),
       ),
     );
     if (updated != null && mounted) widget.onProfileChanged(updated);
@@ -150,7 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _openComingSoon(String label) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ComingSoonScreen(label: label)),
+      appRoute(context, (_) => ComingSoonScreen(label: label)),
     );
   }
 
@@ -163,10 +158,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       // The Figma frame's own fill: the same soft 3-stop page wash used on
       // every other screen.
-      decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+      decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
       child: SafeArea(
         bottom: false, // the bottom nav in MainShell handles its own inset
         child: _loading
@@ -176,7 +172,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 membership: widget.membership,
                 onRetry: _loadProfile,
                 onEditProfile: _editProfile,
-                onUpgradeMembership: () => _openComingSoon('Upgrade Membership'),
+                onUpgradeMembership: () =>
+                    _openComingSoon(AppLocalizations.of(context).upgradeMembershipButton),
                 onPaymentMethods: _openPaymentMethods,
                 onNotifications: _openNotificationSettings,
                 onPrivacySecurity: _openPrivacySecurity,
@@ -226,6 +223,8 @@ class ProfileContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = this.profile;
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return SingleChildScrollView(
       // Figma's frame padding: 16 sides, 32 top. Bottom 16 is the gap the
       // design leaves above the bottom nav (which sits outside this
@@ -234,14 +233,14 @@ class ProfileContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Profile',
+          Text(
+            l10n.profileHeading,
             style: TextStyle(
               fontSize: 36,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w700,
               height: 40 / 36,
               letterSpacing: 0.369,
-              color: AppColors.textDark,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 24),
@@ -252,9 +251,9 @@ class ProfileContent extends StatelessWidget {
           const SizedBox(height: 24),
           _OutlinedActionButton(
             icon: Icons.person_outline,
-            label: 'Edit Profile',
-            ink: _editProfileInk,
-            borderColor: _editProfileBorder,
+            label: l10n.editProfileButton,
+            ink: colors.textPrimary,
+            borderColor: colors.border,
             borderWidth: 1.545,
             iconGap: 17,
             onTap: onEditProfile,
@@ -272,18 +271,18 @@ class ProfileContent extends StatelessWidget {
           const SizedBox(height: 24),
           _OutlinedActionButton(
             icon: Icons.logout,
-            label: 'Sign Out',
-            ink: _signOutInk,
-            borderColor: _signOutBorder,
+            label: l10n.signOutButton,
+            ink: colors.danger,
+            borderColor: colors.danger.withValues(alpha: 0.4),
             borderWidth: 1.545,
             iconGap: 16,
             onTap: onSignOut,
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Version $_appVersion • Rosewater Café',
+          Text(
+            l10n.versionFooter(_appVersion),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, height: 16 / 12, color: _versionText),
+            style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
           ),
         ],
       ),
@@ -291,13 +290,13 @@ class ProfileContent extends StatelessWidget {
   }
 }
 
-/// White-at-90% card with the design's hairline black-at-10% border and
-/// 14px radius, shared by all three cards on this screen.
-BoxDecoration _cardDecoration({List<BoxShadow>? shadows}) {
+/// Themed card surface with the design's hairline border and 14px radius,
+/// shared by all three cards on this screen.
+BoxDecoration _cardDecoration(AppSemanticColors colors, {List<BoxShadow>? shadows}) {
   return BoxDecoration(
-    color: Colors.white.withValues(alpha: 0.9),
+    color: colors.surface,
     borderRadius: BorderRadius.circular(14),
-    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+    border: Border.all(color: colors.border, width: _hairline),
     boxShadow: shadows,
   );
 }
@@ -310,17 +309,19 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final phone = profile.phone;
     final memberId = profile.memberId;
     final rows = <Widget>[
       _InfoRow(icon: Icons.mail_outline, text: profile.email),
       if (phone != null && phone.isNotEmpty) _InfoRow(icon: Icons.phone_outlined, text: phone),
       if (memberId != null && memberId.isNotEmpty)
-        _InfoRow(icon: Icons.credit_card_outlined, text: 'Member ID: $memberId'),
+        _InfoRow(icon: Icons.credit_card_outlined, text: AppLocalizations.of(context).memberIdLabel(memberId)),
     ];
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: _cardDecoration(
+        colors,
         shadows: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -350,12 +351,12 @@ class _ProfileCard extends StatelessWidget {
                   children: [
                     Text(
                       profile.fullName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w700,
                         height: 32 / 24,
                         letterSpacing: 0.07,
-                        color: AppColors.textDark,
+                        color: colors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 7.15),
@@ -393,7 +394,7 @@ class _PlanBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        '${planName.toUpperCase()} Member',
+        AppLocalizations.of(context).planBadgeSuffix(planName.toUpperCase()),
         style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
@@ -413,18 +414,19 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Row(
       children: [
-        Icon(icon, size: 20, color: _iconGrey),
+        Icon(icon, size: 20, color: colors.textMuted),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 20 / 14,
               letterSpacing: -0.15,
-              color: _iconGrey,
+              color: colors.textMuted,
             ),
           ),
         ),
@@ -444,16 +446,17 @@ class _ProfileLoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(colors),
       child: Column(
         children: [
-          const Text(
-            "Couldn't load your profile.",
-            style: TextStyle(fontSize: 14, height: 20 / 14, color: _iconGrey),
+          Text(
+            AppLocalizations.of(context).couldntLoadProfile,
+            style: TextStyle(fontSize: 14, height: 20 / 14, color: colors.textMuted),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Try again')),
+          TextButton(onPressed: onRetry, child: Text(AppLocalizations.of(context).tryAgainButton)),
         ],
       ),
     );
@@ -486,7 +489,7 @@ class _OutlinedActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: context.colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: borderColor, width: borderWidth),
@@ -527,42 +530,44 @@ class _MembershipDetailsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(colors),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _CardTitle('Membership Details'),
+          _CardTitle(l10n.membershipDetailsTitle),
           const SizedBox(height: 40),
-          _DetailRow(label: 'Plan', value: membership.planName),
+          _DetailRow(label: l10n.planLabel, value: membership.planName),
           const SizedBox(height: 12),
           // Same M/D/YYYY (no leading zeros) Home's status card uses, from
           // the same DateTime, so the two screens always agree.
-          _DetailRow(label: 'Valid Until', value: DateFormat('M/d/yyyy').format(membership.validUntil)),
+          _DetailRow(label: l10n.validUntilLabel, value: DateFormat('M/d/yyyy').format(membership.validUntil)),
           const SizedBox(height: 12),
-          _DetailRow(label: 'Max Guests', value: '${membership.plan.maxGuests}'),
+          _DetailRow(label: l10n.maxGuestsLabel, value: '${membership.plan.maxGuests}'),
           const SizedBox(height: 40),
           SizedBox(
             height: 36,
             child: Material(
-              color: Colors.white,
+              color: colors.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
-                side: const BorderSide(color: _upgradeBorder, width: _hairline),
+                side: BorderSide(color: colors.accent.withValues(alpha: 0.4), width: _hairline),
               ),
               child: InkWell(
                 onTap: onUpgrade,
                 customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    'Upgrade Membership',
+                    l10n.upgradeMembershipButton,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       height: 20 / 14,
                       letterSpacing: -0.15,
-                      color: AppColors.bottomNavActive,
+                      color: colors.accent,
                     ),
                   ),
                 ),
@@ -584,12 +589,12 @@ class _CardTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 18,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w700,
         height: 28 / 18,
         letterSpacing: -0.44,
-        color: AppColors.textDark,
+        color: context.colors.textPrimary,
       ),
     );
   }
@@ -603,20 +608,21 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: _rowFill, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _rowLabel),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.31, color: _rowValue),
+            style: TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.31, color: colors.textPrimary),
           ),
         ],
       ),
@@ -641,20 +647,21 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final rows = [
-      _SettingsRow(icon: Icons.credit_card_outlined, label: 'Payment Methods', onTap: onPaymentMethods),
-      _SettingsRow(icon: Icons.notifications_none, label: 'Notifications', onTap: onNotifications),
-      _SettingsRow(icon: Icons.shield_outlined, label: 'Privacy & Security', onTap: onPrivacySecurity),
-      _SettingsRow(icon: Icons.help_outline, label: 'Help & Support', onTap: onHelpSupport),
-      _SettingsRow(icon: Icons.settings_outlined, label: 'App Settings', onTap: onAppSettings),
+      _SettingsRow(icon: Icons.credit_card_outlined, label: l10n.paymentMethodsLabel, onTap: onPaymentMethods),
+      _SettingsRow(icon: Icons.notifications_none, label: l10n.notificationsLabel, onTap: onNotifications),
+      _SettingsRow(icon: Icons.shield_outlined, label: l10n.privacySecurityLabel, onTap: onPrivacySecurity),
+      _SettingsRow(icon: Icons.help_outline, label: l10n.helpSupportLabel, onTap: onHelpSupport),
+      _SettingsRow(icon: Icons.settings_outlined, label: l10n.appSettingsLabel, onTap: onAppSettings),
     ];
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context.colors),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _CardTitle('Settings'),
+          _CardTitle(l10n.settingsTitle),
           const SizedBox(height: 36),
           for (var i = 0; i < rows.length; i++) ...[
             if (i > 0) const SizedBox(height: 4),
@@ -675,6 +682,10 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    // The chevron points "forward" (deeper into the app), not literally
+    // right -- same reasoning as the onboarding Next/Previous chevrons.
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -684,21 +695,21 @@ class _SettingsRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Icon(icon, size: 20, color: _iconGrey),
+              Icon(icon, size: 20, color: colors.textMuted),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     height: 24 / 16,
                     letterSpacing: -0.31,
-                    color: AppColors.textDark,
+                    color: colors.textPrimary,
                   ),
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 20, color: _chevronGrey),
+              Icon(isRtl ? Icons.chevron_left : Icons.chevron_right, size: 20, color: colors.textMuted),
             ],
           ),
         ),

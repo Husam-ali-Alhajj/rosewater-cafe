@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import '../theme/app_semantic_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/app_feedback.dart';
 
 class GradientButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
-  final Gradient gradient;
+
+  /// Null uses this theme's own accent gradient (via `context.colors`) --
+  /// pink/purple in light mode, blue in dark -- instead of a fixed
+  /// light-mode gradient. Callers pass an explicit gradient only when they
+  /// want a specific one regardless of theme (e.g. Choose Membership's
+  /// per-tier "Select" buttons, or Onboarding's per-page accent), same
+  /// "null defaults to the theme" pattern as [OutlinedSecondaryButton].
+  final Gradient? gradient;
   final IconData? trailingIcon;
 
   /// Figma uses two distinct button sizes: full-width primary CTAs (Sign
@@ -19,7 +27,7 @@ class GradientButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
-    this.gradient = AppColors.primaryGradient,
+    this.gradient,
     this.trailingIcon,
     this.height = 48,
     this.fontSize = 18,
@@ -28,12 +36,13 @@ class GradientButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final disabled = onPressed == null;
+    final resolvedGradient = gradient ?? context.colors.accentGradient;
     return Opacity(
       opacity: disabled ? 0.5 : 1,
       child: Container(
         height: height,
         decoration: BoxDecoration(
-          gradient: gradient,
+          gradient: resolvedGradient,
           borderRadius: BorderRadius.circular(8),
           boxShadow: disabled
               ? null
@@ -56,7 +65,16 @@ class GradientButton extends StatelessWidget {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
-            onTap: onPressed,
+            // Sprint 8 Task 4: every primary CTA's press point, wired once
+            // here rather than at each of this button's call sites --
+            // "a small fixed set of real trigger points," not
+            // instrumenting every tap individually.
+            onTap: onPressed == null
+                ? null
+                : () {
+                    context.triggerButtonPress();
+                    onPressed!();
+                  },
             borderRadius: BorderRadius.circular(8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

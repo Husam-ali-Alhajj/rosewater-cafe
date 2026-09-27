@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/models/membership_plan.dart';
 import 'package:rosewater_cafe/models/profile.dart';
 import 'package:rosewater_cafe/screens/profile/profile_screen.dart';
@@ -48,6 +49,10 @@ Future<_Calls> _pump(
   final calls = _Calls();
   await tester.pumpWidget(
     MaterialApp(
+      // Sprint 8 Task 6 Phase 2: this screen now reads AppLocalizations
+      // throughout (see profile_screen.dart).
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: ProfileContent(
           profile: profile,

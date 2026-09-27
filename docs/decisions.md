@@ -3598,6 +3598,1214 @@ assumption. No visible or behavioral change to the app yet -- exactly as scoped.
 
 ---
 
+### 59. Sprint 8 Task 2 — Real Dark Mode, rebuilt after live feedback caught what a code review alone didn't
+
+**First pass (a cloud session, reviewed but not merged as-is):** built the
+underlying architecture -- `AppSemanticColors extends ThemeExtension`
+(`surface`/`inputFill`/`border`/`textPrimary`/`textMuted`/`success`/`warning`/
+`danger`/`pageBackgroundGradient`, each with a `.light` and `.dark` instance),
+`AppTheme.dark` registering it, `MaterialApp`'s `themeMode` bound to
+`SettingsProvider.themeMode` via a `Consumer`. This part was sound and kept
+as-is: reviewed the WCAG contrast math by hand (relative-luminance formula, not
+trusting a comment) and it passed AA on every token pair.
+
+**What was wrong, found by the user's own live click-through, not by that code
+review:** two separate problems, reported together --
+
+1. *Incomplete coverage.* The first pass converted some screens to
+   `context.colors` but left others on hardcoded light-mode `AppColors.*`
+   constants -- Events (Reserve an Event, Reservation Confirmed) and QR / Door
+   Access stayed fully light regardless of the toggle. A project-wide
+   `grep -L app_semantic_colors` (run independently, moments around the same
+   time as the user's report) confirmed roughly 15 files were never touched.
+2. *The palette itself was bad.* `AppColors.dark*`'s background and surface
+   colors sat in the same dark-purple hue family as the pink/purple brand accent,
+   so the UI read as flat and "muddy" rather than the accent popping against a
+   neutral backdrop -- a real design defect a contrast-ratio check alone doesn't
+   catch, only looking at it does.
+
+The user pointed at a specific reference (a Figma community banking-app UI kit
+with its own light/dark system) for aesthetic cues -- not to copy its blue
+brand color, but for the *structural* idea of a neutral, sufficiently-dark
+backdrop that a saturated accent color sits on top of, rather than blends into.
+Asked directly whether to keep Rosewater's pink/purple accent given that
+reference: **chose to stay open to a different dark accent** rather than
+preserving pink/purple unconditionally -- in the end the accent
+(`AppColors.primaryGradient`) was left untouched, because the actual problem
+traced to the *background* being too close to the accent's hue, not to the
+accent itself being wrong; changing the backdrop already fixed the "blends in"
+complaint without also re-skinning the app's brand color.
+
+**Rebuilt:**
+
+- **`lib/theme/app_colors.dart`'s dark palette**, redone deeper and more
+  neutral: `darkBackground`/`darkSurface`/`darkSurfaceElevated`/`darkInputFill`
+  near-black with only a faint purple cast (not the previous same-family purple),
+  `darkBorder` a translucent white hairline, `darkTextPrimary`/`darkTextMuted`
+  kept high-contrast off-white/grey. `pageBackgroundGradientDark` re-picked to
+  match. `success`/`warning`/`danger` dark variants unchanged -- they already
+  cleared AA. `primaryGradient` and every membership-tier gradient
+  deliberately untouched, per the task's own "still reads as Rosewater Café"
+  requirement.
+- **Full file-coverage pass**, not just the screens the user named: every
+  remaining screen and shared widget converted to `context.colors`, in this
+  order -- Events (`reserve_event_screen`, `reservation_confirmed_screen`), QR
+  / Door Access (`qr_access_screen`), the rest of Membership
+  (`id_upload_screen`, `payment_screen`, `payment_success_screen`, plus
+  `payment_fields.dart` and `outlined_secondary_button.dart`, the latter's
+  `borderColor`/`textColor` changed from hardcoded-default `Color` to nullable
+  `Color?` resolved via `context.colors` so callers that don't override it get
+  the theme instead of a fixed light value), all seven remaining Profile
+  screens (`profile_screen`, `edit_profile_screen`, `payment_methods_screen`,
+  `add_payment_method_screen`, `notification_settings_screen`,
+  `help_support_screen`, `privacy_security_screen` -- the last one carrying
+  Delete Account / Change Password / Change Email's forms from decisions
+  #54/#57, its `_deleteInk` mapped onto `colors.danger`, the semantic token
+  already re-picked per brightness to clear AA, not a generic color), plus
+  `setting_toggle_row.dart`'s switch off-state and Onboarding
+  (`onboarding_screen.dart`). A handful of decorative colors were deliberately
+  left as fixed literals rather than tokenized, each with a comment explaining
+  why: the QR code's own white background (scanner contrast requirement), the
+  purple/amber info-box tints on Reserve an Event / QR Access (brand-tinted,
+  not neutral, so they get their own light/dark pair via a local brightness
+  check rather than a semantic token), every accent gradient and
+  `AppColors.bottomNavActive`-style brand color (per the architecture's own
+  stated intent, see `app_semantic_colors.dart`'s doc comment), and
+  `DotsIndicator`'s inactive-dot grey (no existing token fits a small solid
+  control sitting directly on the page wash -- `border` is a translucent
+  hairline, `surfaceElevated` is a card fill and, in light mode, pure white --
+  so it picks its own brightness-appropriate pair instead of reusing the wrong
+  token).
+- **`SettingToggleRow`'s switch track**, on closer look during this pass, also
+  had a leftover fixed light-grey "off" state (`0xFFD1D5DC`). First attempt
+  moved it to `colors.surfaceElevated` -- wrong, and caught by a separate
+  cloud-session commit (`0f9a518`, "Fix: Dark Mode switch... invisible in
+  light mode"): `surfaceElevated` IS `AppColors.cardWhite` in light mode, the
+  exact same solid white as the card the switch already sits on, so an "off"
+  switch rendered as an invisible white-on-white pill with nothing to tap.
+  Corrected to its own dedicated brightness-aware grey pair instead (same
+  fix shape `DotsIndicator.inactiveColor` already needed for the same
+  underlying reason -- a small solid control sitting ON a card can't reuse
+  that card's own fill token).
+
+**v2 verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+222/222 (no widget test asserts on a specific hex color, so none needed
+updating for the palette change). Live verification via the running Flutter
+Web dev server was attempted but the browser tab repeatedly froze mid-render
+in this sandboxed environment (confirmed the dev server itself was fine --
+`curl` got a fast `200` the whole time) -- the actual look-and-feel check was
+handed to the user to do themselves, on their own machine, per the
+project's established DB/SQL-vs-app-level verification split.
+
+**v3 (this same task, third pass):** the user's own live check of v2 came
+back "too bad," "not matching," and asked for the dark palette to lean
+blue -- explicitly **not** to preserve anything from v2 if it didn't work
+("don't stick with anything"). Asked directly whether "blue" meant just the
+background/neutral tones or the accent color too, given the architecture's
+stated intent (`app_semantic_colors.dart`'s v2 doc comment) was to keep the
+brand gradient identical in both themes: **the user chose the bigger
+change** -- blue-black neutrals AND a dedicated blue accent for dark mode,
+not just a cooler backdrop under the same pink/purple buttons.
+
+- **Palette redone a second time**, now genuinely navy rather than
+  near-neutral: `darkBackground`/`darkSurface`/`darkSurfaceElevated`/
+  `darkInputFill` moved from a whisper-of-violet near-black to real
+  slate-blue (`0xFF0A0E1A` → `0xFF1B2540`), `darkBorder` changed from plain
+  white-at-20% to accent-blue-at-20% (so the hairline itself reads as part
+  of the same color family instead of a neutral afterthought),
+  `darkTextMuted` moved off a warm lavender-grey onto a cool slate-blue
+  (`0xFF94A3C0`). `pageBackgroundGradientDark` re-picked as a visible navy
+  movement instead of a barely-perceptible one.
+- **New dark-mode-only accent**, `AppColors.primaryGradientDark` (blue ->
+  indigo, `0xFF3B82F6` → `0xFF6366F1`, same left-to-right structure as the
+  light-mode pink/purple gradient) and `AppColors.accentDark` (`0xFF5B9BFF`,
+  a single-color stand-in for `bottomNavActive`). Both explicitly flagged in
+  their own code comments as a first attempt, not a locked-in final answer --
+  matching the user's "don't stick with anything" brief.
+- **`AppSemanticColors` gained `accentGradient`/`accent`**, the first tokens
+  on that extension that DO differ by theme (everything else added in v1/v2
+  is deliberately identical in both) -- light instances point at the
+  existing `AppColors.primaryGradient`/`bottomNavActive` unchanged, dark
+  instances point at the two new dark-only constants above. The membership
+  tier gradients (Basic/Premium/VIP) were deliberately left OUT of this --
+  those identify a plan, changing "VIP purple" per theme would make the tier
+  itself harder to recognize, a different problem than the action-color
+  swap this task is actually about.
+- **Every direct `AppColors.primaryGradient`/`AppColors.bottomNavActive`
+  reference project-wide (16 files) switched to
+  `context.colors.accentGradient`/`.accent`**: the four auth screens' lock
+  badge, `GradientButton`'s and `OnboardingIconBadge`'s own default gradient
+  (both changed from a fixed light-mode `Color`/`Gradient` default to
+  nullable, resolved via `context.colors` -- the same "null defaults to the
+  theme" pattern `OutlinedSecondaryButton` already used, so callers that
+  don't override it now get the theme instead of a stale light value), Home's
+  "Access Café" quick action and its "Reserve Event" icon color,
+  `AppBottomNav`'s active-tab color, every gradient-banded card header in
+  Profile (App Settings' Appearance card, Notification Settings, Help &
+  Support's FAQ card, Privacy & Security's Security Options), Payment
+  Methods' "Add New Payment Method" button, `form_buttons.dart`'s
+  `SaveButton`, and `DotsIndicator`'s default (currently dead code -- the one
+  live caller, Onboarding, always passes its own per-slide gradient -- kept
+  theme-aware anyway rather than left on a stale default). Along the way,
+  found and fixed several `AppColors.danger`-as-a-link-color reuses in Create
+  Account / Sign In ("Terms of Service," "Sign In," "Forgot Password?" etc.)
+  that were never actually error states -- moved to `colors.accent`, the
+  semantically correct token for a highlighted link. App Settings' language-
+  selected row wash and its "Clear All App Data" destructive button were
+  also caught still on fixed pink/red literals and moved to
+  `colors.accent.withValues(alpha: ...)`/`colors.danger` respectively.
+
+**v3 verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+222/222. Live look-and-feel check is, again, the user's own to do -- per
+their own explicit instruction this round ("don't open google and test
+things just do the changes in the code and I will verify them"), no browser
+automation was attempted for v3 at all.
+
+**Sign-off:** architecture from v1 kept (sound); v2 fixed coverage and
+de-muddied the palette; v3 gives dark mode its own blue identity (palette
+and accent both) rather than a cooler wrapper around the light-mode brand
+color, on the user's explicit direction to not preserve anything that
+wasn't working. **Still not signed off end-to-end** -- pending the user's
+own visual click-through, same as v2's open item, now against the v3 blue
+palette instead.
+
+---
+
+### 60. Sprint 8 Task 3 — Real Animations toggle
+
+**The core problem:** `MaterialPageRoute` doesn't expose its transition
+duration as a constructor parameter -- it's a fixed `Duration(milliseconds:
+300)` override baked into the class. There's no `ThemeData`-level "make all
+navigation instant" switch either. Confirmed with the user before building
+anything (per the standing rule) that the only way to actually hit the
+acceptance criterion's "any screen-to-screen navigation" was a custom route
+class, read at every one of the app's 28 `Navigator.push(MaterialPageRoute
+(...))` call sites -- not a smaller sample first. Chose the full sweep.
+
+**What was built:**
+
+- **`AppPageRoute<T> extends MaterialPageRoute<T>`** (new,
+  `lib/widgets/app_page_route.dart`): takes `animationsEnabled` at
+  construction, overrides `transitionDuration`/`reverseTransitionDuration`
+  to return the normal 300ms when true, **1ms (not `Duration.zero`) when
+  false** -- the acceptance criterion's own explicit requirement, since a
+  zero-length transition can leave a route's animation stuck mid-flight
+  instead of settling on `.completed`/`.dismissed`.
+- **`appRoute(context, builder)`**, a drop-in replacement for
+  `MaterialPageRoute(builder: ...)` that reads
+  `SettingsProvider.animationsEnabled` at push time and builds an
+  `AppPageRoute` with it. **Every one of the 28 call sites app-wide switched
+  to it** (~20 files: every auth screen, Home, Main Shell, the whole
+  membership signup flow, every Profile sub-screen, Onboarding, and
+  `auth_deep_link_listener.dart`'s non-widget-triggered navigation, which
+  reaches a real `BuildContext` via `navigator.context` -- a
+  `NavigatorState` is itself a `State`, so this works even though nothing
+  built that listener from a widget).
+- **`context.animDuration(normal)`** (new, `lib/utils/app_animations.dart`):
+  the equivalent for every explicit `Animated*` widget duration that isn't
+  a route transition -- `SettingToggleRow`'s switch thumb/track,
+  `DotsIndicator`'s active-dot resize, Help & Support's FAQ chevron
+  rotation, and Onboarding's slide-to-slide `PageController.nextPage`/
+  `.previousPage` (handled separately, as a getter, since a
+  `PageController` call takes a `Duration` argument directly rather than
+  rendering a widget with one). Same near-zero-not-zero reasoning.
+- **Both fall back to animations-ON when no `SettingsProvider` is in the
+  widget tree** -- the same fallback `context.colors` already established
+  for the same reason: most of this app's ~20 existing widget test files
+  pump a screen directly (`MaterialApp(home: SomeScreen())`) without
+  registering `SettingsProvider`, and none of them should have to just
+  because the screen they're testing happens to navigate somewhere or use
+  a switch. Confirmed this was the actual failure mode, not guessed at:
+  before this fallback existed, running the full suite took it from
+  222/222 to 47 failing, all `ProviderNotFoundException`s surfacing as
+  cascading `RenderFlex` overflows and missing-text failures several layers
+  removed from the real cause.
+- **The Animations row in App Settings is real now** -- `value:
+  settings.animationsEnabled`, `onToggle:` flips it, same pattern as Dark
+  Mode (decision #59). `test/app_settings_screen_test.dart`'s old "all
+  three [Animations/Sound/Haptic] are on and inert" test split: Animations
+  moved to its own group proving the toggle actually reads/writes
+  `SettingsProvider` and starts at whatever's stored; Sound/Haptic stay in
+  the inert-placeholder group, unchanged (out of this task's scope, same
+  as decision #47 left them).
+- **`test/notification_prefs_test.dart`'s import-graph test** (asserts
+  Notification Settings and its whole transitive import tree can never
+  reach the network) needed its allow-list updated to include
+  `package:provider/provider.dart`, now pulled in transitively through
+  `SettingToggleRow` → `app_animations.dart`. Added deliberately, not
+  loosened carelessly: `provider` is a pure `InheritedWidget` wrapper with
+  no I/O of its own, so the test's actual guarantee (no `supabase`, no
+  `http`, no `dart:io`) still holds -- confirmed the loop asserting that
+  is untouched, only the allow-list's exact-match set changed.
+- **New test coverage**, not just relying on existing screen tests passing
+  incidentally: `test/app_page_route_test.dart` -- `AppPageRoute`'s
+  duration with animations on/off (and explicitly asserts it's never
+  `Duration.zero`), `appRoute()` reading the live `SettingsProvider` value
+  at push time in both states plus its no-provider fallback, and
+  `context.animDuration`'s same three cases. This is the test that directly
+  proves the acceptance criterion ("compare a screen-to-screen navigation
+  with it on vs off"), rather than leaving it as something only a manual
+  click-through could confirm.
+
+**Verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+232/232 (10 new: 2 for the real Animations toggle in App Settings, 8 in the
+new `app_page_route_test.dart`). No browser automation was used for this
+task -- the user asked, this round, to skip that and just review the code
+changes themselves.
+
+**Sign-off:** every screen-to-screen navigation and every explicit
+`Animated*` duration in the app now collapses to 1ms the instant Animations
+is switched off, and returns to normal the instant it's switched back on --
+covered by real tests, not just code review. Live click-through
+confirmation is, like decision #59's dark-mode look-and-feel, the user's
+own to do.
+
+---
+
+### 61. Sprint 8 Task 4 — Real Sound & Haptic Feedback
+
+**Three real decisions, put to the user before building anything** (per the
+standing rule):
+
+1. *How to play the sound?* **Chosen: `SystemSound.play()`** -- Flutter's
+   built-in platform sound (generic click/alert), zero new dependency, over
+   bundling distinct success/error audio assets (would need an audio-player
+   package and real sound files this project doesn't have). Matches "a
+   short system sound" from the task text literally.
+2. *Does a button press also play a sound, or is sound reserved for
+   success/error?* **Chosen: haptic only on button presses.** Sound is
+   reserved for the success/error moments; most apps don't click on every
+   tap, and the task's own examples list sound and haptics somewhat
+   separately ("HapticFeedback... for button presses... a short system
+   sound... for success/error").
+3. *Real-device verification* -- the acceptance criterion explicitly
+   requires a real device (haptics don't exist in a browser), and this
+   session only has Chrome/web automation. **Chosen: same split as every
+   other look-and-feel check this sprint** (decisions #59/#60) -- built and
+   tested everything code-verifiable, the user does the real haptic/sound
+   check on their own device.
+
+**What was built:**
+
+- **`context.triggerButtonPress()`/`.triggerSuccess()`/`.triggerError()`**
+  (new, `lib/utils/app_feedback.dart`): a small, fixed set of real trigger
+  points, not instrumenting every tap, per the task's own framing.
+  Sound and haptics are gated **independently** through
+  `SettingsProvider.soundEnabled`/`.hapticsEnabled` -- two separate `if`s,
+  not one combined gate -- so sound off + haptics on still vibrates, and
+  vice versa, exactly as the acceptance criterion requires. `triggerSuccess`
+  uses `SystemSoundType.click`, `triggerError` uses `.alert` -- Flutter's
+  only two system sound types, picked so a success and a failure don't
+  sound identical even without custom audio assets. Falls back to both
+  enabled when no `SettingsProvider` is in the tree, same fallback
+  `context.colors`/`context.animDuration` already use.
+- **`GradientButton`** wired once, centrally, at its own `InkWell.onTap`
+  (`context.triggerButtonPress()` before calling the real `onPressed`) --
+  every primary CTA in the app gets it for free, rather than adding a call
+  at each of `GradientButton`'s dozens of call sites.
+- **The three named success trigger points**: payment confirmed
+  (`payment_screen.dart`, right after `confirmSubscriptionPayment`
+  succeeds), door opened (`qr_access_screen.dart`, right after
+  `logDoorAccess` succeeds), reservation confirmed
+  (`reserve_event_screen.dart`, right before handing off to
+  `onConfirmed`).
+- **The two named error trigger points**: failed sign-in
+  (`sign_in_screen.dart`'s `SignInFailure` catch, and its generic
+  catch-all too), failed payment (`payment_screen.dart`'s
+  `ConfirmPaymentFailure` catch, and its generic catch-all). Deliberately
+  did NOT add error feedback to door-access or reservation failures --
+  only the two the task explicitly named, matching "a small fixed set,"
+  not "every catch block in the app."
+- **App Settings' Sound Effects / Haptic Feedback rows are real now**
+  (were inert placeholders since decision #47) -- same
+  read/write-`SettingsProvider` pattern as Dark Mode (#59) and Animations
+  (#60).
+- **New test coverage proving the acceptance criterion directly**,
+  `test/app_feedback_test.dart`: records the actual
+  `HapticFeedback`/`SystemSound` platform-channel calls a mocked
+  `SystemChannels.platform` handler receives (rather than trusting the
+  wiring by inspection), across all four on/off combinations of the two
+  toggles -- explicitly proving the independent-gating requirement, plus
+  the no-`SettingsProvider` fallback. `test/app_settings_screen_test.dart`'s
+  old "Sound Effects / Haptic Feedback: drawn at the design state, inert"
+  test replaced with one proving each toggle reads/writes its own
+  `SettingsProvider` field independently (flipping one leaves the other
+  alone).
+
+**Verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+241/241 (9 new: 8 in `app_feedback_test.dart`, 1 replacing the old inert-
+placeholder test). Real-device haptic/sound verification is, like decisions
+#59/#60's look-and-feel checks, the user's own to do -- this environment has
+no physical device or emulator, and haptics are meaningless in a browser
+regardless.
+
+**Sign-off:** every named trigger point fires the right channel(s), gated
+independently and provably (not just by code review) -- **code-side signed
+off; real-device confirmation is still open**, the same honest gap #59/#60
+already established this sprint's pattern for.
+
+---
+
+### 62. Sprint 8 Task 5 — Real Auto-Lock + Biometric login
+
+**Three real decisions, put to the user before building anything** (per the
+standing rule -- this task had the most open architecture questions of the
+sprint):
+
+1. *Where does the lock screen live, and does it gate the whole app or only
+   signed-in screens?* **Chosen: `MaterialApp.builder` wraps the entire
+   navigated app in `AppLockGate`, scoped to signed-in sessions only.**
+   Auto-Lock needs to appear over whatever screen is on top when the app
+   RESUMES, not just at cold start -- `AppEntryPoint`'s existing
+   session-based routing (decision #15) only ever runs once, at the very
+   start, so it can't be where this lives. Nothing sensitive exists before
+   sign-in, so Onboarding/Auth Landing/Sign In are never gated -- locking
+   them would be a confusing dead end, not a security feature.
+2. *Does the very first cold start also require biometric, per the task's
+   own "optionally"?* **Chosen: no, resume-only** -- matches the
+   acceptance criteria exactly (background-past-timeout-then-resume, and
+   the no-biometric fallback), and a cold-start lock check would be a real
+   behavior change to `AppEntryPoint`'s existing flow beyond what either
+   the task or the acceptance bar actually asked for.
+3. *What happens when someone tries to turn Biometric Authentication on but
+   the device has none enrolled?* **Chosen: block it with a real message**
+   (`BiometricService.isAvailable()` checked before the toggle is allowed
+   to flip on at all) -- matches the task's own "fail gracefully... rather
+   than a toggle that silently does nothing" literally. Turning it back
+   off never needs the check.
+
+**What was built:**
+
+- **`local_auth: ^2.3.0`** added. Platform config done, but **unbuildable
+  and unverifiable in this environment** (no Android SDK, no Xcode, no
+  physical device --confirmed via `flutter doctor`): `MainActivity.kt`
+  changed from `FlutterActivity` to `FlutterFragmentActivity` (required for
+  Android's `BiometricPrompt`), `AndroidManifest.xml` gained the
+  `USE_BIOMETRIC` permission, `Info.plist` gained
+  `NSFaceIDUsageDescription`. All three are standard, documented
+  `local_auth` setup steps, not guesses -- but genuinely can't be proven to
+  compile here.
+- **`BiometricService`** (new, `lib/services/biometric_service.dart`): a
+  thin wrapper around `local_auth`'s `LocalAuthentication`, matching this
+  project's constructor-injection pattern for every other real service
+  (`AuthService`, `AccountDeletionService`, ...) so a fake can stand in
+  without a real device. `isAvailable()` checks both
+  `isDeviceSupported()` AND `canCheckBiometrics` (device capable of
+  biometrics at all, AND something actually enrolled) and never throws --
+  any plugin-level error is treated the same as "not available."
+  `authenticate()` uses `biometricOnly: true` deliberately: never falls
+  through to the OS's own device-PIN prompt, so this app's own "Use
+  Password Instead" is the one fallback path, not two stacked ones.
+- **`AppLockGate`** (new, `lib/widgets/app_lock_gate.dart`): a
+  `WidgetsBindingObserver` watching `AppLifecycleState.paused`/`.resumed`
+  specifically (not `.inactive`, which flickers during perfectly normal use
+  -- a system dialog, an incoming call banner -- without the app ever
+  actually leaving the foreground). Records a timestamp on pause; on
+  resume, if there's a signed-in session AND `autoLockEnabled` AND elapsed
+  time exceeds `autoLockTimeoutSeconds`, shows [AppLockScreen] in a `Stack`
+  on top of the app's own content rather than replacing it -- the
+  Navigator underneath keeps its state (scroll position, form values)
+  instead of losing it, since it's covered, not torn down. Takes injectable
+  `now`/`hasSession` functions (default to the real clock / real Supabase
+  session) so tests can control elapsed time and sign-in state without
+  waiting on a real clock or a real session.
+- **`AppLockScreen`** (new, `lib/widgets/app_lock_screen.dart`): fires a
+  biometric prompt automatically (once the first frame is up, not from
+  `initState` directly) when Biometric is on; "Try Again" and "Use Password
+  Instead" are BOTH always visible, never revealed only after a failed
+  attempt -- the acceptance criterion's own point is a real path forward,
+  not a dead end for a device/user without working biometrics. The
+  password path calls the already-existing
+  [AuthService.verifyCurrentPassword] (the same re-authentication check
+  Change Password/Delete Account already use, decision #54) -- reused, not
+  reimplemented.
+- **Security Options' Biometric Authentication and Auto-Lock rows are real
+  now** (were disabled "(Coming Soon)" placeholders since decision #45).
+  **Two-Factor Authentication stays a placeholder** -- a separate later
+  task, not this one.
+- **New test coverage**, each targeting a different layer since none of
+  this can be proven on a real device here: `test/app_lock_gate_test.dart`
+  (7 tests) -- does resuming show the lock screen or not, for every
+  combination (elapsed under/over the timeout, Auto-Lock on/off, signed in
+  or not, a transient `.inactive` blip that never actually paused) --
+  using `tester.binding.handleAppLifecycleStateChanged` to simulate real
+  lifecycle transitions and the injectable clock to control elapsed time
+  without waiting on it. `test/app_lock_screen_test.dart` (7 tests) -- the
+  unlock interaction itself: auto-attempt on show, failed-attempt UI state,
+  the password fallback (right password unlocks, wrong password shows the
+  real error and stays locked), switching back and forth between the two
+  paths. `test/biometric_service_test.dart` (5 tests) -- against a fake
+  `LocalAuthPlatform` (the plugin's own platform interface), not the real
+  plugin: `isAvailable()`'s two independent checks, `authenticate()`
+  swallowing a plugin-level error into `false` rather than throwing.
+  `test/privacy_security_screen_test.dart`'s old "Security Options are
+  disabled placeholders" group split: Two-Factor keeps its own (still
+  accurate) inert-placeholder test; Biometric/Auto-Lock get real ones,
+  including the capability-check-blocks-with-a-message case.
+
+**Verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+264/264 (19 new). **Real-device verification is explicitly NOT done and
+can't be from here** -- no Android SDK, no Xcode, no physical device or
+emulator (`flutter doctor` confirms), and biometrics are meaningless in a
+browser regardless, same root cause as decision #61's sound/haptics gap.
+This is the task this sprint where that gap matters most: the acceptance
+criteria's two real-device scenarios (background-past-timeout-then-resume
+blocking content until biometric succeeds; the no-biometric-capability
+fallback actually working, not a dead end) are UNVERIFIED, not just
+"the polish is the user's call" the way #59/#60's look-and-feel checks were.
+
+**Sign-off:** architecture and logic are real and covered by 19 tests
+proving the decision points directly (not just by inspection) --
+**explicitly not signed off end-to-end.** The user needs to confirm, on an
+actual Android/iOS device or emulator: (1) backgrounding the app past the
+timeout and resuming shows the lock screen and it actually blocks content;
+(2) with biometrics disabled/unavailable, the password fallback is a real
+path forward, not a dead end; (3) the Android/iOS build actually compiles
+with the `MainActivity.kt`/manifest/`Info.plist` changes above.
+
+---
+
+### 63. Sprint 8 Task 6 — i18n infrastructure + English/Arabic (phase 1: infra + 3 screens)
+
+**The scale problem, put to the user before writing anything:** this app
+has ~30 screens; the task's own text says the string extraction, not the
+plumbing, is "the bulk of the effort," and RTL correctness means auditing
+LAYOUT code (not just strings) on top of that. Two real decisions:
+
+1. *Pace it all at once, or phase it?* **Chosen: phase it** -- build the
+   full i18n infrastructure (real, app-wide, not a stub), then fully do
+   (strings AND RTL layout) the exact three screens the acceptance
+   criteria names -- bottom nav, a form screen (Sign In), Home's
+   icon-badge rows -- check in on the approach, extend to the rest of the
+   app afterward. Not "infra only" -- the three named screens are
+   completely real, not placeholders.
+2. *Who reviews the Arabic?* No translation service exists in this
+   project. **Chosen: the user does** -- every Arabic string below is
+   AI-written and explicitly unreviewed by a fluent speaker. Flagged here,
+   not silently presented as authoritative.
+
+**Infrastructure built:**
+
+- **`flutter_localizations` + ARB files** (`lib/l10n/app_en.arb`,
+  `app_ar.arb`), `flutter: generate: true` in `pubspec.yaml` + `l10n.yaml`
+  -- `flutter gen-l10n` runs automatically on `pub get`/`run`/`build`,
+  generating `lib/l10n/app_localizations.dart` (never hand-edited).
+  `intl` bumped `^0.19.0` → `^0.20.2`: `flutter_localizations` pins an
+  exact `intl` version, and the old constraint made `pub get` unsolvable.
+- **`SettingsProvider.locale`** (new field, `'en'` default, ISO 639-1
+  codes): the user's PICKED language, not necessarily what's shown --
+  French/Spanish are real, storable picks (the design shows all four as
+  selectable) with no ARB file yet.
+- **`MaterialApp.locale`/`supportedLocales`/`localizationsDelegates`**
+  wired in `main.dart`, reading `SettingsProvider.locale`.
+  `supportedLocales` only lists `[en, ar]` -- **this is what makes the
+  French/Spanish fallback automatic**, not extra code: Flutter's own
+  locale-resolution algorithm falls back to the first supported locale
+  (English) for a `Locale` it doesn't recognize, rather than crashing or
+  showing missing-key text. Arabic being in `supportedLocales` is also
+  what flips `Directionality` app-wide -- derived from the resolved
+  `Locale`, not set separately.
+- **App Settings' Language list is real for English/Arabic**
+  (`_LanguageRow` now tappable, calls `SettingsProvider.setLocale`).
+  French/Spanish stay tappable and show selected too (real, storable
+  picks) -- decision #63's "say so plainly in the picker" requirement is
+  a caption shown under the list while one of them is picked ("French and
+  Spanish aren't translated yet..."), not silence. Each language is shown
+  in its OWN script (`"العربية"`, not `"Arabic"`) -- the standard
+  language-picker convention, unrelated to `AppLocalizations`.
+
+**The three screens, fully done (strings + RTL), not stubbed:**
+
+- **`AppBottomNav`** needed ZERO layout changes -- confirmed by reading
+  the render logic, not assumed: every tab is a plain vertical `Column`
+  (icon, dot, label), no left/right positioning to mirror, and the
+  enclosing `Row` already reverses its children's visual order under RTL
+  `Directionality` (Flutter's own default `Row` behavior). Only the four
+  tab labels needed translating.
+- **Sign In** (the form screen): found and fixed two real RTL bugs while
+  auditing, not guessed at -- `grep` for `Alignment\.`/`EdgeInsets\.only`
+  found exactly one physical-alignment bug in this file
+  (`Alignment.centerLeft` on the credentials-error text → 
+  `AlignmentDirectional.centerStart`) and the back arrow, which doesn't
+  auto-mirror (`Icons.arrow_back` isn't one of the codepoints Flutter's
+  bidi icon-mirroring covers), so it now checks `Directionality.of(context)`
+  explicitly and swaps to `Icons.arrow_forward`. The "Don't have an
+  account? Create Account" row's trailing space was moved out of the
+  translated string into a `SizedBox` gap -- a translated string
+  shouldn't have to carry layout spacing baked into it.
+- **Home** (icon-badge rows): same audit found one more physical-alignment
+  bug (`Alignment.topLeft` on the wrapping-text `OverflowBox` in
+  `_MembershipStatusCard` → `AlignmentDirectional.topStart`). Every
+  icon-badge row (`_UsageCard`, `_HomeHeader`, `_ServiceHoursCard`'s
+  title) needed no changes -- same `Row`-auto-reverses reasoning as the
+  bottom nav, proven directly in `home_content_test.dart` by measuring an
+  icon's screen position relative to its label in both directions, not
+  just asserted. Real data (the member's name, member ID, plan name,
+  plan's own `featureBullets`) is interpolated into translated strings,
+  never itself translated.
+- **`ComingSoonScreen`** (shared, reached from Home's notification bell
+  and elsewhere) got the same back-arrow fix and its one string
+  localized, since it's a single shared widget already on both screens'
+  critical path, not per-screen duplicated effort.
+- **Validators**: `SignInScreen`'s own `_validatePassword` (a local
+  method with `this.context` available) is localized; the shared
+  `Validators.email`/etc. (`lib/utils/validators.dart`, used by ~10+
+  screens) is explicitly NOT -- it's a plain `String? Function(String?)`
+  with no `BuildContext` parameter, and giving it one is a real signature
+  change touching every call site app-wide, out of this phase's scope.
+  Logged as a known follow-up, not silently left inconsistent.
+
+**A real bug found along the way, unrelated to i18n:** writing
+`test/sign_in_screen_test.dart` at a phone-realistic width (400px, instead
+of this suite's usual 800px canvas) surfaced a `RenderFlex` overflow on
+the "Remember me / Forgot Password?" and "Don't have an account? / Create
+Account" rows -- **in English too**, confirmed independently before
+concluding it wasn't an RTL regression. Pre-existing, not introduced by
+this task; the test was widened to match this suite's established
+800px-canvas convention (used everywhere else specifically to keep
+narrow-width responsiveness a separate concern from what each test is
+actually checking) rather than silently worked around. Left as a known
+gap for a future task, not fixed here -- fixing general responsiveness is
+outside Task 6's scope.
+
+**Verified:** `flutter analyze` -- clean, whole project. `flutter test` --
+277/277 (12 new: 4 in `app_bottom_nav_test.dart`, 4 in
+`sign_in_screen_test.dart`, 4 added to `home_content_test.dart` --
+covering both languages, `Directionality`, and, for Home, actually
+measuring the icon-badge row's mirrored screen position rather than just
+checking translated text appears). `app_settings_screen_test.dart`'s old
+"Language is visual only" test replaced with one proving the real
+tap-to-switch-locale behavior and the French/Spanish fallback caption.
+
+**Sign-off:** infrastructure is real and app-wide, not a stub; all three
+acceptance-criteria screens are fully translated AND RTL-correct, proven
+by tests that measure actual mirrored positions, not just check for
+translated text. **Two things explicitly still open, not silently
+closed:** the Arabic translations are unreviewed by a fluent speaker (the
+user's own to check), and the remaining ~27 screens are untouched --
+Phase 1 only, per the pacing decision above. Extending this to the rest
+of the app is the next task, not assumed to be "mostly done" because the
+pattern is now proven.
+
+### 64. Sprint 8 Task 6 — i18n Phase 2: the remaining ~27 screens, same pattern extended app-wide
+
+Picked up right where #63 left off, with the user's go-ahead to run
+straight through the rest of the app the same way (real strings, RTL
+audited, tested at every stop) rather than checking in screen-by-screen.
+Worked in eight groups, each with its own ARB keys, RTL audit, `flutter
+analyze` and `flutter test` pass before moving on:
+
+- **Auth** (Auth Landing, Create Account, Forgot Password, Set New
+  Password, Confirm Email Pending): ~35 keys. RTL bugs: the back arrow
+  (same `Icons.arrow_back`-doesn't-auto-mirror fix as #63) on Create
+  Account and Forgot Password, plus `Alignment.centerLeft` on each
+  screen's terms/error text → `AlignmentDirectional.centerStart`.
+- **Membership** (Choose Membership, ID Upload, Payment, Payment
+  Success): ~35 keys. RTL bug: ID Upload's back arrow +
+  `Alignment.centerLeft` on "Back to Plans" + a stray `TextAlign.left`.
+- **Events + QR** (Events Tab, Reserve Event, Reservation Confirmed, QR
+  Access): ~65 keys, including the four placeholder event types
+  (decision #37/#38) and both guest-count/duration validators. RTL bugs:
+  the same back-arrow pattern on Reserve Event's and QR Access's own
+  "Back to Dashboard" buttons. `intl`'s own `TextDirection` enum turned
+  out to shadow `dart:ui`'s when both packages are imported unqualified
+  (`import 'package:intl/intl.dart'` alongside `Directionality.of(...) ==
+  TextDirection.rtl`) -- fixed by hiding it (`import
+  'package:intl/intl.dart' hide TextDirection`), not by qualifying every
+  reference.
+- **Onboarding**: the 4-slide `_pages` list, previously a `static const
+  List`, had to become a method taking `AppLocalizations` (same pattern
+  as #63's bottom-nav tabs) since Dart consts can't hold looked-up
+  strings. RTL: the Skip button's `Alignment.centerRight` →
+  `AlignmentDirectional.centerEnd`, and the Next/Previous chevrons now
+  swap (`chevron_right`↔`chevron_left`) under `Directionality`, the same
+  "points toward reading-forward, not literally right" reasoning as every
+  other directional icon this task touches.
+- **Profile + Edit Profile**: ~45 keys. Fixed the shared **`ScreenHeader`**
+  widget here (back arrow + a hardcoded "Back" tooltip) -- used by six
+  more screens still to come, so fixing it once here instead of
+  per-screen. Also fixed the shared **`SettingToggleRow`**'s custom switch
+  thumb (`AnimatedPositioned(left: ...)` → `AnimatedPositionedDirectional
+  (start: ...)`), used by Notifications, App Settings, and Privacy &
+  Security. `_EditField`'s custom icon overlay (a `Positioned` + fixed
+  `contentPadding`, not `InputDecoration.prefixIcon`, so it doesn't
+  auto-mirror) converted to `PositionedDirectional` +
+  `EdgeInsetsDirectional` -- flagged in-code as the same "form field
+  icons" trap the original Task 6 acceptance criteria called out.
+  Fixing `ScreenHeader`/`SettingToggleRow` mid-task broke five *other*
+  screens' existing tests that construct a bare `MaterialApp` with no
+  `AppLocalizations` delegate (their own screens aren't localized yet) --
+  fixed by registering the delegate in each of those test files (the same
+  fallback pattern #63 already established), and by extending
+  `notification_prefs_test.dart`'s "no network" import-allowlist test
+  with `flutter_localizations` and its own transitive imports, once
+  `ScreenHeader` started pulling them in. Not a scope violation: these
+  were pre-existing tests broken by a shared-widget fix, fixed to keep
+  passing, not new screens localized early.
+- **Payment Methods + Add Payment Method**: ~15 keys, including the
+  "Remove this card?" confirm dialog. No RTL bugs -- both screens already
+  used `Row`/`InputDecoration.prefixIcon` throughout.
+- **Notification Settings + App Settings**: ~30 keys. `_communicationToggles`/
+  `_typeToggles` (Notification Settings) converted from const lists to
+  functions the same way Onboarding's `_pages` was. RTL bug:
+  `_TypesCard`'s "Notification Types" strip used `Alignment.centerLeft`.
+- **Privacy & Security + Help & Support**: ~55 keys, the largest single
+  file in this phase (Change Password / Delete Account / Change Email,
+  each its own inline form and validators). RTL bugs: `_PasswordField`'s
+  show/hide eye icon (`Positioned(right:)` + fixed `contentPadding`, the
+  same non-`prefixIcon` overlay pattern as Edit Profile's `_EditField`)
+  and `_PrivacyRow`'s `Alignment.centerLeft`. Help & Support:
+  `_ResourcesCard`'s row chevrons get the same RTL flip as
+  `ProfileScreen`'s `_SettingsRow`; the FAQ accordion's own chevron
+  (rotates in place to indicate open/closed, not a "leads forward"
+  navigation cue) was deliberately left unmirrored -- reversing its
+  glyph would also have required inverting its rotation direction to
+  still land pointing down when open, and that's a real behavior change
+  outside what the acceptance criteria asks for, not a one-line
+  consistency fix.
+
+**Pattern held from #63, confirmed at scale, not just asserted:** every
+icon-then-text `Row` across all eight groups auto-mirrored with zero
+changes; the only real bugs were physical `Alignment`/`Positioned`/
+`EdgeInsets` values and un-mirrored directional icons (back arrows,
+forward/previous chevrons, list-row chevrons) -- exactly the two
+categories #63 predicted, no new category of RTL bug turned up across
+~27 more screens.
+
+**Final sweep caught two more files** the eight groups above didn't
+cover, because they're `lib/widgets/`/`lib/screens/auth/` helpers, not
+one of the ~27 screens on the task list: **`AppLockScreen`** (Sprint 8
+Task 5's real lock screen, decision #62 -- shown whenever Auto-Lock
+actually fires, so very much user-facing) had five hardcoded strings
+plus the native biometric prompt's own reason text
+(`BiometricService.authenticate(reason:)`, which the OS shows in its own
+system dialog); and **`signOutAndShowLanding`** (`sign_out.dart`, shared
+by every Sign Out control) had one SnackBar string. Both fully localized,
+no RTL fixes needed (neither uses physical `Alignment`/`Positioned`).
+Found by grepping the whole `lib/` tree for `Text('[A-Z]` a second time
+after all eight groups were done, specifically to check for exactly this
+kind of gap rather than assuming the group-by-group pass was exhaustive.
+
+**One category of string deliberately left un-localized, same reasoning
+as decision #63's `Validators` gap:** the `*Failure.message` strings
+thrown by `lib/services/*.dart` (`ChangePasswordFailure`,
+`DeleteAccountFailure`, `PaymentMethodFailure`, `ProfileUpdateFailure`,
+etc.) -- these are plain Dart exception messages built inside service
+methods with no `BuildContext` available at the throw site, then
+displayed via `e.message` by the screens that catch them (already
+localized this phase). Giving every service method a `BuildContext` or
+`AppLocalizations` parameter to build these server-facing-error strings
+would be a real signature change touching every service class and call
+site app-wide -- the same scope boundary #63 already drew around
+`Validators.email`. Logged here explicitly, not silently left
+inconsistent: these ~15 messages across 6 service files still show
+English text regardless of locale.
+
+**Verified:** `flutter analyze` -- clean, whole project, after every
+group. `flutter test` -- 277/277 throughout (English text never changed,
+so no test needed updating for content, only the handful whose
+`MaterialApp` needed the `AppLocalizations` delegate added because of the
+shared-widget fixes above).
+
+**Sign-off:** i18n/RTL now covers every screen and dialog a user can
+actually navigate to, matching #63's acceptance criteria extended
+app-wide. **Three things explicitly still open, not silently closed:**
+(1) the Arabic translations -- now ~65 more strings on top of #63's --
+remain AI-written and unreviewed by a fluent speaker, the user's own to
+check per the earlier "you review the Arabic yourself" decision; (2)
+French/Spanish stay real, storable picks with no translation yet
+(decision #63's fallback caption still applies everywhere); (3) the
+service-layer exception-message strings above stay English-only,
+same scope boundary as `Validators`.
+
+---
+
+### 65. Sprint 9 Task 1 — Notifications schema
+
+Answers the open question this same file already flagged below
+("Notifications feed and its backing schema... all undecided", raised by
+Sprint 3 Task 8): a notification here is a payment activation or an event
+reservation confirmation, in-app only, read/unread tracked by a real
+`is_read` flag. The `notifications` table itself already existed
+(initial_schema.sql) but nothing had ever written to it -- this task is
+what makes it real, and locks it down properly now that it's about to
+hold real content. **Scope note: this is the backing schema only** --
+the Home bell (decision #32) stays the same stub screen it's always
+been; wiring an actual feed UI to read this table is its own future
+task, not attempted here.
+
+**Migration:** `20260928100000_notifications_schema_and_triggers.sql`.
+
+- **`related_id`** (new, nullable `uuid`): points at whichever
+  `subscriptions.id`/`event_reservations.id` triggered the row. Not a
+  foreign key -- one column can't reference two different tables, so
+  referential integrity here is the inserting function's job (it always
+  writes a row id it just created/updated in the same transaction), not
+  the schema's.
+- **INSERT dropped entirely, no replacement** -- same "RLS enabled, zero
+  INSERT policies, client default-denied" pattern already proven live for
+  `subscriptions` (decision #16: a raw insert as `authenticated` got a
+  real `42501`, not a silent pass). Every notification row is now
+  server-side-only, same as `door_access_logs`.
+- **UPDATE: RLS alone was never going to be enough.** The existing
+  own-row `USING`/`WITH CHECK` policy already correctly scopes WHICH ROWS
+  a client can touch, and is left alone -- but RLS row policies have no
+  way to restrict WHICH COLUMNS an UPDATE touches, and this table's only
+  legitimately client-editable field is `is_read`. Fixed with a
+  column-level GRANT instead: `revoke update on notifications from
+  authenticated` (removing the blanket UPDATE Supabase grants every new
+  table by default) then `grant update (is_read) on notifications to
+  authenticated`. A client PATCHing `is_read` still works exactly as
+  before; a client trying to also touch `title`/`body`/`type` on a row it
+  genuinely owns now gets a real Postgres `permission denied for column`,
+  enforced before RLS is even consulted -- not just discouraged by a
+  policy a crafted request could still satisfy.
+- **`confirm_subscription_payment` and `create_event_reservation`** (both
+  already `SECURITY DEFINER`, both already the only path that can write
+  their respective tables) each gained one more `insert` into
+  `notifications`, inside the same function, same transaction -- no new
+  trigger mechanism. Content is read back from what each function itself
+  just validated/computed (the real plan name + the `valid_until` it set;
+  the real event type/date/guest count it already range-checked), never
+  re-derived from anything client-supplied beyond the already-validated
+  parameters.
+
+**Verification method, changed out of necessity, disclosed rather than
+glossed over:** this project's own standing rule (decision #16's
+correction) is that Supabase SQL Editor / live role-impersonation
+verification is driven directly against the real project, not handed to
+the user as a script. **Could not do that here** -- this session's
+network egress to the project's own Supabase host
+(`iliayouejnpkgicvudtv.supabase.co`) is blocked by this environment
+(`CONNECT tunnel failed, response 403`), the same restriction that
+already blocked Figma and font.thmanyah.com earlier this same session,
+not something specific to Supabase.
+
+So instead of the real project, **verified against a from-scratch local
+Postgres 16 instance built to be a faithful stand-in**, not a toy schema:
+every real migration file in `supabase/migrations/` (in order, unmodified,
+skipping only `expire_subscriptions_cron.sql` -- pg_cron isn't installed
+locally and it has zero relationship to notifications) replayed against
+it cleanly with zero errors, including this task's own migration. The
+stand-in reproduces the two Supabase-platform behaviors this project's
+own migrations already depend on and work around: `auth.uid()` reading
+the `sub` claim off a `request.jwt.claims` setting (exactly what `set
+local request.jwt.claims = '...'` populates), and -- via an event trigger
+firing on every `CREATE TABLE`/`CREATE FUNCTION` -- the automatic
+per-object grant to `anon`/`authenticated`/`service_role` that decision
+#16 first identified as the reason a bare `revoke ... from public` isn't
+enough on Supabase. Without reproducing that second part, this
+migration's own `revoke update ... from authenticated` would have had
+nothing real to revoke, and the column-grant test would have passed for
+the wrong reason (no privilege at all, rather than a narrowed one).
+
+**All five acceptance points confirmed, real output below** (seeded a
+real `auth.users` row -- through the real `handle_new_user` trigger, not
+a hand-inserted profile -- a real membership plan, and a second unrelated
+user for isolation; impersonated `authenticated` via `set local role` +
+`request.jwt.claims`, the same mechanism decision #16 established):
+
+1. **INSERT blocked entirely**, even with the caller's own real
+   `user_id`: `ERROR: new row violates row-level security policy for
+   table "notifications"`.
+2. **UPDATE of `is_read` succeeds** on the caller's own row: `UPDATE 1`,
+   re-selected value `is_read = true`.
+3. **UPDATE of `title` fails on the exact same row** `is_read` just
+   succeeded on two statements earlier (so this is the column grant
+   firing, not a stale/wrong row): `ERROR: permission denied for table
+   notifications` -- a real Postgres privilege error, not a silent
+   no-op and not an RLS row-filter (confirmed distinct from #4 below,
+   which IS a silent RLS no-op, as expected for a different row).
+4. **A real `confirm_subscription_payment` call produced a matching
+   notification row**, inspected after commit:
+   `type='subscription_activated'`, `title='Membership Activated'`,
+   `body='Your TestPlan membership is now active until Oct 26, 2026.'`
+   (the real seeded plan's name, the real `valid_until` the function
+   itself just computed), `related_id` equal to the real subscription id
+   `confirm_subscription_payment` returned, `is_read=false`.
+5. **A real `create_event_reservation('Birthday', <date>, '19:00', 3, 10)`
+   call produced a matching notification row**: `type=
+   'event_reservation_confirmed'`, `title='Event Reservation Confirmed'`,
+   `body='Your Birthday reservation on Oct 03, 2026 at 07:00 PM for 10
+   guests is confirmed.'` (the real event type/date/time/guest count just
+   passed in), `related_id` equal to the real reservation id, `is_read=false`.
+
+Bonus check run alongside #3: the same UPDATE of `is_read = true`
+against a row belonging to the *second* seeded user returned `UPDATE 0`
+-- silently row-filtered by RLS, not an error, confirming the two
+enforcement layers are doing the jobs they're each supposed to (RLS for
+rows, the column grant for columns), not overlapping or leaving a gap
+between them.
+
+One real bug this local replay caught before it ever reached a live
+project: the first draft of `create_event_reservation`'s notification
+body called `to_char(p_start_time, ...)` directly on the bare `time`
+parameter -- `to_char` has no overload for `time` and no implicit cast
+gets it there either, so `CREATE OR REPLACE FUNCTION` itself would have
+failed immediately (`check_function_bodies` catches this at creation,
+not first call). Fixed by combining it with the date first
+(`p_event_date + p_start_time`, Postgres's own `date + time -> timestamp`
+operator) before formatting -- confirmed by the real "07:00 PM" in
+result #5 above.
+
+**What this method does not claim:** Supabase's actual JWT
+verification/issuance, GoTrue's own triggers beyond the two ported
+verbatim (`handle_new_user`, `sync_profile_email`), and real
+storage/pg_cron behavior are not reproduced, only stubbed enough for
+unrelated migrations to replay without error. Nothing about this task
+touches any of those, so the gap doesn't bear on what's being verified
+here -- but it's why this is "a faithful local replica," not "the same
+thing as testing the real project," and worth re-confirming once this
+session (or any session) has real network access to the project itself.
+
+**Re-confirmed on the real project (2026-09-27).** The migration above
+had been committed but never applied to the live dev project -- it was
+applied then (the exact committed file, loaded from GitHub at that
+commit and hash-checked), followed by #66's migration, and the full
+acceptance test re-run on the real database as `authenticated`, inside
+one transaction that deliberately ends in an exception so every test
+row rolls back (confirmed afterwards: 0 notification rows, 0 test
+reservations left). Results: client INSERT -> `42501 new row violates
+row-level security policy`; UPDATE `is_read` -> 1 row, now true;
+UPDATE `title`, `body`, and `data` on that same own row -> each
+`42501 permission denied for table notifications`; a real
+`confirm_subscription_payment` and `create_event_reservation` each
+produced exactly one notification whose `related_id` points at the
+subscription/reservation it reports and whose text and `data` match
+what happened ("Your Basic membership is now active until Oct 26,
+2026."; "Your Birthday reservation on Oct 03, 2026 at 07:30 PM for 12
+guests is confirmed.").
+
+---
+
+### 66. Notifications in the user's language
+
+**Question:** #65's `title`/`body` are English sentences written at
+insert time -- an Arabic user would read "Membership Activated", and a
+language switch could never re-translate an existing notification.
+
+**Options considered:** (a) `title_ar`/`body_ar` columns written by the
+SQL functions; (b) store the notification's facts and let the app build
+the text from its own translation files.
+
+**Decision: (b).** Migration `20260929100000_notifications_localization_data.sql`
+adds `data jsonb` (server-written only; the column-level grant still
+covers `is_read` alone, verified above): `{plan_name, valid_until}` for
+`subscription_activated`, `{event_type, event_date, start_time,
+guest_count}` for `event_reservation_confirmed`. The app renders it via
+`localizeNotification` (`lib/utils/notification_localization.dart`),
+with Arabic plural forms for the guest count, the event-type labels
+shared with the Reserve an Event form (`utils/event_type_localization.dart`),
+and plan names left untranslated like everywhere else in the app.
+`title`/`body` stay as the English fallback for an unknown type or
+malformed `data`. Chosen over (a) because (a) duplicates the app's
+Arabic wording in SQL and needs a new column pair per future language.
+Still open (as in the checkpoint below): the feed screen that reads
+this table.
+
+---
+
+### 67. Notification preferences move into the database (reverses #44)
+
+**Question:** make every Notification Settings toggle actually do
+something. #44 kept them on the device only (`shared_preferences`) while
+"what is a notification" was undecided -- #65/#66 have since answered
+that, and every channel still to build (email, push, scheduled event
+reminders, allowance alerts, promotions) is sent by the **server**, which
+can't read a phone's local storage.
+
+**Decision:** a `notification_preferences` table (migration
+`20260930100000`), one row per user, one boolean column per toggle,
+column defaults equal to the Figma frame's initial state (SMS off, the
+rest on) -- a test checks the app's defaults and the SQL defaults can't
+drift apart. No row is created up front: the app upserts just the
+flipped column the first time, and a missing row means "all defaults"
+for every reader. Clients may SELECT/INSERT/UPDATE only their own row
+(RLS + explicit grants, no DELETE, nothing for `anon`). Old on-device
+values are not migrated -- the only data affected is test accounts.
+
+**Plan agreed for the rest (one step at a time, confirmed between
+each):** 2) notifications feed behind the Home bell; 3) Event Reminders +
+Allowance Alerts as in-app notifications via `pg_cron`; 4) Sound &
+Vibration on arrival; 5) Email via Resend; 6) Push via Firebase, Web +
+Android (iOS needs a paid Apple account -- left for the company);
+7) SMS -- **skipped** for now (paid per message); 8) Promotions & Offers.
+
+**Verified on the real project (2026-09-27)**, as `authenticated`, in one
+rolled-back transaction: two single-column upserts create then update
+the caller's row with every other column at its default; the caller sees
+only their own row (1 visible, another user's invisible); writing another
+user's row -> `42501 row-level security`; UPDATE of another user's row ->
+0 rows, and it's unchanged afterwards; moving your own row to another
+user id -> `42501 row-level security`; DELETE -> `42501 permission
+denied`; `anon` read -> `42501 permission denied`.
+
+---
+
+### 68. Notifications feed + Home bell badge (roadmap step 2)
+
+**What:** the Home bell now opens a real Notifications screen, built from
+Figma frame **App-23**, and shows the design's red unread-count badge
+(App-22) -- replacing decision #32's "coming soon" stub. Cards come from
+`public.notifications`, newest first, rendered in the active language
+(#66), with the design's per-card pieces: a tinted icon per type, relative
+time ("2h ago", a plain date after a week), and for unread cards an accent
+border, a leading-edge strip, a dot and "Mark as Read". The subtitle is the
+real unread count ("2 unread notifications"), with Arabic plural forms.
+The badge refreshes when the feed is closed and caps at "9+" (screen
+readers still get the real number).
+
+**Two gaps in the design, decided with the user:**
+- **Delete (trash icon):** users may delete their **own** notifications
+  only -- new RLS policy + DELETE grant (migration `20260930110000`).
+- **"View Details":** there's no reservation-details screen, so it goes to
+  the tab the notification is about -- an event reservation to **Events**,
+  a membership payment to **Profile** (which shows plan and valid-until).
+  Opening details also marks the notification read.
+
+Mark-as-read and delete update the card immediately; if the save fails the
+card is put back and a snackbar says so.
+
+**Found and fixed while verifying:** `notifications` still carried most of
+Supabase's default table grants -- `anon` had SELECT/INSERT/DELETE/
+TRUNCATE/REFERENCES/TRIGGER, `authenticated` the same -- because #65 only
+revoked UPDATE. RLS kept every row safe through the REST API (anon's
+DELETE matched 0 rows), and the REST API can't issue TRUNCATE, so nothing
+was exposed in practice; but TRUNCATE ignores RLS, so the grants
+themselves are now exact: `anon` nothing, `authenticated` SELECT + DELETE
++ UPDATE(is_read). The same default grants very likely remain on the
+project's **other** tables -- not changed here (out of this task's scope);
+worth one dedicated pass that audits every table's grants the same way.
+
+**Verified on the real project (2026-09-27)**, as `authenticated`, rolled
+back: delete own -> 1 row; delete another user's -> 0 rows, still there
+afterwards; mark read -> 1 row; UPDATE title, client INSERT, TRUNCATE ->
+each `42501 permission denied`; `create_event_reservation` still writes
+its notification after the tightening (SECURITY DEFINER runs as owner);
+`anon` SELECT and DELETE -> `42501 permission denied`.
+
+---
+
+### 69. Typography: fonts bundled, Arabic in Naskh, bolder titles
+
+**Fonts are bundled app assets now, not `google_fonts`.** `google_fonts`
+only ever downloaded each family's *Regular* file (at runtime, over the
+network), so every heavier weight was faked by the renderer -- and a
+separate bug meant the theme's font was never applied at all:
+`ThemeData(fontFamily:)` is overridden by the `textTheme` passed alongside
+it, which carried Material's platform font (fixed in `AppTheme._build`).
+Both typefaces are SIL Open Font License, bundled under `assets/fonts/`
+with their licence files; the `google_fonts` package is removed.
+
+- **Arabic: Noto Naskh Arabic** (خط النسخ), chosen by the user after
+  trialling several (Cairo, Thmanyah Sans, IBM Plex Sans Arabic, Readex
+  Pro). Thmanyah was liked but ruled out: its licence forbids hosting the
+  font files anywhere public, and this repo is public.
+- **English: Inter**, as in the Figma design -- Regular, Medium and
+  SemiBold. **Deliberate deviation:** Inter's 700 slot is mapped to the
+  SemiBold file, so anything styled Bold renders SemiBold in English (the
+  user found true Bold too heavy), while Arabic keeps a real Bold (Naskh
+  needs it to read as bold at all). One mapping in `pubspec.yaml`, not a
+  locale check at every call site.
+
+**Bolder text than the Figma file (user's choice):** page titles, section
+and card titles, prices/large numbers, and on the Events page the titles,
+field labels, estimated total and confirmed details, are styled Bold (700)
+where the design used Medium/Regular -- i.e. real Bold in Arabic and
+SemiBold in English. Button text, list rows and body text keep the
+design's weights.
+
+---
+
+### 70. Event Reminders + Allowance Alerts (roadmap step 3)
+
+The "Event Reminders" and "Allowance Alerts" toggles now control real
+in-app notifications (migration `20260930120000`). Both are written
+server-side and both are skipped for users who switched that toggle off
+(`notification_preferences`, #67).
+
+**Event reminders -- one per reservation, 24 hours before** (user's choice;
+the design's example says "coming up tomorrow at 7:00 PM"). A `pg_cron`
+job (`send-event-reminders`, every 15 minutes) picks confirmed
+reservations starting within the next 24 hours that haven't been reminded
+yet. "Reminded" is `event_reservations.reminder_sent_at`, not "a reminder
+notification exists" -- a user deleting the notification must not trigger
+a second one. A reservation booked less than 24 hours ahead gets its
+reminder on the next run.
+
+**Café timezone: `America/New_York`** (user's choice), in exactly one place
+-- `public.cafe_timezone()`. Reservations store a local date + time with
+no zone, so the job converts them using this; daylight saving is handled
+by Postgres. Change that one function at handoff if the café is elsewhere.
+
+**Allowance alerts -- 3 or fewer left** (user's choice; matches the
+design's "only 3 hookah sessions remaining"). A `BEFORE UPDATE` trigger on
+`usage_allowances` sends one alert per billing period per kind (hookah,
+drinks) the moment what's left drops to 3 or fewer, and sets
+`hookah_alert_sent` / `drinks_alert_sent` on that same row write (a new
+period is a new row, so they reset). Unlimited plans never get one. If the
+toggle is off, nothing is sent and the flag stays unset.
+**Open gap:** nothing in the app records usage yet -- no staff or
+point-of-sale tool increments `hookah_used` / `drinks_used` -- so this can
+only fire when usage is updated some other way (e.g. directly in
+Supabase). Recording usage is its own future feature.
+
+In the app, both types render in the user's language (#66) with the
+design's visuals -- purple calendar for Event Reminder, orange alert for
+Low Allowance Alert -- and an event reminder's "View Details" goes to
+Events like a reservation confirmation does.
+
+**Verified on the real project (2026-09-27)**, rolled back: a confirmed
+reservation 5 hours away (New York time; the conversion checked to be
+exactly 5h from now) got exactly one reminder with the right text and
+data; one 30 hours away, a cancelled one, and one for a user with
+reminders off got none; a second run sent nothing new. Allowance: with
+alerts off, crossing 3-left sent nothing and left the flag unset; turned
+on, 4 left sent nothing, 3 left sent "You have only 3 hookah sessions
+remaining this month.", 1 left sent no second alert, and 0 drinks left
+sent "You have used all your drinks this month.". As `authenticated`:
+calling the job -> `42501 permission denied`; resetting either
+"already sent" column -> 0 rows (no client UPDATE policy on either table).
+
+---
+
+### 71. Sound & Vibration when a notification arrives (roadmap step 4)
+
+The "Sound & Vibration" toggle ("Play sound when notifications arrive")
+now does that, while the app is open. (With the app closed, sound comes
+from push notifications -- step 6.)
+
+**How the app notices an arrival:** Supabase Realtime. Migration
+`20260930130000` adds `notifications` to the `supabase_realtime`
+publication (the only table in it). Realtime applies the table's RLS to
+every event, so a client only ever receives its own rows -- no new access.
+`HomeScreen` subscribes to INSERTs for the signed-in user; it stays alive
+in MainShell's IndexedStack for the whole session, so this works on every
+tab. Each arrival also refreshes the bell badge live (before, it only
+updated when Home loaded or the feed was closed).
+
+**The sound:** a short two-note chime (G5 -> C6, ~0.7 s) **generated for
+this app by code** (`assets/sounds/notification_chime.wav`) -- no
+third-party audio, so no licence to track -- played with the
+`audioplayers` package. Flutter's built-in `SystemSound` (what App
+Settings' sounds use) plays nothing on web and most Android devices, so it
+couldn't serve as a notification sound.
+
+**Which switches apply (user's choice -- both must be on):** the chime
+plays only if Notifications -> "Sound & Vibration" is on AND App Settings
+-> "Sound" is on; the vibration needs the same toggle AND App Settings ->
+"Haptic Feedback". Turning app sound off always means silence. The
+notification toggle is re-read from the database on each arrival (so a
+change applies immediately); if it can't be read, its default (on)
+applies. A chime the browser refuses to play doesn't cancel the vibration.
+All of this is in `NotificationArrivalFeedback`, unit-tested without a
+device.
+
+**Verified:** 7 unit tests cover every combination of the three switches,
+an unreadable toggle, and a failing chime. On the real project,
+`notifications` is confirmed in the `supabase_realtime` publication. The
+live arrival itself needs the running app (user-side check).
+
+---
+
+### 72. French and Spanish: shown, but not selectable (changes #63)
+
+**Before (#63):** all four languages in App Settings were selectable;
+French/Spanish have no translations, so picking one kept showing English
+text, with a caption under the list saying so.
+
+**Now (user's request):** French and Spanish stay in the list (the design
+shows all four) but are **disabled** -- greyed out, not tappable, marked
+"(Coming Soon)". The "not translated yet" caption is removed (it could only
+appear after picking one) along with its string. A French/Spanish pick
+saved on a device before this change falls back to English on the next
+launch (`SettingsProvider.load`), so the picker never shows a selection
+the user can't change. Enabling one later = add its ARB file and flip its
+`translated` flag in `app_settings_screen.dart` + add it to
+`SettingsProvider._selectableLocales`.
+
+---
+
+### 73. Reservation Details page for event notifications (changes #68)
+
+**Problem (user-reported):** "View Details" on an event notification went
+to the Events tab (#68's stand-in, since no details screen existed) -- but
+that tab only has the booking form, so it showed nothing about the
+reservation the notification was about.
+
+**Now:** a small, read-only **Reservation Details** page
+(`screens/events/reservation_details_screen.dart`), opened on top of the
+Notifications list from any event notification (confirmation or reminder)
+-- Back returns to the list. It fetches the reservation fresh by the
+notification's `related_id` (RLS: own rows only, so another user's id
+reads as "no longer available", never their data) and shows event type,
+a status chip (Confirmed / Pending / Cancelled -- fresh data can show a
+later cancellation), date, time, duration, guests and total. Nothing on
+it is editable. No Figma frame exists for it, so it reuses the booking
+confirmation screen's look. Membership notifications still go to Profile.
+
+---
+
+### 74. Email notifications via Resend (roadmap step 5)
+
+The "Email Notifications" toggle now sends real email: every notification
+(payment, reservation, reminder, allowance alert, later promotions) is
+also emailed to the user's account address, unless they switched it off.
+
+**Why not the forgot-password email path:** that's Supabase Auth's
+built-in mailer, which only sends its own fixed account emails (confirm
+sign-up, reset password, change email) -- it can't send arbitrary
+messages. It's also wired to a personal Gmail over SMTP, which this log
+already flagged as fragile and unfit for handoff. Resend is a
+transactional email service with a project-owned API key (free: 3,000
+emails/month). The same Resend account can later replace Gmail as
+Supabase Auth's SMTP server too, fixing that gap in one move.
+
+**How it's sent (migration `20260930140000`):** entirely inside the
+database -- a `BEFORE INSERT` trigger on `notifications` queues one POST
+to Resend's API with `pg_net` (Supabase's async HTTP extension, enabled
+by the migration). No separate server code to deploy. pg_net only sends
+after COMMIT (a rolled-back insert never emails) and runs in the
+background (never slows or blocks the insert); any email problem is
+swallowed so it can never break the notification -- or the payment or
+reservation that created it. The request id is kept on the row
+(`email_request_id`) for troubleshooting (`net._http_response`).
+
+**The API key is never in the repo:** it lives in Supabase **Vault**
+(encrypted) as `resend_api_key`, added by the project owner. Without it
+the trigger sends nothing and in-app notifications work as before. Client
+roles can't read Vault (verified).
+
+**Content:** the notification's title as the subject, a small branded
+HTML card with the title and body, a plain-text version, and a footer on
+how to turn these emails off. All text is HTML-escaped (the event type is
+free text a user typed). **English only** -- the app's language choice
+lives on the device, so the server doesn't know it; storing it on
+`profiles` would be the fix if Arabic emails are wanted.
+
+**Sender:** `notification_email_from()` = `onboarding@resend.dev`,
+Resend's shared test sender, which needs no setup but **only delivers to
+the email address the Resend account was created with**. For real users:
+verify a domain in Resend and change that one function.
+
+**Setup (dev project now, and the company's at handoff):**
+1. Create a Resend account; API Keys -> create one with "Sending access".
+2. Supabase Dashboard -> Integrations -> Vault -> add a secret named
+   exactly `resend_api_key` with the key as its value.
+3. For real recipients: verify a domain in Resend, then update
+   `public.notification_email_from()`.
+
+**Verified on the real project (2026-09-27)**, rolled back, with a fake
+placeholder key created and discarded inside the transaction: with no key,
+nothing is queued; with a key, a real reservation queued exactly one POST
+to `https://api.resend.com/emails` with a Bearer header, `to` = the
+account's email, the right subject/text, and the typed event type
+`<b>Party</b> & "fun"` HTML-escaped in the HTML part; with "Email
+Notifications" off, nothing is queued; `authenticated` reading Vault ->
+`42501`. The live send needs the real key (user-side step).
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before
@@ -3660,19 +4868,17 @@ need to think about them now:
 - **Full FAQ copy**: only 1 of 4 answers was visible in the design
   export — the other 3 are needed only once the Help & Support screen
   gets built.
-- **Notification preferences storage** -- **resolved (#44):** local on-device
-  setting only (`shared_preferences`), no table. Moving them to the backend stays
+- **Notification preferences storage** -- **resolved (#44), then reversed
+  by #67:** now a `notification_preferences` table the server can read.
+  (Originally: local on-device setting only (`shared_preferences`), no table.) Moving them to the backend stays
   tied to the open notifications-feed question below.
 - **Notifications feed and its backing schema** (raised explicitly by
-  Sprint 3, Task 8): what a notification actually is here (payment
-  receipts? event reminders? door-access alerts? some mix?), whether it
-  needs its own table or is synthesized from existing tables
-  (`subscriptions`, `door_access_logs`, `event_reservations`), how
-  read/unread state is tracked, and whether delivery
-  is in-app-only or also push/email — all undecided. The Home bell
-  (decision #32) deliberately stays a stub with no unread-count badge
-  until this is answered, rather than a schema getting invented to make
-  a badge number appear.
+  Sprint 3, Task 8): **the backing schema half is answered by decision
+  #65** — a notification is a payment activation or an event reservation
+  confirmation, its own real table (already existed, now actually written
+  to and locked down), read/unread tracked by a real `is_read` column,
+  in-app only (no push/email — not attempted). The feed UI and the
+  Home bell's unread badge are built too (#68).
 
 ---
 

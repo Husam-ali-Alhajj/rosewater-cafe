@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colors.dart';
+import '../../l10n/app_localizations.dart';
+import '../../theme/app_semantic_colors.dart';
+import '../../utils/app_animations.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/screen_header.dart';
 
@@ -8,11 +11,11 @@ import '../../widgets/screen_header.dart';
 // the Figma app's Design panel -- the REST API was rate-limited when this was
 // built (same as Privacy & Security, #45), so a few spacing values not read
 // directly are noted below where they're used.
-const _titleInk = Color(0xFF1E2939);
-const _bodyInk = Color(0xFF4A5565);
-const _chevronInk = Color(0xFF99A1AF);
-const _rowDivider = Color(0xFFF3F4F6);
-const _placeholderInk = Color(0xFF99A1AF);
+//
+// Sprint 8 Task 2 (dark mode rebuild): the neutral ink/divider values above
+// are now sourced from `context.colors`. The three contact-card icon colors
+// (Live Chat pink, Email Us purple, Call Us green) stay fixed brand/accent
+// colors in both themes, same as every other accent in this app.
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
@@ -31,16 +34,12 @@ class _FaqItem {
 /// for real content (see docs/decisions.md #46). This gap was already logged
 /// (Sprint 2 checkpoint, decision #32/#45's open-questions list) as "only 1 of
 /// 4 FAQ answers exported."
-const _faqItems = [
-  _FaqItem(
-    'How do I use my QR code to enter the café?',
-    'Simply open the QR Code section from your dashboard, show it to the '
-        'scanner at the entrance, and specify how many guests are with you.',
-  ),
-  _FaqItem('What happens when my monthly allowance runs out?', null),
-  _FaqItem('Can I bring guests to the café?', null),
-  _FaqItem("What's the difference between full service and self-service hours?", null),
-];
+List<_FaqItem> _faqItems(AppLocalizations l10n) => [
+      _FaqItem(l10n.faqQuestion1, l10n.faqAnswer1),
+      _FaqItem(l10n.faqQuestion2, null),
+      _FaqItem(l10n.faqQuestion3, null),
+      _FaqItem(l10n.faqQuestion4, null),
+    ];
 
 /// Help & Support (Figma frame "HelpSupportScreen", node 1217:3158): three
 /// static contact cards, an FAQ accordion, and a Resources list.
@@ -75,14 +74,15 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
   }
 
   void _openComingSoon(String label) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ComingSoonScreen(label: label)));
+    Navigator.of(context).push(appRoute(context, (_) => ComingSoonScreen(label: label)));
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             // Figma's frame padding: 16 sides, 32 top; 32 below the last card.
@@ -90,37 +90,38 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ScreenHeader(title: 'Help & Support', onBack: () => Navigator.of(context).pop()),
+                ScreenHeader(title: l10n.helpSupportLabel, onBack: () => Navigator.of(context).pop()),
                 const SizedBox(height: 24),
-                const _ContactCard(
+                _ContactCard(
                   icon: Icons.chat_bubble_outline,
-                  // Confirmed via the Design panel.
-                  iconColor: AppColors.bottomNavActive,
-                  title: 'Live Chat',
-                  description: 'Chat with our team',
+                  // The design's own accent color -- now theme-aware so it
+                  // goes blue in dark mode along with every other accent use.
+                  iconColor: context.colors.accent,
+                  title: l10n.liveChatTitle,
+                  description: l10n.liveChatDescription,
                 ),
                 // Gap between the three contact cards -- not confirmed via
                 // the API; 16 matches this app's usual gap between stacked
                 // cards (e.g. Payment Methods' list, decision #43).
                 const SizedBox(height: 16),
-                const _ContactCard(
+                _ContactCard(
                   icon: Icons.mail_outline,
                   // Not confirmed via the API (rate-limited): inferred from
                   // the rendered design -- purple, matching the app's other
                   // membership-purple accents. Worth a real check once the
                   // API allows (same caveat as decision #20's early passes).
-                  iconColor: Color(0xFF9810FA),
-                  title: 'Email Us',
-                  description: 'Get help via email',
+                  iconColor: const Color(0xFF9810FA),
+                  title: l10n.emailUsTitle,
+                  description: l10n.emailUsDescription,
                 ),
                 const SizedBox(height: 16),
-                const _ContactCard(
+                _ContactCard(
                   icon: Icons.phone_outlined,
                   // Also inferred (green, matching the app's other
                   // confirmation/positive-action green) -- same caveat.
-                  iconColor: Color(0xFF00A63E),
-                  title: 'Call Us',
-                  description: 'Speak to support',
+                  iconColor: const Color(0xFF00A63E),
+                  title: l10n.callUsTitle,
+                  description: l10n.callUsDescription,
                 ),
                 const SizedBox(height: 24),
                 _FaqCard(expandedIndex: _expandedIndex, onToggle: _toggle),
@@ -153,6 +154,7 @@ class _ContactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       width: double.infinity,
       // Figma: left 24, top 24, bottom 24; right read as 0, which would run
@@ -163,9 +165,9 @@ class _ContactCard extends StatelessWidget {
       // reproduced literally.
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,18 +176,18 @@ class _ContactCard extends StatelessWidget {
           const SizedBox(height: 36),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w700,
               height: 28 / 18,
               letterSpacing: -0.44,
-              color: _titleInk,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 36),
           Text(
             description,
-            style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _bodyInk),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
         ],
       ),
@@ -203,28 +205,31 @@ class _FaqCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+    final items = _faqItems(l10n);
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-            child: const Row(
+            decoration: BoxDecoration(gradient: colors.accentGradient),
+            child: Row(
               children: [
-                Icon(Icons.help_outline, size: 20, color: Colors.white),
-                SizedBox(width: 12),
+                const Icon(Icons.help_outline, size: 20, color: Colors.white),
+                const SizedBox(width: 12),
                 Text(
-                  'Frequently Asked Questions',
-                  style: TextStyle(
+                  l10n.faqCardTitle,
+                  style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                     height: 28 / 18,
                     letterSpacing: -0.44,
                     color: Colors.white,
@@ -233,12 +238,12 @@ class _FaqCard extends StatelessWidget {
               ],
             ),
           ),
-          for (var i = 0; i < _faqItems.length; i++)
+          for (var i = 0; i < items.length; i++)
             _FaqRow(
-              item: _faqItems[i],
+              item: items[i],
               expanded: expandedIndex == i,
               onTap: () => onToggle(i),
-              showDivider: i < _faqItems.length - 1,
+              showDivider: i < items.length - 1,
             ),
         ],
       ),
@@ -267,9 +272,10 @@ class _FaqRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       decoration: showDivider
-          ? const BoxDecoration(border: Border(bottom: BorderSide(color: _rowDivider, width: _hairline)))
+          ? BoxDecoration(border: Border(bottom: BorderSide(color: colors.border, width: _hairline)))
           : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -287,20 +293,23 @@ class _FaqRow extends StatelessWidget {
                     Expanded(
                       child: Text(
                         item.question,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           height: 24 / 16,
                           letterSpacing: -0.31,
-                          color: _titleInk,
+                          color: colors.textPrimary,
                         ),
                       ),
                     ),
                     AnimatedRotation(
-                      duration: const Duration(milliseconds: 150),
+                      duration: context.animDuration(const Duration(milliseconds: 150)),
                       turns: expanded ? 0.25 : 0, // right-pointing -> down-pointing
-                      child: const Padding(
-                        padding: EdgeInsets.only(left: 8, top: 2),
-                        child: Icon(Icons.chevron_right, size: 20, color: _chevronInk),
+                      child: Padding(
+                        // Sprint 8 Task 6: the gap between the question text
+                        // and this chevron -- EdgeInsetsDirectional so it
+                        // stays on the chevron's near side in RTL too.
+                        padding: const EdgeInsetsDirectional.only(start: 8, top: 2),
+                        child: Icon(Icons.chevron_right, size: 20, color: colors.textMuted),
                       ),
                     ),
                   ],
@@ -314,18 +323,18 @@ class _FaqRow extends StatelessWidget {
               child: item.answer != null
                   ? Text(
                       item.answer!,
-                      style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _bodyInk),
+                      style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
                     )
-                  : const Text(
+                  : Text(
                       // Deliberately NOT a fabricated answer -- see the class
                       // doc comment on HelpSupportScreen and decision #46.
-                      'Answer not available yet.',
+                      AppLocalizations.of(context).faqAnswerNotAvailable,
                       style: TextStyle(
                         fontSize: 14,
                         height: 20 / 14,
                         letterSpacing: -0.15,
                         fontStyle: FontStyle.italic,
-                        color: _placeholderInk,
+                        color: colors.textMuted,
                       ),
                     ),
             ),
@@ -345,30 +354,36 @@ class _ResourcesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const resources = ['User Guide', 'Membership Benefits', 'Community Guidelines'];
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+    // Sprint 8 Task 6: same "leads forward" reasoning as ProfileScreen's
+    // _SettingsRow -- this chevron flips in RTL, unlike the FAQ accordion's
+    // own chevron (a rotation-driven open/closed state, not a navigation cue).
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final resources = [l10n.userGuideLabel, l10n.membershipBenefitsLabel, l10n.communityGuidelinesLabel];
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: _rowDivider, width: _hairline)),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: colors.border, width: _hairline)),
             ),
-            child: const Text(
-              'Resources',
+            child: Text(
+              l10n.resourcesCardTitle,
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
                 height: 28 / 18,
                 letterSpacing: -0.44,
-                color: _titleInk,
+                color: colors.textPrimary,
               ),
             ),
           ),
@@ -379,23 +394,23 @@ class _ResourcesCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 height: 48,
                 decoration: i < resources.length - 1
-                    ? const BoxDecoration(border: Border(bottom: BorderSide(color: _rowDivider, width: _hairline)))
+                    ? BoxDecoration(border: Border(bottom: BorderSide(color: colors.border, width: _hairline)))
                     : null,
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
                         resources[i],
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                           height: 24 / 16,
                           letterSpacing: -0.31,
-                          color: _titleInk,
+                          color: colors.textPrimary,
                         ),
                       ),
                     ),
-                    const Icon(Icons.chevron_right, size: 20, color: _chevronInk),
+                    Icon(isRtl ? Icons.chevron_left : Icons.chevron_right, size: 20, color: colors.textMuted),
                   ],
                 ),
               ),

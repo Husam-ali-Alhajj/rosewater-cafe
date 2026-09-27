@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import '../theme/app_semantic_colors.dart';
 
 class OnboardingIconBadge extends StatelessWidget {
   final IconData icon;
-  final Gradient gradient;
+
+  /// Null uses this theme's own accent gradient (via `context.colors`) --
+  /// the auth screens (Create Account, Forgot Password, Set New Password,
+  /// Sign In) all rely on this default so their badge goes blue in dark
+  /// mode along with everything else. The onboarding carousel passes its
+  /// own per-slide gradient explicitly instead, unaffected by theme.
+  final Gradient? gradient;
   final double size;
 
   const OnboardingIconBadge({
     super.key,
     required this.icon,
-    required this.gradient,
+    this.gradient,
     this.size = 96,
   });
 
@@ -19,7 +26,7 @@ class OnboardingIconBadge extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: gradient,
+        gradient: gradient ?? context.colors.accentGradient,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/membership_plan.dart';
 import '../../services/subscription_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
+import '../../utils/app_feedback.dart';
 import '../../utils/payment_validators.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/outlined_secondary_button.dart';
 import 'payment_success_screen.dart';
@@ -61,26 +64,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
     try {
       await _subscriptionService.confirmSubscriptionPayment(widget.subscriptionId);
       if (!mounted) return;
+      context.triggerSuccess(); // Sprint 8 Task 4: payment confirmed
       // Card fields are discarded here, never read again after validation —
       // clearing explicitly before navigating away, on top of dispose().
       _cardNumberController.clear();
       _expiryController.clear();
       _cvvController.clear();
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => PaymentSuccessScreen(plan: widget.plan)),
+        appRoute(context, (_) => PaymentSuccessScreen(plan: widget.plan)),
         (route) => false,
       );
     } on ConfirmPaymentFailure catch (e) {
       if (!mounted) return;
+      context.triggerError(); // Sprint 8 Task 4: failed payment
       setState(() {
         _isPaying = false;
         _errorMessage = e.message;
       });
     } catch (_) {
       if (!mounted) return;
+      context.triggerError();
       setState(() {
         _isPaying = false;
-        _errorMessage = 'Payment failed. Check your connection and try again.';
+        _errorMessage = AppLocalizations.of(context).paymentFailedError;
       });
     }
   }
@@ -88,9 +94,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final plan = widget.plan;
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -98,9 +106,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: AppColors.cardWhite,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                  border: Border.all(color: colors.border),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.12),
@@ -118,22 +126,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     children: [
                       const Icon(Icons.credit_card_outlined, size: 64, color: Color(0xFFFF2056)),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Complete Payment',
+                      Text(
+                        l10n.completePayment,
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500, letterSpacing: 0.07, color: AppColors.textDark),
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 0.07, color: colors.textPrimary),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${plan.name} Plan',
+                        l10n.planSuffix(plan.name),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textMuted),
                       ),
                       const SizedBox(height: 48),
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF9FAFB),
+                          color: colors.inputFill,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Column(
@@ -141,29 +149,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Monthly Subscription',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: AppColors.textMuted),
+                                Text(
+                                  l10n.monthlySubscription,
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textMuted),
                                 ),
                                 Text(
                                   '\$${plan.priceDollars}',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: AppColors.membershipPriceText),
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textPrimary),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8),
-                            const Divider(color: Colors.black12, height: 1),
+                            Divider(color: colors.border, height: 1),
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Total',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: AppColors.membershipPriceText),
+                                Text(
+                                  l10n.totalLabel,
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textPrimary),
                                 ),
                                 Text(
                                   '\$${plan.priceDollars}',
-                                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w400, letterSpacing: 0.07, color: AppColors.membershipPriceText),
+                                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 0.07, color: colors.textPrimary),
                                 ),
                               ],
                             ),
@@ -172,7 +180,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                       const SizedBox(height: 48),
                       PaymentField(
-                        label: 'Card Number',
+                        label: l10n.cardNumberLabel,
                         controller: _cardNumberController,
                         hint: '1234 5678 9012 3456',
                         validator: PaymentValidators.cardNumber,
@@ -185,7 +193,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         children: [
                           Expanded(
                             child: PaymentField(
-                              label: 'Expiry Date',
+                              label: l10n.expiryDateLabel,
                               controller: _expiryController,
                               hint: 'MM/YY',
                               validator: PaymentValidators.expiry,
@@ -196,7 +204,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: PaymentField(
-                              label: 'CVV',
+                              label: l10n.cvvLabel,
                               controller: _cvvController,
                               hint: '123',
                               validator: PaymentValidators.cvv,
@@ -209,14 +217,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 16),
-                        Text(_errorMessage!, style: TextStyle(color: AppColors.danger, fontSize: 12), textAlign: TextAlign.center),
+                        Text(_errorMessage!, style: TextStyle(color: colors.danger, fontSize: 12), textAlign: TextAlign.center),
                       ],
                       const SizedBox(height: 48),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedSecondaryButton(
-                              label: 'Back',
+                              label: l10n.backButton,
                               buttonHeight: 36,
                               borderWidth: 1,
                               onPressed: _isPaying ? null : () => Navigator.of(context).maybePop(),
@@ -225,7 +233,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: GradientButton(
-                              label: _isPaying ? 'Paying…' : 'Pay \$${plan.priceDollars}',
+                              label: _isPaying ? l10n.payingEllipsis : l10n.payAmountButton('\$${plan.priceDollars}'),
                               height: 36,
                               fontSize: 14,
                               onPressed: _isPaying ? null : _pay,
