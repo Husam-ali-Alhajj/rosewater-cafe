@@ -4806,6 +4806,96 @@ Notifications" off, nothing is queued; `authenticated` reading Vault ->
 
 ---
 
+### 75. Sprint 9 Task 3 — `upgrade_subscription` RPC
+
+Lets a member move straight from their current active plan to a more
+expensive one in one call, instead of the client orchestrating
+cancel-then-start_subscription-then-confirm_subscription_payment itself
+(and risking a half-done sequence if it crashed partway).
+
+**Migration:** `20260930150000_upgrade_subscription.sql`.
+
+- Same security shape as every prior RPC: `SECURITY DEFINER`,
+  `search_path` pinned to `public`, `auth.uid()` read internally (never a
+  caller-supplied user id), `EXECUTE` revoked from `PUBLIC` *and*
+  explicitly from `anon` (decision #16 -- a bare `revoke ... from public`
+  never touches Supabase's own per-function auto-grant to `anon`).
+- "Active" means what it means everywhere else in this project (decision
+  #27's defensive check, `log_door_access`/Home): `status = 'active' AND
+  valid_until > now()`, not just `status = 'active'` -- a stale row the
+  daily `expire_subscriptions` cron hasn't caught up to yet isn't
+  upgradeable, the same way it isn't door-access-eligible.
+- The caller's current active row is locked (`for update of s`) and its
+  price re-read from `membership_plans` inside the same transaction the
+  target plan's price is also read from -- never trusted from anything
+  the client claims about either plan. Equal or cheaper price ->
+  `downgrade_not_supported` (the task's own exact wording), with the two
+  real prices in `DETAIL` for debugging. A target plan id that doesn't
+  exist -> `plan_not_found`, same defensive-lookup pattern as every other
+  RPC that takes a foreign id.
+- Old row -> `cancelled` (not deleted -- stays as real history, same as
+  `cancel_subscription`); new row inserted `active`, `valid_until = now()
+  + 30 days` (flat, not prorated off whatever time was left on the old
+  plan -- this project has no proration logic anywhere, and the task
+  didn't ask for any); one new `usage_allowances` row for the fresh
+  period, `hookah_used`/`drinks_used` needing no explicit `0` -- that's
+  the column's own default, same as every other place this project
+  creates one. The cancel happens *before* the insert deliberately, not
+  just for tidiness: `uq_subscriptions_one_active_per_user` (a partial
+  unique index on `(user_id) where status = 'active'`) would reject the
+  new row if the old one were still marked active when it's inserted.
+
+**Verification method, same one decision #65 established and for the
+same reason:** this session's network egress to the project's own
+Supabase host is still blocked (`CONNECT tunnel failed, response 403`,
+explicitly "organization policy" per the proxy's own error) -- re-checked
+before writing this entry rather than assumed still true, since decision
+#74 right above this one *was* verified against the real project
+(evidently from a session with different network access). Verified
+instead against the same from-scratch local Postgres 16 stand-in as
+#65: every real migration file replayed in order, unmodified, skipping
+only the four that lean on Supabase-managed services this stand-in
+doesn't reproduce (pg_cron, pg_net, Realtime) and that this task has no
+relationship to (`expire_subscriptions_cron`,
+`event_reminders_and_allowance_alerts`, `notifications_realtime`,
+`notification_emails`) -- confirmed first that nothing skipped is
+something `upgrade_subscription` touches or depends on.
+
+**All acceptance points confirmed, real output, role-impersonation via
+the same `set local role` + `request.jwt.claims` mechanism:**
+
+- `anon` (no session at all): `permission denied for function
+  upgrade_subscription` -- rejected at the grant level, function body
+  never runs.
+- `authenticated` with a valid session but no active subscription row
+  isn't reachable in this test shape (the seeded user always has one),
+  but the equivalent -- `authenticated` role with no JWT claims set at
+  all -- correctly hits this function's own `auth.uid() is null` check:
+  `not_authenticated`.
+- Equal-price "upgrade" (a second plan priced identically to the
+  active one): `downgrade_not_supported`,
+  `DETAIL: {"current_price_cents":9900,"requested_price_cents":9900}`.
+- Genuinely cheaper plan (4900 vs the active 9900): same
+  `downgrade_not_supported`, `DETAIL` showing the real two prices.
+- Re-"upgrading" to the plan already active (equal price, same id):
+  same rejection.
+- A target plan id that doesn't exist: `plan_not_found`.
+- None of the five rejections above left any trace: re-queried
+  afterward, still exactly one `active` subscription row and the
+  original `usage_allowances` row's `hookah_used`/`drinks_used`
+  unchanged (7/9, the seeded values).
+- **A real upgrade**: seeded a user active on a 9900-cent plan (usage
+  7 hookah / 9 drinks used, a period that started 10 days ago) and
+  called `upgrade_subscription` with a 29900-cent plan's id. Result,
+  re-queried after commit: exactly one `active` row for the user (the
+  old one now `cancelled`, not deleted, `plan_id` unchanged); the new
+  row's `plan_id` is the expensive plan; two `usage_allowances` rows
+  total -- the original (`period_start` 10 days ago) still showing
+  7/9 untouched, and a brand new one (`period_start` = today) at 0/0,
+  the "correctly zeroed fresh usage" the acceptance bar asked for.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before
