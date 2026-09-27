@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/legal_document_screen.dart';
 
-/// Sprint 9 Task 5. **Draft placeholder text, not company-approved copy** --
+/// Sprint 9 Task 5. **Draft placeholder text, not company-approved copy**, in
+/// English and Arabic (shown in the app's language) --
 /// see docs/decisions.md's Task 5 entry and [LegalDocumentScreen]'s doc
 /// comment. The billing section states this app's actual upgrade-only rule
 /// (decision #75: `upgrade_subscription` rejects anything that isn't a
@@ -92,8 +93,69 @@ class TermsOfServiceScreen extends StatelessWidget {
     ),
   ];
 
+  /// The same draft in Arabic -- also placeholder text pending real review
+  /// (and a professional legal translation of the final copy).
+  static const _sectionsAr = [
+    LegalSection(
+      '1. قبول الشروط',
+      'بإنشائك حسابًا أو استخدامك لتطبيق عضوية Rosewater Café ("التطبيق")، فإنك توافق على شروط الخدمة هذه. إذا لم توافق عليها، فلا تستخدم التطبيق.',
+    ),
+    LegalSection(
+      '2. أهلية العضوية والتسجيل',
+      'يجب أن تكون قادرًا على قبول هذه الشروط لتحصل على عضوية. وأنت مسؤول عن الحفاظ على أمان بيانات تسجيل دخولك وعن جميع الأنشطة التي تتم عبر حسابك.',
+    ),
+    LegalSection(
+      '3. التحقق من الهوية',
+      'تتطلب بعض مزايا العضوية الحضورية التحقق من الهوية. وقد يُطلب منك رفع مستند هوية حكومي؛ وقد تكون المزايا المعتمدة على التحقق محدودة أو غير متاحة إلى أن تتم مراجعة مستندك والموافقة عليه.',
+    ),
+    LegalSection(
+      '4. خطط العضوية والفوترة والترقيات',
+      'تُقدَّم العضوية بمستويات (مثل Basic وPremium وVIP)، لكل منها سعره ورصيده الشهري الخاص من الشيشة والمشروبات والضيوف. يمكنك الترقية إلى أي خطة أعلى سعرًا في أي وقت؛ ولا يدعم التطبيق حاليًا الانتقال الذاتي إلى خطة أقل سعرًا أو مساوية في السعر. تمتد كل فترة عضوية 30 يومًا من تاريخ بدئها أو ترقيتها، وبعدها يُعاد تعيين رصيد استخدامك للفترة الجديدة.',
+    ),
+    LegalSection(
+      '5. الحجوزات واستخدام المنشأة',
+      'يمكنك حجز مكان في الفعاليات المتاحة، حسب التوفر. ويُسجَّل دخولك إلى منشأتنا على حسابك لأغراض تتبّع الرصيد والأمان.',
+    ),
+    LegalSection(
+      '6. الاستخدام المقبول',
+      'توافق على عدم إساءة استخدام التطبيق، أو محاولة التحايل على ضوابطه الأمنية، أو استخدام حساب عضو آخر. ولا يجوز التحايل على حدود الضيوف ورصيد الاستخدام المرتبطة بخطتك أو مشاركتها بما يتجاوز ما تسمح به خطتك.',
+    ),
+    LegalSection(
+      '7. الدفع',
+      'تُستخدم وسائل الدفع المحفوظة لمعالجة رسوم اشتراكك. وأنت مسؤول عن إبقاء بيانات الدفع الخاصة بك محدّثة وصالحة.',
+    ),
+    LegalSection(
+      '8. الإنهاء وحذف الحساب',
+      'يجوز لنا تعليق أو إنهاء أي حساب يخالف هذه الشروط. ويمكنك حذف حسابك في أي وقت من الخصوصية والأمان ← حذف الحساب، بعد إعادة إدخال كلمة المرور الحالية. هذا الإجراء فوري ونهائي: إذ تُزال بيانات ملفك الشخصي، وسجل عضويتك، وبيانات وسائل الدفع المحفوظة، وسجلات الاستخدام، والحجوزات، ومستندات الهوية المرفوعة، والإشعارات، ولا يمكن استردادها. لا توجد قائمة طلبات ولا فترة انتظار -- يتم الحذف بمجرد تأكيدك.',
+    ),
+    LegalSection(
+      '9. إخلاء المسؤولية عن الضمانات',
+      'يُقدَّم التطبيق "كما هو". ولا نضمن أن يعمل دون انقطاع أو أخطاء، أو أن يكون مناسبًا لأي غرض معيّن.',
+    ),
+    LegalSection(
+      '10. تحديد المسؤولية',
+      'إلى أقصى حد يسمح به القانون، لا يتحمل Rosewater Café المسؤولية عن أي أضرار غير مباشرة أو عرضية أو تبعية ناتجة عن استخدامك للتطبيق.',
+    ),
+    LegalSection(
+      '11. القانون الحاكم',
+      '[نص مؤقت -- سيتم تحديد الجهة القضائية التي تحكم هذه الشروط أثناء المراجعة القانونية.]',
+    ),
+    LegalSection(
+      '12. التغييرات على هذه الشروط',
+      'قد نحدّث هذه الشروط مع تطوّر التطبيق. ويعني استمرارك في استخدام التطبيق بعد أي تحديث قبولك للشروط المعدّلة.',
+    ),
+    LegalSection(
+      '13. تواصل معنا',
+      'يمكن توجيه الأسئلة المتعلقة بهذه الشروط إلى فريق دعم Rosewater Café عبر المساعدة والدعم في التطبيق، أو إلى support@example.com (عنوان مؤقت -- سيُستبدل بعنوان تواصل حقيقي قبل اعتماد هذه الشروط).',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return LegalDocumentScreen(title: AppLocalizations.of(context).termsOfService, sections: _sections);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    return LegalDocumentScreen(
+      title: AppLocalizations.of(context).termsOfService,
+      sections: isArabic ? _sectionsAr : _sections,
+    );
   }
 }

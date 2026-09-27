@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/l10n/app_localizations.dart';
+import 'package:rosewater_cafe/widgets/legal_document_screen.dart';
 import 'package:rosewater_cafe/screens/profile/privacy_policy_screen.dart';
 import 'package:rosewater_cafe/screens/profile/terms_of_service_screen.dart';
 
-Future<void> _pump(WidgetTester tester, Widget child) async {
+Future<void> _pump(WidgetTester tester, Widget child, {String locale = 'en'}) async {
   await tester.pumpWidget(
     MaterialApp(
+      locale: Locale(locale),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: child,
@@ -82,6 +84,41 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Privacy Policy'), findsNothing);
       expect(find.text('open'), findsOneWidget);
+    });
+  });
+
+  group('Arabic versions', () {
+    List<LegalSection> sectionsOf(WidgetTester tester) =>
+        tester.widget<LegalDocumentScreen>(find.byType(LegalDocumentScreen)).sections;
+
+    testWidgets('Privacy Policy is shown in Arabic when the app is in Arabic', (tester) async {
+      await _pump(tester, const PrivacyPolicyScreen(), locale: 'ar');
+      expect(find.text('1. مقدمة'), findsOneWidget);
+      expect(find.textContaining('مستندات التحقق من الهوية'), findsOneWidget);
+      expect(find.textContaining('الخصوصية والأمان ← حذف الحساب'), findsOneWidget); // the real Arabic menu names
+      expect(find.text('1. Introduction'), findsNothing);
+      expect(find.textContaining('لم تتم كتابته أو مراجعته من قبل محامٍ'), findsOneWidget); // draft banner
+    });
+
+    testWidgets('Terms of Service is shown in Arabic when the app is in Arabic', (tester) async {
+      await _pump(tester, const TermsOfServiceScreen(), locale: 'ar');
+      expect(find.text('1. قبول الشروط'), findsOneWidget);
+      expect(find.textContaining('لا يدعم التطبيق حاليًا الانتقال الذاتي'), findsOneWidget); // upgrade-only rule
+      expect(find.text('1. Acceptance of Terms'), findsNothing);
+    });
+
+    testWidgets('each Arabic document has exactly as many sections as its English one', (tester) async {
+      for (final screen in const [PrivacyPolicyScreen(), TermsOfServiceScreen()]) {
+        await _pump(tester, screen);
+        final english = sectionsOf(tester);
+        await _pump(tester, screen, locale: 'ar');
+        final arabic = sectionsOf(tester);
+        expect(arabic.length, english.length, reason: '${screen.runtimeType}');
+        for (var i = 0; i < english.length; i++) {
+          // Same numbering, section by section ("3. ..." <-> "3. ...").
+          expect(arabic[i].heading.split('.').first, english[i].heading.split('.').first);
+        }
+      }
     });
   });
 }

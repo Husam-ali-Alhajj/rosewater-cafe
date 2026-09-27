@@ -5133,6 +5133,26 @@ back button pops correctly) and two new cases in
 `privacy_security_screen_test.dart` proving both rows now open the real
 screens instead of the old coming-soon page.
 
+
+**Accuracy fix after pulling (2026-09-28):** the Privacy Policy was drafted
+before the notifications roadmap landed, and three of its statements had
+become untrue. Corrected: (1) it said the app collects "language, theme,
+and notification settings" -- language and theme never leave the device;
+only notification preferences are stored server-side (#67); (2) it
+described notifications as in-app only -- they can also be emailed (#74);
+(3) its sharing section named only hosting providers -- notification
+emails go through an email service provider (Resend), which receives the
+user's email address and the email content, and now says so. Still draft
+text pending real legal review, exactly as above.
+
+**Arabic versions added (user's request, 2026-09-28):** both documents now
+also exist in Arabic and are shown in the app's language (previously only
+the title, back button and banner were translated). The Arabic is itself
+a placeholder -- a translation of the draft, using the app's real Arabic
+menu names (e.g. "الخصوصية والأمان ← حذف الحساب") -- not a legal
+translation. When the company's approved copy replaces the English, it
+needs a professional legal translation too. A test keeps the two
+languages' section counts and numbering in step.
 ---
 
 ## Checkpoint: status of every open item, as of the end of Sprint 2

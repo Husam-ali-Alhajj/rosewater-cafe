@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/legal_document_screen.dart';
 
-/// Sprint 9 Task 5. **Draft placeholder text, not company-approved copy** --
+/// Sprint 9 Task 5. **Draft placeholder text, not company-approved copy**, in
+/// English and Arabic (shown in the app's language) --
 /// see docs/decisions.md's Task 5 entry and [LegalDocumentScreen]'s doc
 /// comment. The account-deletion section describes decision #52's real,
 /// immediate self-service deletion; every other data category names an
@@ -35,9 +36,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
           'Membership & Usage Data: your subscription plan and its history (including upgrades), '
           'your monthly hookah and drink allowance usage, event reservations you make, and facility '
           'check-ins (door access) logged against your account.\n\n'
-          'App Preferences: the language, theme, and notification settings you choose.\n\n'
+          'Notification Preferences: which notification channels (such as email) and types (such as '
+          'event reminders) you have turned on or off. Your language and theme choices stay on your '
+          'device and are not sent to us.\n\n'
           'Notifications: the content of the account, reservation, and membership alerts we send you '
-          'inside the App.',
+          'inside the App and, if you have email notifications turned on, by email.',
     ),
     LegalSection(
       '3. How We Use Your Information',
@@ -53,7 +56,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
       'We do not sell your personal information, and we do not share it with third parties for '
           'their own marketing purposes. Your information may be processed by the infrastructure '
           'providers that host the App\'s data and file storage on our behalf, solely to provide the '
-          'App\'s functionality.',
+          'App\'s functionality. If you have email notifications turned on, notification emails are '
+          'delivered through an email service provider, which receives your email address and the '
+          'content of those emails solely to deliver them.',
     ),
     LegalSection(
       '5. Data Retention & Account Deletion',
@@ -75,7 +80,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
     LegalSection(
       '7. Your Choices & Rights',
       'You can review and edit your profile information at any time from Edit Profile, update your '
-          'notification preferences from Notifications settings, and request deletion of your '
+          'notification preferences -- including turning email notifications off -- from '
+          'Notifications settings, and request deletion of your '
           'account and its data at any time as described in Section 5.',
     ),
     LegalSection(
@@ -96,8 +102,62 @@ class PrivacyPolicyScreen extends StatelessWidget {
     ),
   ];
 
+  /// The same draft in Arabic -- also placeholder text pending real review
+  /// (and a professional legal translation of the final copy).
+  static const _sectionsAr = [
+    LegalSection(
+      '1. مقدمة',
+      'توضح سياسة الخصوصية هذه كيف يجمع Rosewater Café ("نحن") المعلومات ويستخدمها ويحميها عند استخدامك لتطبيق عضوية Rosewater Café ("التطبيق"). بإنشائك حسابًا، فإنك توافق على الممارسات الموضحة في هذه السياسة.',
+    ),
+    LegalSection(
+      '2. المعلومات التي نجمعها',
+      'معلومات الحساب والملف الشخصي: اسمك الكامل، وعنوان بريدك الإلكتروني، ورقم هاتفك، وصورة ملفك الشخصي.\n\n'
+          'مستندات التحقق من الهوية: هوية حكومية (صورة أو ملف PDF) ترفعها للتحقق من أهليتك للاستفادة من مزايا العضوية الحضورية. تُخزَّن هذه الملفات بشكل منفصل عن بياناتك الأخرى، ولكل منها حالة مراجعة (قيد المراجعة أو مقبول أو مرفوض).\n\n'
+          'بيانات وسائل الدفع: بالنسبة للبطاقة التي تختار حفظها، نخزّن فقط نوعها وآخر 4 أرقام منها وشهر وسنة انتهاء صلاحيتها. لا نخزّن أرقام البطاقات الكاملة ولا رموز CVV ولا أي بيانات حساسة أخرى للبطاقة.\n\n'
+          'بيانات العضوية والاستخدام: خطة اشتراكك وسجلها (بما في ذلك الترقيات)، واستخدامك الشهري لرصيد الشيشة والمشروبات، وحجوزات الفعاليات التي تجريها، وتسجيلات دخولك إلى المنشأة المسجّلة على حسابك.\n\n'
+          'تفضيلات الإشعارات: قنوات الإشعارات (مثل البريد الإلكتروني) وأنواعها (مثل تذكيرات الفعاليات) التي فعّلتها أو أوقفتها. أما اختياراتك للغة والمظهر فتبقى على جهازك ولا تُرسَل إلينا.\n\n'
+          'الإشعارات: محتوى تنبيهات الحساب والحجوزات والعضوية التي نرسلها إليك داخل التطبيق، وعبر البريد الإلكتروني إذا كانت إشعارات البريد الإلكتروني مفعّلة لديك.',
+    ),
+    LegalSection(
+      '3. كيف نستخدم معلوماتك',
+      'نستخدم المعلومات المذكورة أعلاه من أجل: التحقق من هويتك وأهليتك للعضوية؛ ومعالجة اشتراكك وإدارته، بما في ذلك ترقيات الخطة؛ وتتبّع رصيد استخدامك الشهري لضمان تطبيق الحدود بإنصاف؛ وإدارة حجوزات الفعاليات وتسجيلات الدخول إلى المنشأة؛ وإرسال إشعارات الحساب والخدمة إليك؛ والحفاظ على أمان حسابك (مثل طلب إدخال كلمة المرور الحالية مجددًا قبل تنفيذ أي تغيير على كلمة المرور أو البريد الإلكتروني أو الحساب)؛ وصيانة التطبيق وتحسينه.',
+    ),
+    LegalSection(
+      '4. كيف نشارك معلوماتك',
+      'لا نبيع معلوماتك الشخصية، ولا نشاركها مع أطراف ثالثة لأغراضها التسويقية الخاصة. قد تتم معالجة معلوماتك من قِبل مزوّدي البنية التحتية الذين يستضيفون بيانات التطبيق وملفاته نيابةً عنا، وذلك فقط لتوفير وظائف التطبيق. وإذا كانت إشعارات البريد الإلكتروني مفعّلة لديك، فإن رسائل الإشعارات تُرسَل عبر مزوّد خدمة بريد إلكتروني يتلقى عنوان بريدك الإلكتروني ومحتوى تلك الرسائل لغرض إيصالها فقط.',
+    ),
+    LegalSection(
+      '5. الاحتفاظ بالبيانات وحذف الحساب',
+      'نحتفظ ببيانات حسابك طالما ظل حسابك نشطًا. يمكنك حذف حسابك نهائيًا في أي وقت من الخصوصية والأمان ← حذف الحساب، بعد إعادة إدخال كلمة المرور الحالية. يتم الحذف فورًا وذاتيًا ولا يمكن التراجع عنه: إذ يزيل ملفك الشخصي، وسجل اشتراكاتك وفواتيرك، وبيانات وسائل الدفع المحفوظة، وسجلات الاستخدام، والحجوزات، ومستندات الهوية المرفوعة، والإشعارات. لا توجد فترة استرداد ولا قائمة طلبات يعالجها الموظفون -- بمجرد التأكيد تُحذف البيانات.',
+    ),
+    LegalSection(
+      '6. أمان البيانات',
+      'يقتصر الوصول إلى بياناتك بحيث لا يستطيع أحد غيرك قراءة سجلاتك، باستثناء العمليات المحدودة على الخادم الموضحة أعلاه. تُحفظ مستندات الهوية التي ترفعها في مخزن ملفات خاص يخضع للتحكم في الوصول. وتتطلب بعض التغييرات الحساسة -- تغيير كلمة المرور أو البريد الإلكتروني أو حذف الحساب -- إعادة إدخال كلمة المرور الحالية أولًا، حتى لا يمكن استخدام جهاز غير مقفل لإجرائها دون علمك.',
+    ),
+    LegalSection(
+      '7. خياراتك وحقوقك',
+      'يمكنك مراجعة معلومات ملفك الشخصي وتعديلها في أي وقت من تعديل الملف الشخصي، وتحديث تفضيلات الإشعارات -- بما في ذلك إيقاف إشعارات البريد الإلكتروني -- من إعدادات الإشعارات، وطلب حذف حسابك وبياناته في أي وقت كما هو موضح في القسم 5.',
+    ),
+    LegalSection(
+      '8. خصوصية الأطفال',
+      'التطبيق غير موجّه للأطفال دون سن 16 عامًا، ولا نجمع معلومات منهم عن علم.',
+    ),
+    LegalSection(
+      '9. التغييرات على هذه السياسة',
+      'قد نحدّث سياسة الخصوصية هذه مع تطوّر التطبيق. ويعني استمرارك في استخدام التطبيق بعد أي تحديث قبولك للسياسة المعدّلة.',
+    ),
+    LegalSection(
+      '10. تواصل معنا',
+      'يمكن توجيه الأسئلة المتعلقة بهذه السياسة إلى فريق دعم Rosewater Café عبر المساعدة والدعم في التطبيق، أو إلى support@example.com (عنوان مؤقت -- سيُستبدل بعنوان تواصل حقيقي قبل اعتماد هذه السياسة).',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return LegalDocumentScreen(title: AppLocalizations.of(context).privacyPolicy, sections: _sections);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    return LegalDocumentScreen(
+      title: AppLocalizations.of(context).privacyPolicy,
+      sections: isArabic ? _sectionsAr : _sections,
+    );
   }
 }

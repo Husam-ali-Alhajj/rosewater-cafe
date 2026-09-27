@@ -24,13 +24,11 @@ class LegalSection {
 /// since a document that reads exactly like a real, final policy is the
 /// easiest thing to mistake for one later.
 ///
-/// Kept English-only regardless of `SettingsProvider.locale` (only the
-/// screen chrome -- title, back button, the banner itself -- is run through
-/// `AppLocalizations`): this is throwaway text pending a real legal rewrite,
-/// and translating a draft that's about to be replaced would just be work
-/// done twice. Same boundary decision #64 already drew for RPC exception
-/// messages, applied here for the same reason -- real user-facing legal
-/// copy, once it exists, should absolutely be localized.
+/// Each document supplies its sections in English and Arabic and picks by
+/// the app's language (the Arabic is a placeholder translation of the
+/// placeholder text -- the final, approved copy needs a professional legal
+/// translation). The screen chrome -- title, back button, the banner -- goes
+/// through `AppLocalizations` like everything else.
 class LegalDocumentScreen extends StatelessWidget {
   final String title;
   final List<LegalSection> sections;
