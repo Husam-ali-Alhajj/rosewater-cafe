@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../services/notification_arrival_feedback.dart';
 import '../services/settings_provider.dart';
 
 /// Sprint 8 Task 4 -- Sound & Haptic Feedback. A small, fixed set of real
@@ -15,6 +16,10 @@ import '../services/settings_provider.dart';
 /// - [triggerSuccess] -- a successful action completed: payment confirmed,
 ///   door opened, reservation confirmed.
 /// - [triggerError] -- an action failed: sign-in failed, payment failed.
+/// - [triggerNotificationArrived] -- a new notification arrived while the
+///   app is open (notifications roadmap step 4): the bundled chime and a
+///   vibration, gated by BOTH the notification "Sound & Vibration" toggle
+///   and these same app switches (see [NotificationArrivalFeedback]).
 ///
 /// Sound and haptics are gated **independently** by
 /// `SettingsProvider.soundEnabled`/`.hapticsEnabled` -- sound off with
@@ -34,6 +39,14 @@ extension AppFeedbackX on BuildContext {
   void triggerError() {
     _haptic(this, HapticFeedback.mediumImpact);
     _sound(this, SystemSoundType.alert);
+  }
+
+  Future<void> triggerNotificationArrived(NotificationArrivalFeedback feedback) {
+    final settings = _settings(this);
+    return feedback.onArrived(
+      appSoundOn: settings?.soundEnabled ?? true,
+      appHapticsOn: settings?.hapticsEnabled ?? true,
+    );
   }
 }
 

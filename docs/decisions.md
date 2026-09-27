@@ -4458,6 +4458,352 @@ here -- but it's why this is "a faithful local replica," not "the same
 thing as testing the real project," and worth re-confirming once this
 session (or any session) has real network access to the project itself.
 
+**Re-confirmed on the real project (2026-09-27).** The migration above
+had been committed but never applied to the live dev project -- it was
+applied then (the exact committed file, loaded from GitHub at that
+commit and hash-checked), followed by #66's migration, and the full
+acceptance test re-run on the real database as `authenticated`, inside
+one transaction that deliberately ends in an exception so every test
+row rolls back (confirmed afterwards: 0 notification rows, 0 test
+reservations left). Results: client INSERT -> `42501 new row violates
+row-level security policy`; UPDATE `is_read` -> 1 row, now true;
+UPDATE `title`, `body`, and `data` on that same own row -> each
+`42501 permission denied for table notifications`; a real
+`confirm_subscription_payment` and `create_event_reservation` each
+produced exactly one notification whose `related_id` points at the
+subscription/reservation it reports and whose text and `data` match
+what happened ("Your Basic membership is now active until Oct 26,
+2026."; "Your Birthday reservation on Oct 03, 2026 at 07:30 PM for 12
+guests is confirmed.").
+
+---
+
+### 66. Notifications in the user's language
+
+**Question:** #65's `title`/`body` are English sentences written at
+insert time -- an Arabic user would read "Membership Activated", and a
+language switch could never re-translate an existing notification.
+
+**Options considered:** (a) `title_ar`/`body_ar` columns written by the
+SQL functions; (b) store the notification's facts and let the app build
+the text from its own translation files.
+
+**Decision: (b).** Migration `20260929100000_notifications_localization_data.sql`
+adds `data jsonb` (server-written only; the column-level grant still
+covers `is_read` alone, verified above): `{plan_name, valid_until}` for
+`subscription_activated`, `{event_type, event_date, start_time,
+guest_count}` for `event_reservation_confirmed`. The app renders it via
+`localizeNotification` (`lib/utils/notification_localization.dart`),
+with Arabic plural forms for the guest count, the event-type labels
+shared with the Reserve an Event form (`utils/event_type_localization.dart`),
+and plan names left untranslated like everywhere else in the app.
+`title`/`body` stay as the English fallback for an unknown type or
+malformed `data`. Chosen over (a) because (a) duplicates the app's
+Arabic wording in SQL and needs a new column pair per future language.
+Still open (as in the checkpoint below): the feed screen that reads
+this table.
+
+---
+
+### 67. Notification preferences move into the database (reverses #44)
+
+**Question:** make every Notification Settings toggle actually do
+something. #44 kept them on the device only (`shared_preferences`) while
+"what is a notification" was undecided -- #65/#66 have since answered
+that, and every channel still to build (email, push, scheduled event
+reminders, allowance alerts, promotions) is sent by the **server**, which
+can't read a phone's local storage.
+
+**Decision:** a `notification_preferences` table (migration
+`20260930100000`), one row per user, one boolean column per toggle,
+column defaults equal to the Figma frame's initial state (SMS off, the
+rest on) -- a test checks the app's defaults and the SQL defaults can't
+drift apart. No row is created up front: the app upserts just the
+flipped column the first time, and a missing row means "all defaults"
+for every reader. Clients may SELECT/INSERT/UPDATE only their own row
+(RLS + explicit grants, no DELETE, nothing for `anon`). Old on-device
+values are not migrated -- the only data affected is test accounts.
+
+**Plan agreed for the rest (one step at a time, confirmed between
+each):** 2) notifications feed behind the Home bell; 3) Event Reminders +
+Allowance Alerts as in-app notifications via `pg_cron`; 4) Sound &
+Vibration on arrival; 5) Email via Resend; 6) Push via Firebase, Web +
+Android (iOS needs a paid Apple account -- left for the company);
+7) SMS -- **skipped** for now (paid per message); 8) Promotions & Offers.
+
+**Verified on the real project (2026-09-27)**, as `authenticated`, in one
+rolled-back transaction: two single-column upserts create then update
+the caller's row with every other column at its default; the caller sees
+only their own row (1 visible, another user's invisible); writing another
+user's row -> `42501 row-level security`; UPDATE of another user's row ->
+0 rows, and it's unchanged afterwards; moving your own row to another
+user id -> `42501 row-level security`; DELETE -> `42501 permission
+denied`; `anon` read -> `42501 permission denied`.
+
+---
+
+### 68. Notifications feed + Home bell badge (roadmap step 2)
+
+**What:** the Home bell now opens a real Notifications screen, built from
+Figma frame **App-23**, and shows the design's red unread-count badge
+(App-22) -- replacing decision #32's "coming soon" stub. Cards come from
+`public.notifications`, newest first, rendered in the active language
+(#66), with the design's per-card pieces: a tinted icon per type, relative
+time ("2h ago", a plain date after a week), and for unread cards an accent
+border, a leading-edge strip, a dot and "Mark as Read". The subtitle is the
+real unread count ("2 unread notifications"), with Arabic plural forms.
+The badge refreshes when the feed is closed and caps at "9+" (screen
+readers still get the real number).
+
+**Two gaps in the design, decided with the user:**
+- **Delete (trash icon):** users may delete their **own** notifications
+  only -- new RLS policy + DELETE grant (migration `20260930110000`).
+- **"View Details":** there's no reservation-details screen, so it goes to
+  the tab the notification is about -- an event reservation to **Events**,
+  a membership payment to **Profile** (which shows plan and valid-until).
+  Opening details also marks the notification read.
+
+Mark-as-read and delete update the card immediately; if the save fails the
+card is put back and a snackbar says so.
+
+**Found and fixed while verifying:** `notifications` still carried most of
+Supabase's default table grants -- `anon` had SELECT/INSERT/DELETE/
+TRUNCATE/REFERENCES/TRIGGER, `authenticated` the same -- because #65 only
+revoked UPDATE. RLS kept every row safe through the REST API (anon's
+DELETE matched 0 rows), and the REST API can't issue TRUNCATE, so nothing
+was exposed in practice; but TRUNCATE ignores RLS, so the grants
+themselves are now exact: `anon` nothing, `authenticated` SELECT + DELETE
++ UPDATE(is_read). The same default grants very likely remain on the
+project's **other** tables -- not changed here (out of this task's scope);
+worth one dedicated pass that audits every table's grants the same way.
+
+**Verified on the real project (2026-09-27)**, as `authenticated`, rolled
+back: delete own -> 1 row; delete another user's -> 0 rows, still there
+afterwards; mark read -> 1 row; UPDATE title, client INSERT, TRUNCATE ->
+each `42501 permission denied`; `create_event_reservation` still writes
+its notification after the tightening (SECURITY DEFINER runs as owner);
+`anon` SELECT and DELETE -> `42501 permission denied`.
+
+---
+
+### 69. Typography: fonts bundled, Arabic in Naskh, bolder titles
+
+**Fonts are bundled app assets now, not `google_fonts`.** `google_fonts`
+only ever downloaded each family's *Regular* file (at runtime, over the
+network), so every heavier weight was faked by the renderer -- and a
+separate bug meant the theme's font was never applied at all:
+`ThemeData(fontFamily:)` is overridden by the `textTheme` passed alongside
+it, which carried Material's platform font (fixed in `AppTheme._build`).
+Both typefaces are SIL Open Font License, bundled under `assets/fonts/`
+with their licence files; the `google_fonts` package is removed.
+
+- **Arabic: Noto Naskh Arabic** (خط النسخ), chosen by the user after
+  trialling several (Cairo, Thmanyah Sans, IBM Plex Sans Arabic, Readex
+  Pro). Thmanyah was liked but ruled out: its licence forbids hosting the
+  font files anywhere public, and this repo is public.
+- **English: Inter**, as in the Figma design -- Regular, Medium and
+  SemiBold. **Deliberate deviation:** Inter's 700 slot is mapped to the
+  SemiBold file, so anything styled Bold renders SemiBold in English (the
+  user found true Bold too heavy), while Arabic keeps a real Bold (Naskh
+  needs it to read as bold at all). One mapping in `pubspec.yaml`, not a
+  locale check at every call site.
+
+**Bolder text than the Figma file (user's choice):** page titles, section
+and card titles, prices/large numbers, and on the Events page the titles,
+field labels, estimated total and confirmed details, are styled Bold (700)
+where the design used Medium/Regular -- i.e. real Bold in Arabic and
+SemiBold in English. Button text, list rows and body text keep the
+design's weights.
+
+---
+
+### 70. Event Reminders + Allowance Alerts (roadmap step 3)
+
+The "Event Reminders" and "Allowance Alerts" toggles now control real
+in-app notifications (migration `20260930120000`). Both are written
+server-side and both are skipped for users who switched that toggle off
+(`notification_preferences`, #67).
+
+**Event reminders -- one per reservation, 24 hours before** (user's choice;
+the design's example says "coming up tomorrow at 7:00 PM"). A `pg_cron`
+job (`send-event-reminders`, every 15 minutes) picks confirmed
+reservations starting within the next 24 hours that haven't been reminded
+yet. "Reminded" is `event_reservations.reminder_sent_at`, not "a reminder
+notification exists" -- a user deleting the notification must not trigger
+a second one. A reservation booked less than 24 hours ahead gets its
+reminder on the next run.
+
+**Café timezone: `America/New_York`** (user's choice), in exactly one place
+-- `public.cafe_timezone()`. Reservations store a local date + time with
+no zone, so the job converts them using this; daylight saving is handled
+by Postgres. Change that one function at handoff if the café is elsewhere.
+
+**Allowance alerts -- 3 or fewer left** (user's choice; matches the
+design's "only 3 hookah sessions remaining"). A `BEFORE UPDATE` trigger on
+`usage_allowances` sends one alert per billing period per kind (hookah,
+drinks) the moment what's left drops to 3 or fewer, and sets
+`hookah_alert_sent` / `drinks_alert_sent` on that same row write (a new
+period is a new row, so they reset). Unlimited plans never get one. If the
+toggle is off, nothing is sent and the flag stays unset.
+**Open gap:** nothing in the app records usage yet -- no staff or
+point-of-sale tool increments `hookah_used` / `drinks_used` -- so this can
+only fire when usage is updated some other way (e.g. directly in
+Supabase). Recording usage is its own future feature.
+
+In the app, both types render in the user's language (#66) with the
+design's visuals -- purple calendar for Event Reminder, orange alert for
+Low Allowance Alert -- and an event reminder's "View Details" goes to
+Events like a reservation confirmation does.
+
+**Verified on the real project (2026-09-27)**, rolled back: a confirmed
+reservation 5 hours away (New York time; the conversion checked to be
+exactly 5h from now) got exactly one reminder with the right text and
+data; one 30 hours away, a cancelled one, and one for a user with
+reminders off got none; a second run sent nothing new. Allowance: with
+alerts off, crossing 3-left sent nothing and left the flag unset; turned
+on, 4 left sent nothing, 3 left sent "You have only 3 hookah sessions
+remaining this month.", 1 left sent no second alert, and 0 drinks left
+sent "You have used all your drinks this month.". As `authenticated`:
+calling the job -> `42501 permission denied`; resetting either
+"already sent" column -> 0 rows (no client UPDATE policy on either table).
+
+---
+
+### 71. Sound & Vibration when a notification arrives (roadmap step 4)
+
+The "Sound & Vibration" toggle ("Play sound when notifications arrive")
+now does that, while the app is open. (With the app closed, sound comes
+from push notifications -- step 6.)
+
+**How the app notices an arrival:** Supabase Realtime. Migration
+`20260930130000` adds `notifications` to the `supabase_realtime`
+publication (the only table in it). Realtime applies the table's RLS to
+every event, so a client only ever receives its own rows -- no new access.
+`HomeScreen` subscribes to INSERTs for the signed-in user; it stays alive
+in MainShell's IndexedStack for the whole session, so this works on every
+tab. Each arrival also refreshes the bell badge live (before, it only
+updated when Home loaded or the feed was closed).
+
+**The sound:** a short two-note chime (G5 -> C6, ~0.7 s) **generated for
+this app by code** (`assets/sounds/notification_chime.wav`) -- no
+third-party audio, so no licence to track -- played with the
+`audioplayers` package. Flutter's built-in `SystemSound` (what App
+Settings' sounds use) plays nothing on web and most Android devices, so it
+couldn't serve as a notification sound.
+
+**Which switches apply (user's choice -- both must be on):** the chime
+plays only if Notifications -> "Sound & Vibration" is on AND App Settings
+-> "Sound" is on; the vibration needs the same toggle AND App Settings ->
+"Haptic Feedback". Turning app sound off always means silence. The
+notification toggle is re-read from the database on each arrival (so a
+change applies immediately); if it can't be read, its default (on)
+applies. A chime the browser refuses to play doesn't cancel the vibration.
+All of this is in `NotificationArrivalFeedback`, unit-tested without a
+device.
+
+**Verified:** 7 unit tests cover every combination of the three switches,
+an unreadable toggle, and a failing chime. On the real project,
+`notifications` is confirmed in the `supabase_realtime` publication. The
+live arrival itself needs the running app (user-side check).
+
+---
+
+### 72. French and Spanish: shown, but not selectable (changes #63)
+
+**Before (#63):** all four languages in App Settings were selectable;
+French/Spanish have no translations, so picking one kept showing English
+text, with a caption under the list saying so.
+
+**Now (user's request):** French and Spanish stay in the list (the design
+shows all four) but are **disabled** -- greyed out, not tappable, marked
+"(Coming Soon)". The "not translated yet" caption is removed (it could only
+appear after picking one) along with its string. A French/Spanish pick
+saved on a device before this change falls back to English on the next
+launch (`SettingsProvider.load`), so the picker never shows a selection
+the user can't change. Enabling one later = add its ARB file and flip its
+`translated` flag in `app_settings_screen.dart` + add it to
+`SettingsProvider._selectableLocales`.
+
+---
+
+### 73. Reservation Details page for event notifications (changes #68)
+
+**Problem (user-reported):** "View Details" on an event notification went
+to the Events tab (#68's stand-in, since no details screen existed) -- but
+that tab only has the booking form, so it showed nothing about the
+reservation the notification was about.
+
+**Now:** a small, read-only **Reservation Details** page
+(`screens/events/reservation_details_screen.dart`), opened on top of the
+Notifications list from any event notification (confirmation or reminder)
+-- Back returns to the list. It fetches the reservation fresh by the
+notification's `related_id` (RLS: own rows only, so another user's id
+reads as "no longer available", never their data) and shows event type,
+a status chip (Confirmed / Pending / Cancelled -- fresh data can show a
+later cancellation), date, time, duration, guests and total. Nothing on
+it is editable. No Figma frame exists for it, so it reuses the booking
+confirmation screen's look. Membership notifications still go to Profile.
+
+---
+
+### 74. Email notifications via Resend (roadmap step 5)
+
+The "Email Notifications" toggle now sends real email: every notification
+(payment, reservation, reminder, allowance alert, later promotions) is
+also emailed to the user's account address, unless they switched it off.
+
+**Why not the forgot-password email path:** that's Supabase Auth's
+built-in mailer, which only sends its own fixed account emails (confirm
+sign-up, reset password, change email) -- it can't send arbitrary
+messages. It's also wired to a personal Gmail over SMTP, which this log
+already flagged as fragile and unfit for handoff. Resend is a
+transactional email service with a project-owned API key (free: 3,000
+emails/month). The same Resend account can later replace Gmail as
+Supabase Auth's SMTP server too, fixing that gap in one move.
+
+**How it's sent (migration `20260930140000`):** entirely inside the
+database -- a `BEFORE INSERT` trigger on `notifications` queues one POST
+to Resend's API with `pg_net` (Supabase's async HTTP extension, enabled
+by the migration). No separate server code to deploy. pg_net only sends
+after COMMIT (a rolled-back insert never emails) and runs in the
+background (never slows or blocks the insert); any email problem is
+swallowed so it can never break the notification -- or the payment or
+reservation that created it. The request id is kept on the row
+(`email_request_id`) for troubleshooting (`net._http_response`).
+
+**The API key is never in the repo:** it lives in Supabase **Vault**
+(encrypted) as `resend_api_key`, added by the project owner. Without it
+the trigger sends nothing and in-app notifications work as before. Client
+roles can't read Vault (verified).
+
+**Content:** the notification's title as the subject, a small branded
+HTML card with the title and body, a plain-text version, and a footer on
+how to turn these emails off. All text is HTML-escaped (the event type is
+free text a user typed). **English only** -- the app's language choice
+lives on the device, so the server doesn't know it; storing it on
+`profiles` would be the fix if Arabic emails are wanted.
+
+**Sender:** `notification_email_from()` = `onboarding@resend.dev`,
+Resend's shared test sender, which needs no setup but **only delivers to
+the email address the Resend account was created with**. For real users:
+verify a domain in Resend and change that one function.
+
+**Setup (dev project now, and the company's at handoff):**
+1. Create a Resend account; API Keys -> create one with "Sending access".
+2. Supabase Dashboard -> Integrations -> Vault -> add a secret named
+   exactly `resend_api_key` with the key as its value.
+3. For real recipients: verify a domain in Resend, then update
+   `public.notification_email_from()`.
+
+**Verified on the real project (2026-09-27)**, rolled back, with a fake
+placeholder key created and discarded inside the transaction: with no key,
+nothing is queued; with a key, a real reservation queued exactly one POST
+to `https://api.resend.com/emails` with a Bearer header, `to` = the
+account's email, the right subject/text, and the typed event type
+`<b>Party</b> & "fun"` HTML-escaped in the HTML part; with "Email
+Notifications" off, nothing is queued; `authenticated` reading Vault ->
+`42501`. The live send needs the real key (user-side step).
+
 ---
 
 ## Checkpoint: status of every open item, as of the end of Sprint 2
@@ -4522,18 +4868,17 @@ need to think about them now:
 - **Full FAQ copy**: only 1 of 4 answers was visible in the design
   export — the other 3 are needed only once the Help & Support screen
   gets built.
-- **Notification preferences storage** -- **resolved (#44):** local on-device
-  setting only (`shared_preferences`), no table. Moving them to the backend stays
+- **Notification preferences storage** -- **resolved (#44), then reversed
+  by #67:** now a `notification_preferences` table the server can read.
+  (Originally: local on-device setting only (`shared_preferences`), no table.) Moving them to the backend stays
   tied to the open notifications-feed question below.
 - **Notifications feed and its backing schema** (raised explicitly by
   Sprint 3, Task 8): **the backing schema half is answered by decision
   #65** — a notification is a payment activation or an event reservation
   confirmation, its own real table (already existed, now actually written
   to and locked down), read/unread tracked by a real `is_read` column,
-  in-app only (no push/email — not attempted). **Still open:** the Home
-  bell (decision #32) deliberately stays the same stub screen, no
-  unread-count badge, until an actual feed UI reading this table gets
-  built as its own task.
+  in-app only (no push/email — not attempted). The feed UI and the
+  Home bell's unread badge are built too (#68).
 
 ---
 

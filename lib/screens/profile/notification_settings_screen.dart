@@ -48,18 +48,17 @@ List<_ToggleSpec> _typeToggles(AppLocalizations l10n) => [
 /// Sound & Vibration) and three "Notification Types" toggles (Event
 /// Reminders, Allowance Alerts, Promotions & Offers), with a "Done" button.
 ///
-/// **Local-only, on purpose.** Every toggle is saved to this device with
-/// `shared_preferences` ([NotificationPrefs]) the moment it's flipped -- there
-/// is no Save button in the design, and no table behind this screen. That is
-/// the standing decision (Sprint 2 checkpoint): whether notification
-/// preferences belong in the database is tied to the still-open question of
-/// what a notification is (the Home bell / notifications feed, decision #32),
-/// so no backend storage is built while that's unresolved. **This screen makes
-/// no network calls at all** -- it and its preferences class import nothing that
-/// can reach the network.
+/// Every toggle is saved the moment it's flipped (there is no Save button in
+/// the design) to the user's row in `public.notification_preferences`, via
+/// [NotificationPrefs] -- in the database rather than on the device
+/// (notifications roadmap step 1, reversing decision #44), because the
+/// channels these control are sent by the server, which can only respect a
+/// choice it can read. If a save fails the switch flips back and a snackbar
+/// says so, so it never shows a value that wasn't stored.
 ///
-/// The toggles record preferences only: nothing in the app sends push, email
-/// or SMS yet, so nothing acts on them yet either.
+/// What each toggle actually controls is being built step by step (see
+/// docs/decisions.md); until a channel exists, its toggle is stored but
+/// nothing reads it yet.
 class NotificationSettingsScreen extends StatefulWidget {
   final NotificationPrefs prefs;
 

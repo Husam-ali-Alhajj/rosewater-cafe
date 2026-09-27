@@ -154,4 +154,18 @@ void main() {
       'settings.biometric_enabled',
     });
   });
+
+  group('SettingsProvider -- locale', () {
+    test('a French/Spanish pick saved before they were disabled falls back to English', () async {
+      for (final stale in ['fr', 'es']) {
+        SharedPreferences.setMockInitialValues({'settings.locale': stale});
+        expect((await SettingsProvider.load()).locale, 'en', reason: stale);
+      }
+    });
+
+    test('English and Arabic picks are kept', () async {
+      SharedPreferences.setMockInitialValues({'settings.locale': 'ar'});
+      expect((await SettingsProvider.load()).locale, 'ar');
+    });
+  });
 }

@@ -423,7 +423,6 @@
   "animationsLabel": "Animations",
   "animationsDescription": "Enable smooth animations throughout the app",
   "languageSectionLabel": "Language",
-  "frenchSpanishNotTranslatedNote": "French and Spanish aren't translated yet -- the app will keep showing English text until they are.",
   "interactionsCardTitle": "Interactions",
   "soundEffectsLabel": "Sound Effects",
   "soundEffectsDescription": "Play sounds for actions and notifications",
@@ -518,5 +517,68 @@
   "enterYourPasswordError": "Enter your password",
   "couldntVerifyPasswordError": "Couldn't verify your password. Check your connection and try again.",
   "unlockReasonPrompt": "Unlock Rosewater Café",
-  "couldntSignOutError": "Couldn't sign out. Please try again."
+  "couldntSignOutError": "Couldn't sign out. Please try again.",
+
+  "notifSubscriptionActivatedTitle": "Membership Activated",
+  "notifSubscriptionActivatedBody": "Your {plan} membership is now active until {date}.",
+  "@notifSubscriptionActivatedBody": {
+    "description": "Notification body after a membership payment. {plan} is the real plan name (not translated, same as everywhere else); {date} is valid_until, already formatted for the locale",
+    "placeholders": {"plan": {"type": "String"}, "date": {"type": "String"}}
+  },
+  "notifEventReservationConfirmedTitle": "Event Reservation Confirmed",
+  "notifEventReservationConfirmedBody": "Your {eventType} reservation on {date} at {time} for {guestCount, plural, =1{1 guest} other{{guestCount} guests}} is confirmed.",
+  "@notifEventReservationConfirmedBody": {
+    "description": "Notification body after an event reservation. {eventType} is the localized event type label; {date}/{time} are already formatted for the locale",
+    "placeholders": {"eventType": {"type": "String"}, "date": {"type": "String"}, "time": {"type": "String"}, "guestCount": {"type": "int"}}
+  },
+
+  "unreadNotificationsCount": "{count, plural, =0{No unread notifications} =1{1 unread notification} other{{count} unread notifications}}",
+  "@unreadNotificationsCount": {
+    "description": "Notifications feed subtitle (Figma App-23: \"2 unread notifications\")",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "unreadBadgeSemantics": "{count, plural, =1{1 unread notification} other{{count} unread notifications}}",
+  "@unreadBadgeSemantics": {
+    "description": "Screen-reader label for the Home bell's red badge",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "markAsReadButton": "Mark as Read",
+  "viewDetailsButton": "View Details",
+  "noNotificationsTitle": "No notifications yet",
+  "noNotificationsBody": "Payment and event reservation updates will show up here.",
+  "couldntLoadNotificationsError": "Couldn't load your notifications.",
+  "couldntUpdateNotificationError": "Couldn't update that notification. Please try again.",
+  "timeJustNow": "Just now",
+  "timeMinutesAgo": "{n}m ago",
+  "@timeMinutesAgo": {"description": "Figma App-23 style: \"5m ago\"", "placeholders": {"n": {"type": "int"}}},
+  "timeHoursAgo": "{n}h ago",
+  "@timeHoursAgo": {"description": "Figma App-23: \"2h ago\"", "placeholders": {"n": {"type": "int"}}},
+  "timeDaysAgo": "{n}d ago",
+  "@timeDaysAgo": {"description": "Figma App-23: \"1d ago\" (under a week; older shows a date)", "placeholders": {"n": {"type": "int"}}},
+
+  "notifEventReminderTitle": "Event Reminder",
+  "notifEventReminderBody": "Your {eventType} reservation is coming up on {date} at {time} for {guestCount, plural, =1{1 guest} other{{guestCount} guests}}.",
+  "@notifEventReminderBody": {
+    "description": "Sent ~24h before a reservation (Figma App-23 \"Event Reminder\" card). {eventType} is the localized event type; {date}/{time} already formatted for the locale",
+    "placeholders": {"eventType": {"type": "String"}, "date": {"type": "String"}, "time": {"type": "String"}, "guestCount": {"type": "int"}}
+  },
+  "notifLowAllowanceTitle": "Low Allowance Alert",
+  "notifLowHookahBody": "{remaining, plural, =0{You have used all your hookah sessions this month.} =1{You have only 1 hookah session remaining this month.} other{You have only {remaining} hookah sessions remaining this month.}}",
+  "@notifLowHookahBody": {
+    "description": "Figma App-23 \"Low Allowance Alert\" card, hookah",
+    "placeholders": {"remaining": {"type": "int"}}
+  },
+  "notifLowDrinksBody": "{remaining, plural, =0{You have used all your drinks this month.} =1{You have only 1 drink remaining this month.} other{You have only {remaining} drinks remaining this month.}}",
+  "@notifLowDrinksBody": {
+    "description": "Low Allowance Alert card, drinks",
+    "placeholders": {"remaining": {"type": "int"}}
+  },
+
+  "reservationDetailsTitle": "Reservation Details",
+  "reservationStatusConfirmed": "Confirmed",
+  "reservationStatusPending": "Pending",
+  "reservationStatusCancelled": "Cancelled",
+  "totalColonLabel": "Total:",
+  "reservationNotFound": "This reservation is no longer available.",
+  "couldntLoadReservationError": "Couldn't load this reservation."
 }

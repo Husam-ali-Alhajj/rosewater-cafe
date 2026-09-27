@@ -319,7 +319,6 @@
   "animationsLabel": "الحركات",
   "animationsDescription": "تفعيل الحركات السلسة في جميع أنحاء التطبيق",
   "languageSectionLabel": "اللغة",
-  "frenchSpanishNotTranslatedNote": "الفرنسية والإسبانية غير مترجمتين بعد — سيستمر التطبيق بعرض النص الإنجليزي حتى تتم ترجمتهما.",
   "interactionsCardTitle": "التفاعلات",
   "soundEffectsLabel": "المؤثرات الصوتية",
   "soundEffectsDescription": "تشغيل الأصوات عند الإجراءات والإشعارات",
@@ -405,5 +404,37 @@
   "enterYourPasswordError": "أدخل كلمة مرورك",
   "couldntVerifyPasswordError": "تعذر التحقق من كلمة مرورك. تحقق من اتصالك وحاول مرة أخرى.",
   "unlockReasonPrompt": "افتح قفل Rosewater Café",
-  "couldntSignOutError": "تعذر تسجيل الخروج. يرجى المحاولة مرة أخرى."
+  "couldntSignOutError": "تعذر تسجيل الخروج. يرجى المحاولة مرة أخرى.",
+
+  "notifSubscriptionActivatedTitle": "تم تفعيل العضوية",
+  "notifSubscriptionActivatedBody": "عضويتك {plan} مفعّلة الآن حتى {date}.",
+  "notifEventReservationConfirmedTitle": "تم تأكيد حجز الفعالية",
+  "notifEventReservationConfirmedBody": "تم تأكيد حجزك ({eventType}) يوم {date} الساعة {time} لـ {guestCount, plural, =1{ضيف واحد} =2{ضيفين} few{{guestCount} ضيوف} many{{guestCount} ضيفًا} other{{guestCount} ضيف}}.",
+
+  "unreadNotificationsCount": "{count, plural, =0{لا توجد إشعارات غير مقروءة} =1{إشعار واحد غير مقروء} =2{إشعاران غير مقروءين} few{{count} إشعارات غير مقروءة} many{{count} إشعارًا غير مقروء} other{{count} إشعار غير مقروء}}",
+  "unreadBadgeSemantics": "{count, plural, =1{إشعار واحد غير مقروء} =2{إشعاران غير مقروءين} few{{count} إشعارات غير مقروءة} many{{count} إشعارًا غير مقروء} other{{count} إشعار غير مقروء}}",
+  "markAsReadButton": "تعليم كمقروء",
+  "viewDetailsButton": "عرض التفاصيل",
+  "noNotificationsTitle": "لا توجد إشعارات بعد",
+  "noNotificationsBody": "ستظهر هنا تحديثات الدفع وحجوزات الفعاليات.",
+  "couldntLoadNotificationsError": "تعذر تحميل إشعاراتك.",
+  "couldntUpdateNotificationError": "تعذر تحديث هذا الإشعار. يرجى المحاولة مرة أخرى.",
+  "timeJustNow": "الآن",
+  "timeMinutesAgo": "{n, plural, =1{منذ دقيقة} =2{منذ دقيقتين} few{منذ {n} دقائق} other{منذ {n} دقيقة}}",
+  "timeHoursAgo": "{n, plural, =1{منذ ساعة} =2{منذ ساعتين} few{منذ {n} ساعات} other{منذ {n} ساعة}}",
+  "timeDaysAgo": "{n, plural, =1{منذ يوم} =2{منذ يومين} few{منذ {n} أيام} other{منذ {n} يومًا}}",
+
+  "notifEventReminderTitle": "تذكير بالفعالية",
+  "notifEventReminderBody": "موعد حجزك ({eventType}) يقترب: يوم {date} الساعة {time} لـ {guestCount, plural, =1{ضيف واحد} =2{ضيفين} few{{guestCount} ضيوف} many{{guestCount} ضيفًا} other{{guestCount} ضيف}}.",
+  "notifLowAllowanceTitle": "تنبيه انخفاض الرصيد",
+  "notifLowHookahBody": "{remaining, plural, =0{لقد استخدمت جميع جلسات الشيشة لهذا الشهر.} =1{تبقّت لك جلسة شيشة واحدة فقط هذا الشهر.} =2{تبقّت لك جلستا شيشة فقط هذا الشهر.} few{تبقّت لك {remaining} جلسات شيشة فقط هذا الشهر.} other{تبقّى لك {remaining} جلسة شيشة فقط هذا الشهر.}}",
+  "notifLowDrinksBody": "{remaining, plural, =0{لقد استخدمت جميع مشروباتك لهذا الشهر.} =1{تبقّى لك مشروب واحد فقط هذا الشهر.} =2{تبقّى لك مشروبان فقط هذا الشهر.} few{تبقّت لك {remaining} مشروبات فقط هذا الشهر.} other{تبقّى لك {remaining} مشروبًا فقط هذا الشهر.}}",
+
+  "reservationDetailsTitle": "تفاصيل الحجز",
+  "reservationStatusConfirmed": "مؤكد",
+  "reservationStatusPending": "قيد الانتظار",
+  "reservationStatusCancelled": "ملغى",
+  "totalColonLabel": "الإجمالي:",
+  "reservationNotFound": "هذا الحجز لم يعد متاحًا.",
+  "couldntLoadReservationError": "تعذر تحميل هذا الحجز."
 }

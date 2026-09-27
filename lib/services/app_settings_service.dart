@@ -26,7 +26,8 @@ class AppSettingsService {
   }
 
   /// Wipes every local preference this app stores with `shared_preferences`
-  /// -- the "has seen onboarding" flag and any saved notification settings.
+  /// -- e.g. the "has seen onboarding" flag. (Notification settings used
+  /// to live here too; they're in the database now, so they survive this.)
   /// Does **not** touch the signed-in session (that lives in
   /// `flutter_secure_storage`, a separate store) -- the caller is
   /// responsible for signing out afterwards, since that also has to update

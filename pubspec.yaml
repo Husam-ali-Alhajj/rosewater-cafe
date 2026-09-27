@@ -66,8 +66,10 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  # The Figma design uses Inter as its typeface throughout the app
-  google_fonts: ^6.2.1
+  # Notifications roadmap step 4: plays the bundled notification chime
+  # (assets/sounds/) -- Flutter's own SystemSound is silent on web and
+  # most Android devices
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -104,11 +106,32 @@ flutter:
 
   assets:
     - assets/images/
+    # Notification chime -- generated for this app (no third-party audio)
+    - assets/sounds/
 
-  # Arabic typeface (see AppTheme._arabicFontFamily). Bundled rather than
-  # fetched at runtime by google_fonts, so every weight is real and it
-  # works offline. SIL Open Font License -- see OFL.txt beside the files.
   fonts:
+    # English typeface, per the Figma design. Bundled (not google_fonts,
+    # which only ever downloaded Regular, so every heavier weight was
+    # faked). OFL -- see OFL.txt beside the files.
+    #
+    # The 700 slot deliberately points at SemiBold: English was reading
+    # too heavy at true Bold, so anything styled FontWeight.w700 renders as
+    # Inter SemiBold in English, while Arabic (Noto Naskh, below) keeps its
+    # real Bold -- Naskh needs the extra weight to read as bold at all.
+    # One mapping here instead of a locale check at ~40 call sites.
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/inter/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/inter/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/inter/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/inter/Inter-SemiBold.ttf
+          weight: 700
+    # Arabic typeface (see AppTheme._arabicFontFamily). Bundled for the
+    # same reason, so every weight -- including a real Bold -- is there and
+    # works offline. OFL -- see OFL.txt beside the files.
     - family: NotoNaskhArabic
       fonts:
         - asset: assets/fonts/noto_naskh_arabic/NotoNaskhArabic-Regular.ttf

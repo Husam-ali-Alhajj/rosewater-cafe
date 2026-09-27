@@ -29,11 +29,10 @@ const _hairline = 0.515; // Figma's fractional hairline stroke width
 /// language's OWN script ("العربية", not "Arabic") -- the standard
 /// convention for a language picker, and not something that needs
 /// `AppLocalizations` at all, unlike everything else this task touches.
-/// [translated] is false for French/Spanish: real, storable picks (the
-/// design shows all four as selectable), but `MaterialApp`'s
-/// `supportedLocales` only lists en/ar, so picking one of these falls back
-/// to English text -- decision #63's "say so plainly in the picker"
-/// requirement is [_LanguageRow]'s note, not silence.
+/// [translated] is false for French/Spanish: shown (the design lists all
+/// four) but not selectable -- greyed out with "(Coming Soon)" until they
+/// have translations (decision #72, which replaced #63's "selectable, but
+/// shows English text" approach at the user's request).
 class _Language {
   final String code;
   final String label;
@@ -320,19 +319,8 @@ class _AppearanceCard extends StatelessWidget {
             _LanguageRow(
               language: language,
               selected: language.code == settings.locale,
-              onTap: () => settings.setLocale(language.code),
-            ),
-          if (!_languages.firstWhere((l) => l.code == settings.locale).translated)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: Text(
-                // Sprint 8 Task 6 (decision #63): "say so plainly in the
-                // picker rather than silently showing wrong text" -- this
-                // is that line, shown only while an untranslated language
-                // is actually the current pick.
-                l10n.frenchSpanishNotTranslatedNote,
-                style: TextStyle(fontSize: 12, height: 16 / 12, color: context.colors.textMuted),
-              ),
+              // Untranslated languages can't be picked (decision #72).
+              onTap: language.translated ? () => settings.setLocale(language.code) : null,
             ),
           const SizedBox(height: 8),
         ],
@@ -343,20 +331,22 @@ class _AppearanceCard extends StatelessWidget {
 
 /// One language option (Sprint 8 Task 6, decision #63): English and Arabic
 /// are real (tapping one calls `SettingsProvider.setLocale`, live-switching
-/// the whole app -- and, for Arabic, its `Directionality`); French/Spanish
-/// are real, storable picks too (the design shows all four as selectable),
-/// they just render English text until translated -- see the caption
-/// `_AppearanceCard` shows underneath when one of them is picked.
+/// the whole app -- and, for Arabic, its `Directionality`). French/Spanish
+/// have no translations yet, so their rows are disabled ([onTap] null):
+/// greyed out, not tappable, marked "(Coming Soon)" (decision #72).
 class _LanguageRow extends StatelessWidget {
   final _Language language;
   final bool selected;
-  final VoidCallback onTap;
+
+  /// Null disables the row.
+  final VoidCallback? onTap;
 
   const _LanguageRow({required this.language, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final enabled = onTap != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: InkWell(
@@ -381,11 +371,20 @@ class _LanguageRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                    color: selected ? colors.accent : colors.textMuted,
+                    color: selected
+                        ? colors.accent
+                        : enabled
+                        ? colors.textMuted
+                        : colors.textMuted.withValues(alpha: 0.45),
                   ),
                 ),
               ),
               if (selected) Icon(Icons.check, size: 18, color: colors.accent),
+              if (!enabled)
+                Text(
+                  AppLocalizations.of(context).comingSoonNote,
+                  style: TextStyle(fontSize: 12, color: colors.textMuted.withValues(alpha: 0.6)),
+                ),
             ],
           ),
         ),

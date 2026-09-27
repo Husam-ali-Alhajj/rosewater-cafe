@@ -187,19 +187,19 @@ void main() {
       expect(find.byIcon(Icons.check), findsOneWidget); // still exactly one, now on Arabic's row
     });
 
-    testWidgets('French/Spanish are real, storable picks -- selecting one shows the fallback-to-English caption', (
-      tester,
-    ) async {
+    testWidgets('French/Spanish are shown but disabled: tapping does nothing, marked Coming Soon', (tester) async {
       final settings = await SettingsProvider.load();
       await _pump(tester, settings: settings);
 
-      expect(find.textContaining('aren\'t translated yet'), findsNothing);
+      expect(find.text('(Coming Soon)'), findsNWidgets(2)); // French + Spanish, not English/Arabic
 
       await tester.tap(find.text('Français'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Español'));
+      await tester.pumpAndSettle();
 
-      expect(settings.locale, 'fr');
-      expect(find.textContaining('aren\'t translated yet'), findsOneWidget);
+      expect(settings.locale, 'en'); // unchanged
+      expect(find.byIcon(Icons.check), findsOneWidget); // still just English's
     });
   });
 

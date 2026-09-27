@@ -14,8 +14,7 @@ import 'home_screen.dart';
 const _homeTab = 0;
 const _qrCodeTab = 1;
 const _eventsTab = 2;
-// Profile is index 3, referenced only positionally below -- no named
-// constant needed since nothing ever navigates to it programmatically.
+const _profileTab = 3; // a membership notification's "View Details" goes here
 // (Its real screen is `ProfileScreen`, Sprint 5 Task 1.)
 
 /// The authenticated app's real entry point once a member has an active
@@ -114,6 +113,7 @@ class _MainShellState extends State<MainShell> {
       profile: _profile,
       onGoToQrCode: () => _goToTab(_qrCodeTab),
       onGoToEvents: () => _goToTab(_eventsTab),
+      onGoToProfile: () => _goToTab(_profileTab),
     ),
     QrAccessScreen(
       membership: _membership,

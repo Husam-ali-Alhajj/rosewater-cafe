@@ -77,6 +77,9 @@ class SettingsProvider extends ChangeNotifier {
   // both use.
   static const _defaultLocale = 'en';
 
+  /// Languages with real translations -- the only ones the picker allows.
+  static const _selectableLocales = {'en', 'ar'};
+
   final SharedPreferences _prefs;
 
   ThemeMode _themeMode;
@@ -96,14 +99,10 @@ class SettingsProvider extends ChangeNotifier {
   int get autoLockTimeoutSeconds => _autoLockTimeoutSeconds;
   bool get biometricEnabled => _biometricEnabled;
 
-  /// An ISO 639-1 code ('en'/'ar'/'fr'/'es') -- **the user's PICKED
-  /// language, not necessarily what's actually shown.** French/Spanish are
-  /// real, storable choices (the design shows all four as selectable), but
-  /// have no ARB translation yet -- `MaterialApp`'s own locale resolution
-  /// (`supportedLocales: [en, ar]`) falls back to English text for them
-  /// automatically. This getter is what the picker highlights as selected;
-  /// what text actually renders is a separate question `AppLocalizations`
-  /// answers via `Localizations.localeOf(context)`, not this field.
+  /// An ISO 639-1 code: 'en' or 'ar' -- the only selectable languages
+  /// (decision #72; French/Spanish show in the picker but are disabled
+  /// until translated). A stale 'fr'/'es' saved before that change is
+  /// dropped on [load], so the picker always has a real, visible pick.
   String get locale => _locale;
 
   Future<void> setThemeMode(ThemeMode value) async {
@@ -167,7 +166,9 @@ class SettingsProvider extends ChangeNotifier {
       autoLockEnabled: prefs.getBool(_keyAutoLockEnabled) ?? _defaultAutoLockEnabled,
       autoLockTimeoutSeconds: prefs.getInt(_keyAutoLockTimeoutSeconds) ?? _defaultAutoLockTimeoutSeconds,
       biometricEnabled: prefs.getBool(_keyBiometricEnabled) ?? _defaultBiometricEnabled,
-      locale: prefs.getString(_keyLocale) ?? _defaultLocale,
+      locale: _selectableLocales.contains(prefs.getString(_keyLocale))
+          ? prefs.getString(_keyLocale)!
+          : _defaultLocale,
     );
   }
 

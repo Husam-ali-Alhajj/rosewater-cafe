@@ -6,7 +6,6 @@ import '../../models/profile.dart';
 import '../../services/profile_service.dart';
 import '../../services/notification_prefs.dart';
 import '../../services/subscription_service.dart';
-import '../../services/supabase_client.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/app_page_route.dart';
@@ -115,12 +114,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openNotificationSettings() {
-    // The user id only namespaces the saved choices on this device (so two
-    // people sharing a phone don't share settings); reading it from the
-    // session is local, not a network call.
-    final prefs = NotificationPrefs(userId: supabase.auth.currentUser?.id);
     Navigator.of(context).push(
-      appRoute(context, (_) => NotificationSettingsScreen(prefs: prefs)),
+      appRoute(context, (_) => const NotificationSettingsScreen(prefs: SupabaseNotificationPrefs())),
     );
   }
 

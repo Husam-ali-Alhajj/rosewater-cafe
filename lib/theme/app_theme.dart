@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 import 'app_semantic_colors.dart';
 
@@ -37,10 +36,16 @@ class AppTheme {
   /// real, cover every weight this app's TextStyles use, and work offline.
   static const _arabicFontFamily = 'NotoNaskhArabic';
 
+  /// Inter, the design's Latin typeface -- also a bundled pubspec.yaml
+  /// asset (see the comment there), for the same reason: google_fonts only
+  /// ever downloaded Regular, so every heavier weight was faked. Note its
+  /// 700 slot is Inter SemiBold on purpose (English reads lighter than
+  /// Arabic's real Bold).
+  static const _latinFontFamily = 'Inter';
+
   static ThemeData _build(Brightness brightness, AppSemanticColors colors, {required bool isArabic}) {
     final isDark = brightness == Brightness.dark;
-    final interFamily = GoogleFonts.inter().fontFamily;
-    final fontFamily = isArabic ? _arabicFontFamily : interFamily;
+    final fontFamily = isArabic ? _arabicFontFamily : _latinFontFamily;
     // Brightness-correct default text colors (Material's own light/dark
     // typography), then overridden with this brand's own tokens -- same
     // approach as the rest of this method, never Flutter's raw defaults.
@@ -49,7 +54,7 @@ class AppTheme {
     // THEN merges this textTheme over them -- and this one carries
     // Material's platform font (Roboto etc.), which wins that merge. So a
     // `fontFamily:` alone was silently ignored app-wide.
-    final fontFamilyFallback = isArabic && interFamily != null ? [interFamily] : null;
+    final fontFamilyFallback = isArabic ? const [_latinFontFamily] : null;
     final baseTextTheme = ThemeData(brightness: brightness).textTheme.apply(
       bodyColor: colors.textPrimary,
       displayColor: colors.textPrimary,

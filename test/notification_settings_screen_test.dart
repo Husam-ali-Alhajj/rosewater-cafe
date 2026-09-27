@@ -3,20 +3,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/screens/profile/notification_settings_screen.dart';
 import 'package:rosewater_cafe/services/notification_prefs.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-const _prefs = NotificationPrefs(userId: 'u1');
+/// Stands in for the database: a single shared "row", so a brand-new
+/// screen (the app reopened) reads back what the last one saved.
+class _MemoryPrefs extends NotificationPrefs {
+  final Map<String, dynamic> row = {};
+
+  @override
+  Future<NotificationSettings> load() async => NotificationSettings.fromRow(row.isEmpty ? null : row);
+
+  @override
+  Future<void> set(NotificationSetting setting, bool value) async => row[setting.column] = value;
+}
 
 /// Fails every write, to prove the switch doesn't keep lying about a value
 /// that wasn't saved.
-class _FailingPrefs extends NotificationPrefs {
-  const _FailingPrefs() : super(userId: 'u1');
-
+class _FailingPrefs extends _MemoryPrefs {
   @override
-  Future<void> set(NotificationSetting setting, bool value) => throw StateError('disk full');
+  Future<void> set(NotificationSetting setting, bool value) => throw StateError('network down');
 }
 
-Future<void> _pump(WidgetTester tester, {NotificationPrefs prefs = _prefs}) async {
+Future<void> _pump(WidgetTester tester, {NotificationPrefs? prefs}) async {
   tester.view.physicalSize = const Size(800, 3000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -26,7 +33,7 @@ Future<void> _pump(WidgetTester tester, {NotificationPrefs prefs = _prefs}) asyn
       // its back button -- this screen's own strings aren't localized yet.
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: NotificationSettingsScreen(prefs: prefs),
+      home: NotificationSettingsScreen(prefs: prefs ?? _MemoryPrefs()),
     ),
   );
   await tester.pumpAndSettle();
@@ -43,8 +50,6 @@ bool _isOn(WidgetTester tester, NotificationSetting s) {
 }
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
-
   testWidgets('shows both cards, every label and description, and Done', (tester) async {
     await _pump(tester);
 
@@ -81,8 +86,9 @@ void main() {
     }
   });
 
-  testWidgets('tapping a switch flips it and saves it to the device', (tester) async {
-    await _pump(tester);
+  testWidgets('tapping a switch flips it and saves it (the right column, the right value)', (tester) async {
+    final prefs = _MemoryPrefs();
+    await _pump(tester, prefs: prefs);
 
     await tester.tap(_switch(NotificationSetting.sms));
     await tester.pumpAndSettle();
@@ -91,38 +97,28 @@ void main() {
 
     expect(_isOn(tester, NotificationSetting.sms), isTrue);
     expect(_isOn(tester, NotificationSetting.push), isFalse);
-    final stored = await SharedPreferences.getInstance();
-    expect(stored.getBool('notification_settings.u1.sms'), isTrue);
-    expect(stored.getBool('notification_settings.u1.push'), isFalse);
+    expect(prefs.row, {'sms': true, 'push': false}); // only what changed is written
   });
 
-  testWidgets('the toggles are still as left after the app is closed and reopened', (tester) async {
-    await _pump(tester);
+  testWidgets('the toggles are still as left after the screen is closed and reopened', (tester) async {
+    final prefs = _MemoryPrefs();
+    await _pump(tester, prefs: prefs);
     await tester.tap(_switch(NotificationSetting.sms));
     await tester.pumpAndSettle();
     await tester.tap(_switch(NotificationSetting.eventReminders));
     await tester.pumpAndSettle();
 
-    // "Close the app": tear down the screen and drop the in-memory cache.
     await tester.pumpWidget(const SizedBox());
-    SharedPreferences.resetStatic();
 
-    // "Reopen": a brand-new screen reads what's on the device.
-    await _pump(tester);
+    // "Reopen": a brand-new screen reads what was saved.
+    await _pump(tester, prefs: prefs);
     expect(_isOn(tester, NotificationSetting.sms), isTrue); // was off by default
     expect(_isOn(tester, NotificationSetting.eventReminders), isFalse); // was on by default
     expect(_isOn(tester, NotificationSetting.email), isTrue); // untouched
   });
 
-  testWidgets("another user's saved choices don't show here", (tester) async {
-    await const NotificationPrefs(userId: 'someone-else').set(NotificationSetting.sound, false);
-
-    await _pump(tester);
-    expect(_isOn(tester, NotificationSetting.sound), isTrue);
-  });
-
   testWidgets('a failed save puts the switch back and says so', (tester) async {
-    await _pump(tester, prefs: const _FailingPrefs());
+    await _pump(tester, prefs: _FailingPrefs());
 
     await tester.tap(_switch(NotificationSetting.push));
     await tester.pumpAndSettle();
@@ -147,7 +143,7 @@ void main() {
             builder: (context) => Scaffold(
               body: TextButton(
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationSettingsScreen(prefs: _prefs)),
+                  MaterialPageRoute(builder: (_) => NotificationSettingsScreen(prefs: _MemoryPrefs())),
                 ),
                 child: const Text('open'),
               ),

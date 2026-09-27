@@ -1,22 +1,26 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'supabase_client.dart';
 
 /// One notification preference. The first four are the "Communication
 /// Preferences" toggles on the Notifications settings screen, the last three
 /// the "Notification Types" toggles.
 enum NotificationSetting {
-  push(defaultValue: true),
-  email(defaultValue: true),
-  sms(defaultValue: false),
-  sound(defaultValue: true),
-  eventReminders(defaultValue: true),
-  allowanceAlerts(defaultValue: true),
-  promotions(defaultValue: true);
+  push(column: 'push', defaultValue: true),
+  email(column: 'email', defaultValue: true),
+  sms(column: 'sms', defaultValue: false),
+  sound(column: 'sound', defaultValue: true),
+  eventReminders(column: 'event_reminders', defaultValue: true),
+  allowanceAlerts(column: 'allowance_alerts', defaultValue: true),
+  promotions(column: 'promotions', defaultValue: true);
+
+  /// This toggle's column in `public.notification_preferences`.
+  final String column;
 
   /// What each toggle shows before the user has ever touched it -- the state
   /// drawn in the Figma frame (node 1217:2539): SMS off, everything else on.
+  /// Must match the column defaults in migration 20260930100000.
   final bool defaultValue;
 
-  const NotificationSetting({required this.defaultValue});
+  const NotificationSetting({required this.column, required this.defaultValue});
 }
 
 /// A snapshot of every notification preference.
@@ -30,48 +34,66 @@ class NotificationSettings {
     for (final s in NotificationSetting.values) s: s.defaultValue,
   });
 
+  /// From a `notification_preferences` row; null (the user has never
+  /// changed anything, so has no row yet) or a missing/null column means
+  /// that toggle's default.
+  factory NotificationSettings.fromRow(Map<String, dynamic>? row) => NotificationSettings._({
+    for (final s in NotificationSetting.values) s: (row?[s.column] as bool?) ?? s.defaultValue,
+  });
+
   bool isOn(NotificationSetting setting) => _values[setting] ?? setting.defaultValue;
 
   NotificationSettings copyWith(NotificationSetting setting, bool value) =>
       NotificationSettings._({..._values, setting: value});
 }
 
-/// Notification preferences, stored **only on this device** with
-/// `shared_preferences` -- no table, no backend, no network.
-///
-/// That is the standing decision (Sprint 2 checkpoint): whether these belong in
-/// the database is tied to the still-open question of what a notification even
-/// is (the Home bell / notifications feed and its schema, decision #32), so no
-/// backend storage is built for them while that's unresolved. This file and the
-/// screen that uses it deliberately import nothing that can reach the network
-/// (`test/notification_prefs_test.dart` checks that).
-///
-/// Keys are namespaced by [userId], so if two people sign in on the same phone
-/// one person's choices don't silently become the other's. The caller passes
-/// the id (read from the local session, which is not a network call); with
-/// none, the settings belong to "the device".
-class NotificationPrefs {
-  final String? userId;
-
-  const NotificationPrefs({this.userId});
-
-  String _key(NotificationSetting setting) => 'notification_settings.${userId ?? 'device'}.${setting.name}';
+/// Where the Notification Settings screen reads and saves its toggles.
+/// Abstract so the screen can be tested without a backend.
+abstract class NotificationPrefs {
+  const NotificationPrefs();
 
   /// The saved value of every toggle, falling back to its default for any the
   /// user hasn't changed yet.
-  Future<NotificationSettings> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    var settings = NotificationSettings.defaults();
-    for (final setting in NotificationSetting.values) {
-      final saved = prefs.getBool(_key(setting));
-      if (saved != null) settings = settings.copyWith(setting, saved);
-    }
-    return settings;
+  Future<NotificationSettings> load();
+
+  /// Saves one toggle. Returns once it has been saved.
+  Future<void> set(NotificationSetting setting, bool value);
+}
+
+/// The signed-in user's preferences in `public.notification_preferences`
+/// (notifications roadmap step 1). Stored in the database, not on the
+/// device, because the channels these toggles control -- email, push,
+/// scheduled reminders -- are sent by the server, which can only respect a
+/// choice it can read. Following the user rather than the phone also means
+/// the same choices apply on every device they sign in on.
+///
+/// RLS limits every read and write to the caller's own row.
+class SupabaseNotificationPrefs extends NotificationPrefs {
+  const SupabaseNotificationPrefs();
+
+  String get _userId {
+    final id = supabase.auth.currentUser?.id;
+    if (id == null) throw StateError('not signed in');
+    return id;
   }
 
-  /// Saves one toggle. Returns once it has been written to the device.
+  @override
+  Future<NotificationSettings> load() async {
+    final row = await supabase
+        .from('notification_preferences')
+        .select()
+        .eq('user_id', _userId)
+        .maybeSingle();
+    return NotificationSettings.fromRow(row);
+  }
+
+  /// An upsert of just this one column: creates the row on the first
+  /// change (every other column takes its database default, which is the
+  /// same as the app's), and updates only this column after that.
+  @override
   Future<void> set(NotificationSetting setting, bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_key(setting), value);
+    await supabase
+        .from('notification_preferences')
+        .upsert({'user_id': _userId, setting.column: value}, onConflict: 'user_id');
   }
 }

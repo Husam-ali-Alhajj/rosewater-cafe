@@ -8,6 +8,7 @@ import '../../services/event_reservation_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../utils/app_feedback.dart';
+import '../../utils/event_type_localization.dart';
 import '../../widgets/gradient_button.dart';
 
 /// Reserve an Event screen (Figma node App-12). `eventType`'s four options
@@ -31,24 +32,6 @@ class ReserveEventScreen extends StatefulWidget {
 
   @override
   State<ReserveEventScreen> createState() => _ReserveEventScreenState();
-}
-
-// Canonical values sent to the server (p_event_type) -- these stay in
-// English regardless of the active locale, since there's no backing table
-// for event types to be looked up from; only the on-screen label localizes.
-const _eventTypes = ['Birthday', 'Corporate', 'Private Party', 'Other'];
-
-String _eventTypeLabel(AppLocalizations l10n, String type) {
-  switch (type) {
-    case 'Birthday':
-      return l10n.eventTypeBirthday;
-    case 'Corporate':
-      return l10n.eventTypeCorporate;
-    case 'Private Party':
-      return l10n.eventTypePrivateParty;
-    default:
-      return l10n.eventTypeOther;
-  }
 }
 
 class _ReserveEventScreenState extends State<ReserveEventScreen> {
@@ -232,8 +215,8 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String>(
                     initialValue: _eventType,
-                    items: _eventTypes
-                        .map((type) => DropdownMenuItem(value: type, child: Text(_eventTypeLabel(l10n, type))))
+                    items: eventTypes
+                        .map((type) => DropdownMenuItem(value: type, child: Text(localizedEventType(l10n, type))))
                         .toList(),
                     onChanged: (value) => setState(() => _eventType = value),
                     validator: (value) => value == null ? l10n.pleaseSelectEventType : null,

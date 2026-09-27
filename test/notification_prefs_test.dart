@@ -2,19 +2,11 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/services/notification_prefs.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-/// Simulates the app being closed and reopened: the in-memory SharedPreferences
-/// singleton is thrown away, so the next read has to come from what was
-/// actually written to the (fake) device storage.
-void _restartApp() => SharedPreferences.resetStatic();
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
-
-  group('NotificationPrefs', () {
-    test('a fresh install shows the design defaults: SMS off, everything else on', () async {
-      final settings = await const NotificationPrefs(userId: 'u1').load();
+  group('NotificationSettings.fromRow', () {
+    test('no row yet (never changed anything) shows the design defaults: SMS off, everything else on', () {
+      final settings = NotificationSettings.fromRow(null);
 
       expect(settings.isOn(NotificationSetting.push), isTrue);
       expect(settings.isOn(NotificationSetting.email), isTrue);
@@ -25,116 +17,45 @@ void main() {
       expect(settings.isOn(NotificationSetting.promotions), isTrue);
     });
 
-    test('a saved toggle persists across an app restart', () async {
-      const prefs = NotificationPrefs(userId: 'u1');
-      await prefs.set(NotificationSetting.sms, true);
-      await prefs.set(NotificationSetting.push, false);
-      await prefs.set(NotificationSetting.promotions, false);
+    test('reads each toggle from its own column', () {
+      final settings = NotificationSettings.fromRow({
+        'user_id': 'u1',
+        'push': false,
+        'email': true,
+        'sms': true,
+        'sound': false,
+        'event_reminders': false,
+        'allowance_alerts': true,
+        'promotions': false,
+      });
 
-      _restartApp();
-      final settings = await const NotificationPrefs(userId: 'u1').load();
-
-      expect(settings.isOn(NotificationSetting.sms), isTrue); // was off by default
-      expect(settings.isOn(NotificationSetting.push), isFalse); // was on by default
-      expect(settings.isOn(NotificationSetting.promotions), isFalse);
-      // ... and the ones never touched are still at their defaults.
+      expect(settings.isOn(NotificationSetting.push), isFalse);
       expect(settings.isOn(NotificationSetting.email), isTrue);
-      expect(settings.isOn(NotificationSetting.sound), isTrue);
+      expect(settings.isOn(NotificationSetting.sms), isTrue);
+      expect(settings.isOn(NotificationSetting.sound), isFalse);
+      expect(settings.isOn(NotificationSetting.eventReminders), isFalse);
+      expect(settings.isOn(NotificationSetting.allowanceAlerts), isTrue);
+      expect(settings.isOn(NotificationSetting.promotions), isFalse);
     });
 
-    test('a toggle can be flipped back, and that persists too', () async {
-      const prefs = NotificationPrefs(userId: 'u1');
-      await prefs.set(NotificationSetting.push, false);
-      await prefs.set(NotificationSetting.push, true);
+    test('a missing or null column falls back to that toggle default', () {
+      final settings = NotificationSettings.fromRow({'push': false, 'sms': null});
 
-      _restartApp();
-      expect((await const NotificationPrefs(userId: 'u1').load()).isOn(NotificationSetting.push), isTrue);
-    });
-
-    test('only what the user changed is written', () async {
-      await const NotificationPrefs(userId: 'u1').set(NotificationSetting.sms, true);
-
-      final stored = (await SharedPreferences.getInstance()).getKeys();
-      expect(stored, {'notification_settings.u1.sms'});
-    });
-
-    test("one person's choices don't become another's on the same device", () async {
-      await const NotificationPrefs(userId: 'alice').set(NotificationSetting.push, false);
-
-      _restartApp();
-      final bob = await const NotificationPrefs(userId: 'bob').load();
-      final alice = await const NotificationPrefs(userId: 'alice').load();
-
-      expect(bob.isOn(NotificationSetting.push), isTrue); // Bob still has the default
-      expect(alice.isOn(NotificationSetting.push), isFalse);
-    });
-
-    test('with no user, settings belong to the device', () async {
-      await const NotificationPrefs().set(NotificationSetting.sound, false);
-
-      _restartApp();
-      expect((await const NotificationPrefs().load()).isOn(NotificationSetting.sound), isFalse);
-      expect((await const NotificationPrefs(userId: 'u1').load()).isOn(NotificationSetting.sound), isTrue);
+      expect(settings.isOn(NotificationSetting.push), isFalse);
+      expect(settings.isOn(NotificationSetting.sms), isFalse);
+      expect(settings.isOn(NotificationSetting.email), isTrue);
     });
   });
 
-  group('no network', () {
-    /// Follows every project-relative import from [path] and collects every
-    /// non-project import (package: / dart:) found along the way.
-    Set<String> externalImports(String path, [Set<String>? seen]) {
-      seen ??= {};
-      final file = File(path);
-      if (!seen.add(file.absolute.path)) return {};
-      final found = <String>{};
-      for (final match in RegExp(r"^import '([^']+)';", multiLine: true).allMatches(file.readAsStringSync())) {
-        final target = match.group(1)!;
-        if (target.startsWith('package:rosewater_cafe/')) {
-          found.addAll(externalImports('lib/${target.substring('package:rosewater_cafe/'.length)}', seen));
-        } else if (target.startsWith('package:') || target.startsWith('dart:')) {
-          found.add(target);
-        } else {
-          final dir = file.parent.path;
-          found.addAll(externalImports(File('$dir/$target').absolute.path, seen));
-        }
-      }
-      return found;
+  test("the app's defaults match the database column defaults exactly", () {
+    // A user with no row (app defaults) and a freshly inserted row (column
+    // defaults) must mean the same thing -- otherwise the first toggle flip
+    // would silently change the other six.
+    final sql = File('supabase/migrations/20260930100000_notification_preferences.sql').readAsStringSync();
+    for (final s in NotificationSetting.values) {
+      final match = RegExp(r'^\s+' + s.column + r'\s+boolean not null default (true|false),', multiLine: true).firstMatch(sql);
+      expect(match, isNotNull, reason: 'column ${s.column} not found in the migration');
+      expect(match!.group(1), '${s.defaultValue}', reason: s.column);
     }
-
-    test('the settings screen and its preferences import nothing that can reach the network', () {
-      final imports = <String>{
-        ...externalImports('lib/screens/profile/notification_settings_screen.dart'),
-        ...externalImports('lib/services/notification_prefs.dart'),
-      };
-
-      // Everything they (transitively) import from outside the project:
-      // `provider` joined this list in Sprint 8 Task 3 -- SettingToggleRow's
-      // switch (used by this screen's toggles) now reads
-      // SettingsProvider.animationsEnabled via `app_animations.dart` for the
-      // Animations toggle. `provider` is a pure InheritedWidget wrapper with
-      // no I/O of its own, so it doesn't weaken the "no network" guarantee
-      // this test actually exists to check -- the loop below still holds.
-      //
-      // `flutter_localizations` (and its own `dart:async` /
-      // `flutter/foundation.dart` / `flutter/widgets.dart` re-exports)
-      // joined in Sprint 8 Task 6 Phase 2 -- `ScreenHeader` (used by this
-      // screen for its back button/title) now reads `AppLocalizations` for
-      // the back button's tooltip and RTL-aware arrow direction. It's
-      // Flutter's own i18n plumbing, no I/O of its own either.
-      expect(imports, {
-        'package:flutter/material.dart',
-        'package:shared_preferences/shared_preferences.dart',
-        'package:provider/provider.dart',
-        'package:flutter_localizations/flutter_localizations.dart',
-        'dart:async',
-        'package:flutter/foundation.dart',
-        'package:flutter/widgets.dart',
-      });
-      // ... in particular, no backend client and no HTTP.
-      for (final i in imports) {
-        expect(i, isNot(contains('supabase')));
-        expect(i, isNot(contains('http')));
-        expect(i, isNot(contains('dart:io')));
-      }
-    });
   });
 }

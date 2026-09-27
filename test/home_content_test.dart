@@ -48,6 +48,7 @@ Future<_Calls> _pump(
   Size size = const Size(800, 3000),
   ThemeData? theme,
   String locale = 'en',
+  int unreadNotifications = 0,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -71,6 +72,7 @@ Future<_Calls> _pump(
           onGoToEvents: calls.rec('events'),
           onNotifications: calls.rec('notifications'),
           onLogout: logoutEnabled ? calls.rec('logout') : null,
+          unreadNotifications: unreadNotifications,
         ),
       ),
     ),
@@ -308,5 +310,32 @@ void main() {
         expect(iconCenterRtl, greaterThan(labelCenterRtl));
       },
     );
+  });
+
+  group('notification bell badge', () {
+    Finder badge() => find.byKey(const ValueKey('unread-badge'));
+
+    testWidgets('no badge when nothing is unread', (tester) async {
+      await _pump(tester);
+      expect(badge(), findsNothing);
+    });
+
+    testWidgets('shows the real unread count', (tester) async {
+      await _pump(tester, unreadNotifications: 2);
+      expect(find.descendant(of: badge(), matching: find.text('2')), findsOneWidget);
+      expect(find.bySemanticsLabel('2 unread notifications'), findsOneWidget);
+    });
+
+    testWidgets('caps at 9+ so a big count still fits', (tester) async {
+      await _pump(tester, unreadNotifications: 14);
+      expect(find.descendant(of: badge(), matching: find.text('9+')), findsOneWidget);
+      expect(find.bySemanticsLabel('14 unread notifications'), findsOneWidget); // screen readers get the real number
+    });
+
+    testWidgets('tapping the bell opens notifications', (tester) async {
+      final calls = await _pump(tester, unreadNotifications: 1);
+      await tester.tap(find.byIcon(Icons.notifications_none));
+      expect(calls.log, ['notifications']);
+    });
   });
 }

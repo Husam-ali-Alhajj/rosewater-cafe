@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/membership_plan.dart';
 import '../../models/profile.dart';
 import '../../models/usage_allowance.dart';
+import '../../services/notification_arrival_feedback.dart';
+import '../../services/notification_service.dart';
 import '../../services/subscription_service.dart';
+import '../../services/supabase_client.dart';
 import '../../services/usage_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../utils/app_feedback.dart';
 import '../../utils/membership_localization.dart';
 import '../../utils/service_hours.dart';
 import '../../widgets/app_page_route.dart';
-import '../../widgets/coming_soon_screen.dart';
 import '../auth/sign_out.dart';
+import '../notifications/notifications_screen.dart';
 
 // Sprint 8 Task 2 (real dark mode): every one of these Figma-exact light
 // literals now has a hand-picked dark counterpart below, kept at the same
@@ -108,9 +113,14 @@ const _hairline = 0.515;
 /// in, so `MainShell` passes down the same tab-switch callback its bottom
 /// nav uses ([onGoToQrCode]/[onGoToEvents]).
 ///
-/// The notification bell is a stub on purpose (decision #32): it opens a
-/// `ComingSoonScreen`, with no unread-count badge -- the design's "2" is
-/// demo data, and notifications aren't built yet.
+/// The notification bell opens the real Notifications feed (notifications
+/// roadmap step 2) and shows the design's red unread-count badge, read from
+/// `public.notifications` -- refreshed when the feed is closed, since that's
+/// where things get marked read or deleted, and live (Supabase Realtime)
+/// whenever a new notification is created for this user, which also plays
+/// the arrival chime/vibration if the user's switches allow it (roadmap
+/// step 4). Home stays alive in MainShell's IndexedStack for the whole
+/// signed-in session, so this listens on every tab, not just Home.
 class HomeScreen extends StatefulWidget {
   final ActiveMembership membership;
 
@@ -120,12 +130,17 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onGoToQrCode;
   final VoidCallback onGoToEvents;
 
+  /// For a membership notification's "View Details" (Profile shows the
+  /// membership's plan and valid-until date).
+  final VoidCallback onGoToProfile;
+
   const HomeScreen({
     super.key,
     required this.membership,
     required this.profile,
     required this.onGoToQrCode,
     required this.onGoToEvents,
+    required this.onGoToProfile,
   });
 
   @override
@@ -134,15 +149,76 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _usageService = const UsageService();
+  final _notificationService = const NotificationService();
 
   bool _loading = true;
   UsageAllowance _usage = const UsageAllowance(hookahUsed: 0, drinksUsed: 0);
   bool _isSigningOut = false;
+  int _unreadCount = 0;
+  RealtimeChannel? _notificationsChannel;
+  final _arrivalFeedback = NotificationArrivalFeedback.live();
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadUnreadCount();
+    _listenForNewNotifications();
+  }
+
+  @override
+  void dispose() {
+    final channel = _notificationsChannel;
+    if (channel != null) supabase.removeChannel(channel);
+    super.dispose();
+  }
+
+  /// Supabase Realtime: told the moment a notification row is INSERTed for
+  /// this user (payment, reservation, reminder, allowance alert). Realtime
+  /// applies the table's RLS, so a client only ever hears about its own
+  /// rows; the filter just avoids asking for anyone else's.
+  void _listenForNewNotifications() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    _notificationsChannel = supabase
+        .channel('notifications:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: userId),
+          callback: (_) => _onNotificationArrived(),
+        )
+        .subscribe();
+  }
+
+  void _onNotificationArrived() {
+    if (!mounted) return;
+    _loadUnreadCount();
+    context.triggerNotificationArrived(_arrivalFeedback);
+  }
+
+  /// The bell badge. A failure just means no badge -- never an error on
+  /// the dashboard over a secondary number.
+  Future<void> _loadUnreadCount() async {
+    int count;
+    try {
+      count = await _notificationService.unreadCount();
+    } catch (_) {
+      count = 0;
+    }
+    if (!mounted) return;
+    setState(() => _unreadCount = count);
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      appRoute(
+        context,
+        (_) => NotificationsScreen(onViewMembership: widget.onGoToProfile),
+      ),
+    );
+    _loadUnreadCount();
   }
 
   Future<void> _load() async {
@@ -181,9 +257,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 usage: _usage,
                 onGoToQrCode: widget.onGoToQrCode,
                 onGoToEvents: widget.onGoToEvents,
-                onNotifications: () => Navigator.of(context).push(
-                  appRoute(context, (_) => ComingSoonScreen(label: AppLocalizations.of(context).notifications)),
-                ),
+                unreadNotifications: _unreadCount,
+                onNotifications: _openNotifications,
                 onLogout: _isSigningOut ? null : _logout,
               ),
       ),
@@ -203,6 +278,9 @@ class HomeContent extends StatelessWidget {
   final VoidCallback onNotifications;
   final VoidCallback? onLogout;
 
+  /// Unread notifications, for the bell's badge (none shown at 0).
+  final int unreadNotifications;
+
   /// "Now" for the service-hours status banner; defaults to the real clock.
   /// A parameter only so both banner states are testable.
   final DateTime? now;
@@ -216,6 +294,7 @@ class HomeContent extends StatelessWidget {
     required this.onGoToEvents,
     required this.onNotifications,
     required this.onLogout,
+    this.unreadNotifications = 0,
     this.now,
   });
 
@@ -230,7 +309,12 @@ class HomeContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _HomeHeader(profile: profile, onNotifications: onNotifications, onLogout: onLogout),
+          _HomeHeader(
+            profile: profile,
+            unreadNotifications: unreadNotifications,
+            onNotifications: onNotifications,
+            onLogout: onLogout,
+          ),
           const SizedBox(height: 32),
           _MembershipStatusCard(membership: membership),
           const SizedBox(height: 24),
@@ -300,14 +384,20 @@ BoxDecoration _whiteCardDecoration(BuildContext context) {
 /// loaded (or has no name) the greeting is a plain "Welcome!" and a missing
 /// member ID hides its line -- never a placeholder name or number.
 ///
-/// The bell is the design's 40x36 button without its unread badge (see the
-/// class doc on [HomeScreen]).
+/// The bell is the design's 40x36 button, with the red unread-count badge
+/// whenever something is unread (see the class doc on [HomeScreen]).
 class _HomeHeader extends StatelessWidget {
   final Profile? profile;
+  final int unreadNotifications;
   final VoidCallback onNotifications;
   final VoidCallback? onLogout;
 
-  const _HomeHeader({required this.profile, required this.onNotifications, required this.onLogout});
+  const _HomeHeader({
+    required this.profile,
+    required this.unreadNotifications,
+    required this.onNotifications,
+    required this.onLogout,
+  });
 
   static String? _firstName(String? fullName) {
     final trimmed = fullName?.trim() ?? '';
@@ -361,7 +451,47 @@ class _HomeHeader extends StatelessWidget {
             child: SizedBox(
               width: 40,
               height: 36,
-              child: Center(child: Icon(Icons.notifications_none, size: 16, color: home.iconGrey)),
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Icon(Icons.notifications_none, size: 16, color: home.iconGrey),
+                  if (unreadNotifications > 0)
+                    // The design's red count bubble on the bell's top corner
+                    // (Figma App-22). Directional, so it sits on the
+                    // trailing corner in RTL too. Capped at "9+" so a big
+                    // count can't outgrow the bubble.
+                    PositionedDirectional(
+                      top: 0,
+                      end: 4,
+                      child: Semantics(
+                        label: l10n.unreadBadgeSemantics(unreadNotifications),
+                        child: Container(
+                          key: const ValueKey('unread-badge'),
+                          constraints: const BoxConstraints(minWidth: 16),
+                          height: 16,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: context.colors.accent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ExcludeSemantics(
+                            child: Text(
+                              unreadNotifications > 9 ? '9+' : '$unreadNotifications',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                height: 1,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
