@@ -5015,6 +5015,53 @@ next can.
 
 ---
 
+### 77. Upgrade notification + paying with saved cards (user-reported, after Task 4)
+
+Two gaps found by the user while testing Task 4 live:
+
+**1. Upgrading created no notification** (unlike a first payment's
+"Membership Activated"). Migration
+`20260930170000_upgrade_subscription_notification.sql` -- the same
+function as the same-day fix (#75) plus one insert: a
+`subscription_upgraded` notification ("Membership Upgraded -- You've
+upgraded from Basic to Premium. Your new membership is active until
+..."), `related_id` = the new active subscription, `data` =
+`{previous_plan_name, plan_name, valid_until}`, all read/set by the
+function itself. Being an ordinary notification it also gets the email
+(#74), live badge + chime (#71) and the feed, in the app's language (#66);
+its "View Details" goes to Profile like "Membership Activated".
+Verified live, rolled back: a Basic -> Premium upgrade created exactly one
+such notification with the right text/data and `related_id` pointing at
+the new active row; a rejected downgrade created none.
+
+**2. Saved payment methods couldn't be used to pay.** The Payment screen
+(signup payment and upgrades alike) always showed the empty card form;
+cards saved in Profile -> Payment Methods were never offered. Now (user's
+choices):
+- If the user has saved cards, they're listed under **"Pay with"**, the
+  default (non-expired) card preselected -- paying is one tap. Expired
+  cards are shown but can't be picked. **"Use a new card"** shows the
+  usual form. With no saved cards (e.g. a brand-new signup) the screen is
+  exactly the plain form it always was; if the cards can't be loaded, it
+  falls back to the form rather than an error.
+- Under the new-card form, **"Save this card for next time"**: saves
+  brand / last 4 / expiry only (same as Payment Methods -- there is no
+  column for anything more), and only AFTER the payment succeeds; a
+  failed payment saves nothing, and a failure to save never undoes a
+  successful payment.
+- Payment is still simulated (#4), so "paying with" a saved card means
+  choosing it instead of typing; no card data reaches the payment RPCs
+  either way. A real gateway would pay with a stored provider token here.
+`PaymentScreen` now takes its `PaymentMethodService` and
+`SubscriptionService` as parameters (defaults unchanged) so all of this is
+widget-tested without a backend (9 tests: listing, preselection, one-tap
+saved-card payment, new-card validation, save-after-success only, no save
+when unticked or when payment fails, expired cards). The tests also caught
+a `CheckboxListTile` that can't paint on this screen's coloured card
+(a red debug error) -- replaced with a plain checkbox + label.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

@@ -591,5 +591,18 @@
   "reservationStatusCancelled": "Cancelled",
   "totalColonLabel": "Total:",
   "reservationNotFound": "This reservation is no longer available.",
-  "couldntLoadReservationError": "Couldn't load this reservation."
+  "couldntLoadReservationError": "Couldn't load this reservation.",
+
+  "payWithLabel": "Pay with",
+  "useNewCardOption": "Use a new card",
+  "saveCardForNextTime": "Save this card for next time",
+  "cardExpiryShort": "Exp {date}",
+  "@cardExpiryShort": {"description": "Saved card's expiry on the payment screen, e.g. \"Exp 12/27\"", "placeholders": {"date": {"type": "String"}}},
+  "cardExpiredLabel": "Expired",
+  "notifSubscriptionUpgradedTitle": "Membership Upgraded",
+  "notifSubscriptionUpgradedBody": "You've upgraded from {oldPlan} to {newPlan}. Your new membership is active until {date}.",
+  "@notifSubscriptionUpgradedBody": {
+    "description": "Notification after upgrade_subscription. Plan names are real plan names (not translated, as everywhere); {date} is valid_until formatted for the locale",
+    "placeholders": {"oldPlan": {"type": "String"}, "newPlan": {"type": "String"}, "date": {"type": "String"}}
+  }
 }

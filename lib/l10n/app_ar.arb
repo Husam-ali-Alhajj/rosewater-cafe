@@ -440,5 +440,13 @@
   "reservationStatusCancelled": "ملغى",
   "totalColonLabel": "الإجمالي:",
   "reservationNotFound": "هذا الحجز لم يعد متاحًا.",
-  "couldntLoadReservationError": "تعذر تحميل هذا الحجز."
+  "couldntLoadReservationError": "تعذر تحميل هذا الحجز.",
+
+  "payWithLabel": "الدفع باستخدام",
+  "useNewCardOption": "استخدام بطاقة جديدة",
+  "saveCardForNextTime": "حفظ هذه البطاقة للمرة القادمة",
+  "cardExpiryShort": "تنتهي {date}",
+  "cardExpiredLabel": "منتهية الصلاحية",
+  "notifSubscriptionUpgradedTitle": "تمت ترقية العضوية",
+  "notifSubscriptionUpgradedBody": "تمت ترقيتك من {oldPlan} إلى {newPlan}. عضويتك الجديدة مفعّلة حتى {date}."
 }

@@ -27,6 +27,16 @@ import 'event_type_localization.dart';
             DateFormat.yMMMd(l10n.localeName).format(validUntil),
           ),
         );
+      case 'subscription_upgraded':
+        final validUntil = DateTime.parse(data['valid_until'] as String).toLocal();
+        return (
+          title: l10n.notifSubscriptionUpgradedTitle,
+          body: l10n.notifSubscriptionUpgradedBody(
+            data['previous_plan_name'] as String,
+            data['plan_name'] as String,
+            DateFormat.yMMMd(l10n.localeName).format(validUntil),
+          ),
+        );
       case 'event_reservation_confirmed':
       case 'event_reminder':
         final eventDate = DateTime.parse(data['event_date'] as String);
