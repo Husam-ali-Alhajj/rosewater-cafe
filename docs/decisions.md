@@ -5155,6 +5155,52 @@ needs a professional legal translation too. A test keeps the two
 languages' section counts and numbering in step.
 ---
 
+### 79. Sprint 9 Task 6 — Remaining FAQ answers
+
+**Draft answers, not the company's confirmed copy -- the open question stays
+open.** The Sprint 2 checkpoint's "only 1 of 4 FAQ answers exported" gap
+(decisions #32/#45/#46) isn't resolved by this task; it's still true that
+the design only ever exported one real answer. What this task does is stop
+Help & Support from showing three blank "Answer not available yet."
+accordions in the meantime, the same "draft placeholder so the UI isn't
+empty, clearly flagged as not final" move as Task 5's legal screens (#78).
+
+**What was built:** `_FaqItem` gained an `isDraft` flag; the three
+previously-unanswered questions now get a plausible answer grounded in
+this app's *actual* behavior, never generic filler:
+- *"What happens when my monthly allowance runs out?"* -- states the real
+  3-or-fewer alert threshold (decision #70's `usage_allowances` trigger)
+  and the real 30-day period reset / upgrade option (#75/#76), not an
+  invented overage policy (this app charges nothing extra and doesn't lock
+  anyone out -- there's no enforcement mechanism built at all, per #70's
+  own "nothing records usage yet" gap, so a draft answer claiming otherwise
+  would have been actively wrong).
+- *"Can I bring guests to the café?"* -- points at the real `maxGuests`
+  field shown as "Max Guests" on Membership Details, not an invented guest
+  count.
+- *"What's the difference between full service and self-service hours?"*
+  -- uses the real Full/Self-Service hour values (`ServiceHours`,
+  9:00 AM–11:00 PM / 11:00 PM–9:00 AM) and the plain, undocumented-beyond-
+  the-name reading of "full service" (staffed) vs. "self-service"
+  (access-only, no staff on site) -- the one place this answer is
+  genuinely a guess rather than read off existing app behavior, since
+  nothing else in the app defines what the two labels mean beyond the
+  hours themselves.
+
+Each draft answer shows a small note under it (new `faqDraftAnswerNote` ARB
+key, English + Arabic): *"Draft answer — pending confirmation from the
+company, not final copy."* -- the real, design-exported first answer shows
+no such note. The now-unused `faqAnswerNotAvailable` key and its "Answer
+not available yet." rendering path were removed (nothing shows it anymore).
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 338/338,
+including `help_support_screen_test.dart` rewritten to assert each real
+draft answer plus its disclosure note (replacing the old assertions that a
+placeholder showed and that no plausible-sounding answer existed -- the
+opposite is now true on purpose).
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before
@@ -5215,8 +5261,10 @@ need to think about them now:
   the design never confirmed a real list. Both still need the real
   answer from the company; nothing here blocks further work until then.
 - **Full FAQ copy**: only 1 of 4 answers was visible in the design
-  export — the other 3 are needed only once the Help & Support screen
-  gets built.
+  export. **Still open** — the other 3 now show a draft, grounded-in-real-
+  behavior answer instead of a blank accordion (#79), each flagged as
+  pending the company's confirmation, but that's a stopgap, not the real
+  answer.
 - **Notification preferences storage** -- **resolved (#44), then reversed
   by #67:** now a `notification_preferences` table the server can read.
   (Originally: local on-device setting only (`shared_preferences`), no table.) Moving them to the backend stays

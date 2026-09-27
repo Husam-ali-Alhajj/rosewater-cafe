@@ -68,36 +68,55 @@ void main() {
       );
     });
 
-    testWidgets('the other three answers are a placeholder, never fabricated FAQ copy', (tester) async {
+    testWidgets(
+      'Sprint 9 Task 6: the other three answers are real (if draft) content, each flagged as unconfirmed',
+      (tester) async {
+        await _pump(tester);
+
+        const draftAnswers = {
+          'What happens when my monthly allowance runs out?':
+              "Once you're down to 3 or fewer hookah sessions or drinks for the month, we'll send you a "
+                  'low-allowance alert so you\'re not caught by surprise. Your allowance resets automatically '
+                  'at the start of your next membership period, or you can upgrade to a higher plan at any '
+                  'time from Profile for a bigger monthly allowance.',
+          'Can I bring guests to the café?':
+              'Yes — every plan includes a guest limit, shown as Max Guests on your Membership Details page. '
+                  'When you check in with your QR code, just let the host know how many guests are joining '
+                  'you, up to that limit.',
+          "What's the difference between full service and self-service hours?":
+              'Full Service Hours (9:00 AM – 11:00 PM) are staffed, with our team handling orders and hookah '
+                  'setup for you. Self-Service Hours (11:00 PM – 9:00 AM) let members access the space with '
+                  'their membership, but without staff on site, so it\'s a more limited, help-yourself '
+                  'experience.',
+        };
+
+        // Open each of the other three questions in turn (the accordion is
+        // exclusive, so only one is open at a time) -- each shows its own
+        // real draft answer, never a blank/placeholder body, and each is
+        // marked as not yet confirmed by the company (same disclosure as
+        // Task 5's legal screens).
+        for (final entry in draftAnswers.entries) {
+          await tester.tap(find.text(entry.key));
+          await tester.pumpAndSettle();
+          expect(find.text(entry.value), findsOneWidget, reason: entry.key);
+          expect(
+            find.text('Draft answer — pending confirmation from the company, not final copy.'),
+            findsOneWidget,
+            reason: entry.key,
+          );
+          expect(find.text('Answer not available yet.'), findsNothing, reason: entry.key);
+        }
+      },
+    );
+
+    testWidgets('the one real, design-exported answer carries no draft note', (tester) async {
       await _pump(tester);
 
-      // Open each of the other three questions in turn (the accordion is
-      // exclusive, so only one is open at a time) -- each shows the SAME
-      // placeholder, never three different made-up answers.
-      for (final q in [
-        'What happens when my monthly allowance runs out?',
-        'Can I bring guests to the café?',
-        "What's the difference between full service and self-service hours?",
-      ]) {
-        await tester.tap(find.text(q));
-        await tester.pumpAndSettle();
-        expect(find.text('Answer not available yet.'), findsOneWidget, reason: q);
-      }
-
-      // None of the strings a plausible-sounding fabricated answer would use
-      // for these specific questions appear anywhere on the page.
-      final pageText = tester
-          .widgetList<Text>(find.byType(Text))
-          .map((t) => t.data ?? (t.textSpan?.toPlainText() ?? ''))
-          .join(' ')
-          .toLowerCase();
-      for (final phrase in [
-        'renews', 'resets on', 'billing cycle', // a plausible allowance answer
-        'guests are welcome', 'up to 2 guests', 'additional guests', // a plausible guest-policy answer
-        'full service includes', 'self-service allows', // a plausible hours answer
-      ]) {
-        expect(pageText, isNot(contains(phrase)), reason: 'looks like a fabricated answer: "$phrase"');
-      }
+      // Item 0 starts open -- the real answer is already on screen.
+      expect(
+        find.text('Draft answer — pending confirmation from the company, not final copy.'),
+        findsNothing,
+      );
     });
 
     testWidgets('tapping a question expands it; tapping it again collapses it', (tester) async {
@@ -121,28 +140,43 @@ void main() {
       const answer =
           'Simply open the QR Code section from your dashboard, show it to the '
           'scanner at the entrance, and specify how many guests are with you.';
+      const guestAnswer =
+          'Yes — every plan includes a guest limit, shown as Max Guests on your Membership Details page. '
+          'When you check in with your QR code, just let the host know how many guests are joining '
+          'you, up to that limit.';
       expect(find.text(answer), findsOneWidget);
-      expect(find.text('Answer not available yet.'), findsNothing);
+      expect(find.text(guestAnswer), findsNothing);
 
       await tester.tap(find.text('Can I bring guests to the café?'));
       await tester.pumpAndSettle();
 
       expect(find.text(answer), findsNothing); // the first one closed
-      expect(find.text('Answer not available yet.'), findsOneWidget); // only the tapped one is open
+      expect(find.text(guestAnswer), findsOneWidget); // only the tapped one is open
     });
 
     testWidgets('every question can be expanded, and only one body shows at a time', (tester) async {
       await _pump(tester);
-      const realAnswer =
-          'Simply open the QR Code section from your dashboard, show it to the '
-          'scanner at the entrance, and specify how many guests are with you.';
 
-      final questions = [
-        'How do I use my QR code to enter the café?',
-        'What happens when my monthly allowance runs out?',
-        'Can I bring guests to the café?',
-        "What's the difference between full service and self-service hours?",
-      ];
+      final questionsAndAnswers = {
+        'How do I use my QR code to enter the café?':
+            'Simply open the QR Code section from your dashboard, show it to the '
+                'scanner at the entrance, and specify how many guests are with you.',
+        'What happens when my monthly allowance runs out?':
+            "Once you're down to 3 or fewer hookah sessions or drinks for the month, we'll send you a "
+                'low-allowance alert so you\'re not caught by surprise. Your allowance resets automatically '
+                'at the start of your next membership period, or you can upgrade to a higher plan at any '
+                'time from Profile for a bigger monthly allowance.',
+        'Can I bring guests to the café?':
+            'Yes — every plan includes a guest limit, shown as Max Guests on your Membership Details page. '
+                'When you check in with your QR code, just let the host know how many guests are joining '
+                'you, up to that limit.',
+        "What's the difference between full service and self-service hours?":
+            'Full Service Hours (9:00 AM – 11:00 PM) are staffed, with our team handling orders and hookah '
+                'setup for you. Self-Service Hours (11:00 PM – 9:00 AM) let members access the space with '
+                'their membership, but without staff on site, so it\'s a more limited, help-yourself '
+                'experience.',
+      };
+      final questions = questionsAndAnswers.keys.toList();
       // Item 0 starts open; tapping it again would toggle it CLOSED, so only
       // tap when a question isn't already the open one.
       var openIndex = 0;
@@ -153,9 +187,14 @@ void main() {
           openIndex = i;
         }
 
-        final placeholders = find.text('Answer not available yet.').evaluate().length;
-        final realAnswers = find.text(realAnswer).evaluate().length;
-        expect(placeholders + realAnswers, 1, reason: 'after opening "${questions[i]}"');
+        for (final entry in questionsAndAnswers.entries) {
+          final shouldShow = entry.key == questions[i];
+          expect(
+            find.text(entry.value),
+            shouldShow ? findsOneWidget : findsNothing,
+            reason: 'after opening "${questions[i]}", checking "${entry.key}"',
+          );
+        }
       }
     });
   });
