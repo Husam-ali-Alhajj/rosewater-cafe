@@ -75,14 +75,15 @@ void main() {
 
         const draftAnswers = {
           'What happens when my monthly allowance runs out?':
-              "Once you're down to 3 or fewer hookah sessions or drinks for the month, we'll send you a "
-                  'low-allowance alert so you\'re not caught by surprise. Your allowance resets automatically '
-                  'at the start of your next membership period, or you can upgrade to a higher plan at any '
-                  'time from Profile for a bigger monthly allowance.',
+              "If you have Allowance Alerts turned on, we'll send you a low-allowance alert once you're "
+                  "down to 3 or fewer hookah sessions or drinks for the month, so you're not caught by "
+                  'surprise. Your allowance starts fresh with each new membership period — or right away if '
+                  'you upgrade to a higher plan from Profile for a bigger monthly allowance.',
           'Can I bring guests to the café?':
-              'Yes — every plan includes a guest limit, shown as Max Guests on your Membership Details page. '
-                  'When you check in with your QR code, just let the host know how many guests are joining '
-                  'you, up to that limit.',
+              'Yes — every plan includes a guest limit, shown as Max Guests in your Membership Details. '
+                  'When you open the door with your QR code, choose how many guests are with you, up to '
+                  'that limit. Your monthly allowance covers your own orders only; guest orders get member '
+                  'discounts but are paid separately.',
           "What's the difference between full service and self-service hours?":
               'Full Service Hours (9:00 AM – 11:00 PM) are staffed, with our team handling orders and hookah '
                   'setup for you. Self-Service Hours (11:00 PM – 9:00 AM) let members access the space with '
@@ -141,9 +142,10 @@ void main() {
           'Simply open the QR Code section from your dashboard, show it to the '
           'scanner at the entrance, and specify how many guests are with you.';
       const guestAnswer =
-          'Yes — every plan includes a guest limit, shown as Max Guests on your Membership Details page. '
-          'When you check in with your QR code, just let the host know how many guests are joining '
-          'you, up to that limit.';
+          'Yes — every plan includes a guest limit, shown as Max Guests in your Membership Details. '
+          'When you open the door with your QR code, choose how many guests are with you, up to '
+          'that limit. Your monthly allowance covers your own orders only; guest orders get member '
+          'discounts but are paid separately.';
       expect(find.text(answer), findsOneWidget);
       expect(find.text(guestAnswer), findsNothing);
 
@@ -162,14 +164,15 @@ void main() {
             'Simply open the QR Code section from your dashboard, show it to the '
                 'scanner at the entrance, and specify how many guests are with you.',
         'What happens when my monthly allowance runs out?':
-            "Once you're down to 3 or fewer hookah sessions or drinks for the month, we'll send you a "
-                'low-allowance alert so you\'re not caught by surprise. Your allowance resets automatically '
-                'at the start of your next membership period, or you can upgrade to a higher plan at any '
-                'time from Profile for a bigger monthly allowance.',
+            "If you have Allowance Alerts turned on, we'll send you a low-allowance alert once you're "
+                "down to 3 or fewer hookah sessions or drinks for the month, so you're not caught by "
+                'surprise. Your allowance starts fresh with each new membership period — or right away if '
+                'you upgrade to a higher plan from Profile for a bigger monthly allowance.',
         'Can I bring guests to the café?':
-            'Yes — every plan includes a guest limit, shown as Max Guests on your Membership Details page. '
-                'When you check in with your QR code, just let the host know how many guests are joining '
-                'you, up to that limit.',
+            'Yes — every plan includes a guest limit, shown as Max Guests in your Membership Details. '
+                'When you open the door with your QR code, choose how many guests are with you, up to '
+                'that limit. Your monthly allowance covers your own orders only; guest orders get member '
+                'discounts but are paid separately.',
         "What's the difference between full service and self-service hours?":
             'Full Service Hours (9:00 AM – 11:00 PM) are staffed, with our team handling orders and hookah '
                 'setup for you. Self-Service Hours (11:00 PM – 9:00 AM) let members access the space with '

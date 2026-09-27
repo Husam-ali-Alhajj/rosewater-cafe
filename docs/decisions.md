@@ -5199,6 +5199,21 @@ draft answer plus its disclosure note (replacing the old assertions that a
 placeholder showed and that no plausible-sounding answer existed -- the
 opposite is now true on purpose).
 
+
+**Accuracy fixes after pulling (2026-09-28)** -- still draft copy pending
+the company's real answers; the open question stays open:
+- **Guests (Q3)** said to "let the host know how many guests are joining
+  you" -- but the app's own Door Access screen asks that ("How many people
+  are with you?"), as FAQ answer 1 already says. Now: choose the number of
+  guests when opening the door, up to Max Guests; plus the rule the app
+  states elsewhere (Door Access note, plan-picker footer) that guest orders
+  get member discounts but aren't covered by the allowance.
+- **Allowance (Q2)** said it "resets automatically" -- there's no automatic
+  renewal (#25); a new period starts on renewal or upgrade. Now says
+  "starts fresh with each new membership period", and that the low-allowance
+  alert needs Allowance Alerts turned on (#70).
+- **Arabic wording:** the answers called hookah "أرجيلة" while the rest of
+  the app says "شيشة" -- now "شيشة" throughout.
 ---
 
 ## Checkpoint: status of every open item, as of the end of Sprint 2
