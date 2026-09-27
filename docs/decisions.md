@@ -5322,6 +5322,29 @@ against real historical data, and confirming the backfill actually reaches
 100% there too, is still this task's own live-verification step, not done
 here.
 
+
+**Live project check (2026-09-28): applied and verified -- no bugs found.**
+Applied the exact committed file (loaded from GitHub at `4d8e5a0`,
+hash-checked) after a **dry run** first -- the whole migration plus a
+report, in one batch that aborted and rolled back (confirmed afterwards:
+column absent). Dry run and real run agreed: all 4 existing usage rows
+linked by the **exact** date match (pass 1), none needed the overlap or
+last-resort passes; every link is to a subscription of the same user;
+each of the 4 active subscriptions has exactly one usage row. After
+applying, the task's direct query: `subscription_id` is `NOT NULL`, 4/4
+rows non-null and pointing at the right subscription. **Home regression
+(#28):** for all 4 active members, the new lookup (active subscription ->
+its usage row) returns exactly the same hookah/drinks numbers as the old
+one (latest `period_start`). Both functions, as `authenticated`, rolled
+back: a fresh payment's usage row is linked to the paid subscription at
+0/0; a same-day upgrade re-points that same row to the new subscription
+and resets it to 0/0 (after 6/3 had been used), leaving no row on the old
+subscription and one row for today.
+
+**Possible follow-up (not done):** `check_low_allowance` (#70) still finds
+the plan's limits via "the user's active subscription"; it could now use
+the row's own `subscription_id` directly -- same result today, but exact
+if a non-current period's row is ever updated.
 ---
 
 ## Checkpoint: status of every open item, as of the end of Sprint 2
