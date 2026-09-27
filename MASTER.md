@@ -589,7 +589,7 @@ else in the app calls the database.
 | `notification_prefs.dart` | Seven notification toggles, saved on the device (per user id). **No backend.** | `SharedPreferences` (no network) |
 | `payment_method_service.dart` | List / add (brand, last4, expiry, default request — no parameter for a number or CVV) / set default / delete. Plain table access, no RPC. | `from('payment_methods')` |
 | `avatar_service.dart` | Photo type/size validation, upload to `avatars/<user_id>/…`, signed display URLs, best-effort delete of a replaced photo. | `storage.from('avatars')` |
-| `usage_service.dart` | Latest `usage_allowances` row (the "used" half). | `from('usage_allowances')` |
+| `usage_service.dart` | The `usage_allowances` row for the caller's current *active* subscription (via `subscription_id`, #80) — not just the newest row on file, so a lapsed member correctly gets no usage card instead of stale old numbers. | `from('subscriptions')` (find the active one), `from('usage_allowances')` |
 | `id_document_service.dart` | Validate (type/size) → upload → record. | `storage.from('id-documents')`, `from('id_documents').insert` |
 | `door_access_service.dart` | Log an entry. | RPC `log_door_access` |
 | `event_reservation_service.dart` | Create a reservation; owns the client copy of the hourly price. | RPC `create_event_reservation` |
@@ -652,7 +652,7 @@ them into the dashboard's SQL Editor.
 | `profiles` | 1:1 extension of `auth.users`: name, email, phone, avatar, `member_id` | read/update own row (no INSERT — the trigger creates it; `member_id` immutable; `email` can't be changed by a client request) |
 | `membership_plans` | Reference/seed data: price, limits, guests, `is_popular`, `features[]` | read only |
 | `subscriptions` | A user's plan + `status` + `started_at`/`valid_until` | **read only** |
-| `usage_allowances` | Per-period `hookah_used` / `drinks_used` | **read only** |
+| `usage_allowances` | Per-period `hookah_used` / `drinks_used`, linked to the subscription it belongs to via `subscription_id` (not null, #80) | **read only** |
 | `door_access_logs` | Audit trail of door entries + guest count | **read only** (no delete) |
 | `event_reservations` | Private-event bookings incl. server-computed `total_price` | **read only** — write only via `create_event_reservation` RPC; the UPDATE policy that let a user edit their own `total_price` was closed live (#53) |
 | `id_documents` | Path to an uploaded ID + `verification_status` | read + insert own (forced `pending`); **no UPDATE** |
@@ -1093,3 +1093,4 @@ have a separate admin app for ID verification and door scanning.
 | 77 | Upgrade notification (subscription_upgraded, with email/badge/chime like every other notification) + paying with a saved card on both signup and upgrade payment screens (user-reported gaps after #76) |
 | 78 | Sprint 9 Task 5: Privacy Policy & Terms of Service -- real screens (`LegalDocumentScreen` + two content files) replacing the coming-soon stubs, named after this app's actual tables/behavior (real self-service deletion #52, upgrade-only billing #75). **Draft placeholder text, not company-approved copy** -- a persistent in-app banner and this entry both say so plainly. `flutter analyze`/`flutter test` clean (334/334) |
 | 79 | Sprint 9 Task 6: remaining FAQ answers -- draft copy for the 3 unanswered questions, grounded in real behavior (allowance-alert threshold #70, `maxGuests`, service hours), each flagged with a "pending confirmation from the company" note the one real answer doesn't carry. **Doesn't close the "1 of 4 exported" open question (#46)** -- just stops the screen showing blank accordions. `flutter analyze`/`flutter test` clean (338/338) |
+| 80 | Sprint 10 Task 1: `usage_allowances.subscription_id` -- real FK, backfilled (3-pass best-effort, guard fails loudly on any unmatched row) then made `not null`; `confirm_subscription_payment`/`upgrade_subscription` set it on insert (including the same-day-upgrade `ON CONFLICT` reuse, now correctly re-pointed); `UsageService.fetchCurrentUsage()` joins through the caller's *active* subscription instead of "newest `period_start`", fixing a real bug where a lapsed member would still see their last period's stale usage numbers. Verified via local Postgres replay across 5 scenarios incl. a genuinely-unmatched-row negative test and real role-impersonated RPC calls (not just seeded data); live project untouched this session (network blocked). `flutter analyze`/`flutter test` clean (338/338) |

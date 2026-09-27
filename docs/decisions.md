@@ -5216,6 +5216,114 @@ the company's real answers; the open question stays open:
   the app says "شيشة" -- now "شيشة" throughout.
 ---
 
+### 80. Sprint 10 Task 1 — `usage_allowances.subscription_id` + real linkage
+
+**The bug this fixes:** `UsageService.fetchCurrentUsage()` (decision #28)
+picked "whichever of this user's `usage_allowances` rows has the latest
+`period_start`" as *the* current one. That happened to work as long as a
+user only ever had one row on record, but it's wrong the moment they
+don't: **a lapsed member** (subscription expired, never renewed or
+upgraded) still has their last real period's row sitting there with the
+newest `period_start` they'll ever have -- so Home would keep showing
+their old hookah/drink counts as if the membership were still active, with
+nothing anywhere saying otherwise. There was no reliable way to tell
+"the row for my current membership" from "an old row that happens to be
+the newest one on file" without a real link to the subscription itself.
+
+**Migration** (`20261001100000_usage_allowances_subscription_id.sql`):
+- `usage_allowances` gets a `subscription_id uuid references subscriptions
+  (id) on delete cascade` column, nullable at first.
+- **Backfill, three passes, each only touching rows the previous pass
+  left null:**
+  1. **Exact date match** (`started_at::date = period_start` AND
+     `valid_until::date = period_end`) -- this is the strong signal,
+     since every real usage row and its subscription were written by the
+     same RPC transaction, from the same `now()`/`current_date`. This has
+     to run first: a same-day upgrade leaves an old (now cancelled) and a
+     new (active) subscription whose date ranges **both** genuinely
+     overlap a reused row, and only the exact match tells them apart --
+     preferring "active" as the tiebreak would wrongly steal an
+     *earlier*, unrelated row (a different period, another exact match of
+     its own) that happens to also overlap the active subscription's
+     range.
+  2. **Overlap, active-preferred, closest start date** -- for older/
+     messier historical data with no exact match.
+  3. **Nearest subscription by start date, no overlap required at all** --
+     true last resort for hand-inserted test rows.
+  - A `do $$ ... raise exception ... $$` guard runs after all three passes
+    and **fails the migration loudly**, naming the exact row count, if
+    anything is still unmatched, rather than silently leaving a gap that
+    `alter column ... set not null` would then fail on anyway with a far
+    less useful error. (Every real row should match in pass 1 alone --
+    these rows only ever exist because an RPC inserted one alongside a
+    subscription in the same transaction.)
+  - Only then: `alter column subscription_id set not null` + an index.
+- **`confirm_subscription_payment` and `upgrade_subscription`** (both
+  `create or replace`d again here, full bodies unchanged otherwise) now
+  set `subscription_id` on their `usage_allowances` insert -- to the
+  subscription each function itself just activated/created, already in
+  hand as a local variable, never a second lookup. **The same-day-upgrade
+  `ON CONFLICT` upsert (decision #75's fix) now also sets
+  `subscription_id = excluded.subscription_id`** in its `DO UPDATE` --
+  without this, a reused row would keep pointing at whichever
+  subscription originally created it, now cancelled, which would have
+  defeated the entire point of this column the first time it mattered.
+- **`UsageService.fetchCurrentUsage()`** rewritten: first finds the
+  caller's current active subscription (`status = 'active' and
+  valid_until > now()`), then the `usage_allowances` row whose
+  `subscription_id` matches it -- `null` (no usage card at all) if there
+  isn't one, instead of falling back to "newest row on file" the way a
+  lapsed member's stale data used to.
+
+**Verified against a from-scratch local Postgres replay** (same technique
+as #65/#75 -- live network access to the project blocked in this session):
+replayed every real migration file in order, then ran the new one against
+seeded historical data covering four scenarios and checked the actual
+resulting linkage, not just that the migration ran without error:
+- **Plain case:** one subscription, one row -- linked correctly, and its
+  real numbers (6 hookah / 3 drinks against a 10/10 plan) still read back
+  correctly through the new query -- the regression check decision #28's
+  own acceptance test asked for.
+- **Same-day-upgrade reuse:** an old cancelled + a new active subscription
+  both overlapping one reused row -- correctly linked to the **active**
+  one, not the cancelled one.
+- **Two separate historical rows, same user:** an original-signup row and
+  a later (different-day) upgrade's row, each independently exact-matching
+  its OWN subscription (cancelled and active respectively) rather than
+  both landing on the active one -- proves pass 1 disambiguates correctly
+  even when two candidate subscriptions' date ranges both technically
+  overlap a given row.
+- **Lapsed member:** an expired subscription, one usage row from that
+  now-ended period -- backfill still links it (to the expired
+  subscription, correctly), but the new "current active subscription"
+  query correctly returns **nothing** for this user, exactly the bug this
+  task exists to fix (the old "newest `period_start`" logic would have
+  shown their stale 10/10 as current).
+- **Genuinely unmatchable row** (a user with a usage row but zero
+  subscriptions ever) in a separate throwaway database: the guard fired as
+  designed, refusing to proceed rather than silently leaving a null.
+- **The real RPCs, exercised through actual role-impersonated calls, not
+  just seeded data:** a fresh user's `start_subscription` ->
+  `confirm_subscription_payment` produced exactly one usage row correctly
+  linked to the subscription just confirmed; a same-day
+  `upgrade_subscription` right after left **still exactly one row** (the
+  `ON CONFLICT` reuse), now correctly re-pointed at the new Premium
+  subscription rather than the old, now-cancelled Basic one.
+- RLS unaffected: `anon` still sees zero rows; `authenticated` still only
+  ever sees their own.
+
+`flutter analyze` -- clean. `flutter test` -- 338/338 (unchanged; no
+existing test exercises `UsageService` directly -- like `subscription_service.dart`,
+it calls the real Supabase client with no mock/fake seam, so it's only ever
+been verified this way, live-role-impersonation and local replay, not a
+Flutter widget test). **The live project itself was not touched from this
+session** (network blocked, as in #65/#75/#76) -- applying this migration
+against real historical data, and confirming the backfill actually reaches
+100% there too, is still this task's own live-verification step, not done
+here.
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before
