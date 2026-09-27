@@ -4894,6 +4894,39 @@ the same `set local role` + `request.jwt.claims` mechanism:**
   7/9 untouched, and a brand new one (`period_start` = today) at 0/0,
   the "correctly zeroed fresh usage" the acceptance bar asked for.
 
+**Live project check (2026-09-27) -- one real bug found and fixed.**
+Like #65, this had been committed but never applied to the live dev
+project. Applied there (the exact committed file, loaded from GitHub at
+commit `09cf0b4` and hash-checked), then re-tested as real roles in one
+rolled-back transaction. Every acceptance point held -- `anon` ->
+`42501 permission denied`; Basic -> Basic and Premium -> Basic ->
+`downgrade_not_supported`; unknown plan -> `plan_not_found`; Basic ->
+Premium -> exactly one active row, old row `cancelled`, `valid_until` 30
+days out, fresh usage row 0/0 -- **but a second upgrade on the same day
+(Premium -> VIP) failed**: `23505 duplicate key value violates unique
+constraint "usage_allowances_user_id_period_start_key"`.
+`usage_allowances` allows one row per user per `period_start`, and the
+upgrade always inserted a new row starting today -- so anyone who paid
+today and upgrades today (the most natural "join on Basic, then see VIP"
+path), or upgrades twice in a day, couldn't upgrade at all. (The failed
+call rolled back fully; nothing was corrupted.) The local replay missed
+it because its seeded user's period started 10 days earlier.
+
+**Fix:** migration `20260930160000_upgrade_subscription_same_day_fix.sql`
+-- identical function except the usage insert now reuses today's row
+when one exists (`ON CONFLICT (user_id, period_start) DO UPDATE`),
+resetting it to a fresh period: new `period_end`, usage 0/0, and #70's
+low-allowance "already alerted" markers cleared. Re-tested live after
+the fix: all the above still hold, and the same-day Premium -> VIP
+upgrade now succeeds with exactly one active row (VIP) and exactly one
+usage row for today, reset to 0/0 (the test had used 4 hookah / 2
+drinks on it first) with the new end date.
+
+**Related, not fixed here:** `confirm_subscription_payment` inserts the
+same way, so cancelling and re-subscribing on the same day would hit the
+same constraint there -- a rarer path, worth the same one-line fix when
+that flow is touched.
+
 ---
 
 ## Checkpoint: status of every open item, as of the end of Sprint 2
