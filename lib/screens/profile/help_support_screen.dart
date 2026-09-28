@@ -19,26 +19,37 @@ import '../../widgets/screen_header.dart';
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
-/// One FAQ item: the question, and either the one real answer or a marker
-/// that no answer exists yet.
+/// One FAQ item: the question, its answer, and whether that answer is
+/// Sprint 9 Task 6's draft copy rather than the one real, exported-from-design
+/// answer.
 class _FaqItem {
   final String question;
-  final String? answer; // null = not yet answered in the design export
+  final String answer;
+  final bool isDraft;
 
-  const _FaqItem(this.question, this.answer);
+  const _FaqItem(this.question, this.answer, {this.isDraft = false});
 }
 
 /// **Only the first answer is real, exported design copy.** The other three
-/// questions are shown with their real question text but a plain "not
-/// available yet" placeholder body -- never an invented answer standing in
-/// for real content (see docs/decisions.md #46). This gap was already logged
-/// (Sprint 2 checkpoint, decision #32/#45's open-questions list) as "only 1 of
-/// 4 FAQ answers exported."
+/// questions are real (they're in the Figma text), but the design never
+/// exported answers for them (decision #46) -- flagged since the Sprint 2
+/// checkpoint (#32/#45's open-questions list) as "only 1 of 4 FAQ answers
+/// exported." That question is still open.
+///
+/// **Sprint 9 Task 6:** rather than leave those three accordions empty, each
+/// now gets a plausible draft answer grounded in what this app actually
+/// does -- the real 3-or-fewer allowance-alert threshold (#70), the real
+/// `maxGuests` field, the real Full/Self-Service hour values
+/// (`ServiceHours`) -- instead of generic filler. Each is marked
+/// [_FaqItem.isDraft] so [_FaqRow] shows the same "not confirmed by the
+/// company" note Task 5's legal screens carry, and the open question above
+/// stays open: this stops the screen from showing blank accordions, it
+/// doesn't close the gap.
 List<_FaqItem> _faqItems(AppLocalizations l10n) => [
       _FaqItem(l10n.faqQuestion1, l10n.faqAnswer1),
-      _FaqItem(l10n.faqQuestion2, null),
-      _FaqItem(l10n.faqQuestion3, null),
-      _FaqItem(l10n.faqQuestion4, null),
+      _FaqItem(l10n.faqQuestion2, l10n.faqAnswer2, isDraft: true),
+      _FaqItem(l10n.faqQuestion3, l10n.faqAnswer3, isDraft: true),
+      _FaqItem(l10n.faqQuestion4, l10n.faqAnswer4, isDraft: true),
     ];
 
 /// Help & Support (Figma frame "HelpSupportScreen", node 1217:3158): three
@@ -52,8 +63,10 @@ List<_FaqItem> _faqItems(AppLocalizations l10n) => [
 ///
 /// **FAQ accordion:** the design exports only one real question-and-answer
 /// pair; the other three questions are real (they're in the Figma text), but
-/// their answers are not -- shown as "Answer not available yet." rather than
-/// invented copy. Expand/collapse is exclusive (opening one closes any other),
+/// their answers were drafted here (Sprint 9 Task 6), not exported --
+/// grounded in this app's real behavior, each marked with a small
+/// "not confirmed by the company" note, same disclosure as Task 5's legal
+/// screens. Expand/collapse is exclusive (opening one closes any other),
 /// the first item starts open, matching the one state the design shows.
 ///
 /// **Resources** (User Guide / Membership Benefits / Community Guidelines)
@@ -320,23 +333,29 @@ class _FaqRow extends StatelessWidget {
           if (expanded)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: item.answer != null
-                  ? Text(
-                      item.answer!,
-                      style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
-                    )
-                  : Text(
-                      // Deliberately NOT a fabricated answer -- see the class
-                      // doc comment on HelpSupportScreen and decision #46.
-                      AppLocalizations.of(context).faqAnswerNotAvailable,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.answer,
+                    style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
+                  ),
+                  if (item.isDraft) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      // Sprint 9 Task 6: same disclosure as Task 5's legal
+                      // screens -- see the class doc comment above.
+                      AppLocalizations.of(context).faqDraftAnswerNote,
                       style: TextStyle(
-                        fontSize: 14,
-                        height: 20 / 14,
-                        letterSpacing: -0.15,
+                        fontSize: 12,
+                        height: 16 / 12,
                         fontStyle: FontStyle.italic,
-                        color: colors.textMuted,
+                        color: colors.warning,
                       ),
                     ),
+                  ],
+                ],
+              ),
             ),
         ],
       ),

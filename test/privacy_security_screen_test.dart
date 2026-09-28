@@ -99,8 +99,9 @@ Future<void> _pump(
     ChangeNotifierProvider<SettingsProvider>.value(
       value: settings ?? await SettingsProvider.load(),
       child: MaterialApp(
-        // Sprint 8 Task 6: "View Privacy Policy"/"Terms of Service" push
-        // ComingSoonScreen, which reads AppLocalizations now.
+        // Sprint 9 Task 5: "View Privacy Policy"/"Terms of Service" push real
+        // screens now (PrivacyPolicyScreen/TermsOfServiceScreen), which read
+        // AppLocalizations for their chrome.
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: PrivacySecurityScreen(
@@ -659,12 +660,25 @@ void main() {
     });
   });
 
-  testWidgets('Privacy Policy and Terms of Service open a coming-soon page (no text exists yet)', (tester) async {
-    await _pump(tester);
+  group('Sprint 9 Task 5: Privacy Policy and Terms of Service open real screens', () {
+    testWidgets('View Privacy Policy opens the real, draft Privacy Policy screen', (tester) async {
+      await _pump(tester);
 
-    await tester.tap(find.text('View Privacy Policy'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Privacy Policy'), findsOneWidget);
-    expect(find.textContaining('coming in a future task'), findsOneWidget);
+      await tester.tap(find.text('View Privacy Policy'));
+      await tester.pumpAndSettle();
+      // The screen's own header title, not a "coming soon" placeholder.
+      expect(find.text('Privacy Policy'), findsOneWidget);
+      expect(find.text('1. Introduction'), findsOneWidget);
+      expect(find.textContaining('coming in a future task'), findsNothing);
+    });
+
+    testWidgets('Terms of Service opens the real, draft Terms of Service screen', (tester) async {
+      await _pump(tester);
+
+      await tester.tap(find.text('Terms of Service'));
+      await tester.pumpAndSettle();
+      expect(find.text('Terms of Service'), findsOneWidget);
+      expect(find.text('1. Acceptance of Terms'), findsOneWidget);
+    });
   });
 }

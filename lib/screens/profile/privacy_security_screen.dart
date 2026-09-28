@@ -9,11 +9,12 @@ import '../../services/settings_provider.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../utils/validators.dart';
 import '../../widgets/app_page_route.dart';
-import '../../widgets/coming_soon_screen.dart';
 import '../../widgets/form_buttons.dart';
 import '../../widgets/screen_header.dart';
 import '../../widgets/setting_toggle_row.dart';
 import '../auth/sign_out.dart';
+import 'privacy_policy_screen.dart';
+import 'terms_of_service_screen.dart';
 
 // Values read from the Figma `PrivacySecurityScreen` frames (nodes 1217:2644
 // default, 1217:2946 with the password form open) in the Figma app's Design
@@ -75,8 +76,10 @@ const _hairline = 0.515; // Figma's fractional hairline stroke width
 /// [AuthService.pendingEmailChange] (the real auth state) rather than the
 /// `profiles` row, which only ever reflects a confirmed value.
 ///
-/// "View Privacy Policy" and "Terms of Service" open a "coming soon" page:
-/// no policy or terms text exists yet to show.
+/// "View Privacy Policy" and "Terms of Service" open real screens now
+/// (Sprint 9 Task 5) -- draft, placeholder legal-shaped text, not
+/// company-approved copy; see [PrivacyPolicyScreen]/[TermsOfServiceScreen]'s
+/// doc comments and docs/decisions.md's Task 5 entry.
 class PrivacySecurityScreen extends StatefulWidget {
   final AuthService authService;
   final AccountDeletionService accountDeletionService;
@@ -367,8 +370,12 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     }
   }
 
-  void _openComingSoon(String label) {
-    Navigator.of(context).push(appRoute(context, (_) => ComingSoonScreen(label: label)));
+  void _openPrivacyPolicy() {
+    Navigator.of(context).push(appRoute(context, (_) => const PrivacyPolicyScreen()));
+  }
+
+  void _openTermsOfService() {
+    Navigator.of(context).push(appRoute(context, (_) => const TermsOfServiceScreen()));
   }
 
   @override
@@ -666,9 +673,9 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _PrivacyRow(label: l10n.viewPrivacyPolicyLabel, onTap: () => _openComingSoon(l10n.privacyPolicy)),
+          _PrivacyRow(label: l10n.viewPrivacyPolicyLabel, onTap: _openPrivacyPolicy),
           const SizedBox(height: 12),
-          _PrivacyRow(label: l10n.termsOfService, onTap: () => _openComingSoon(l10n.termsOfService)),
+          _PrivacyRow(label: l10n.termsOfService, onTap: _openTermsOfService),
           const SizedBox(height: 12),
           if (_deletingAccountForm)
             _buildDeleteAccountForm()

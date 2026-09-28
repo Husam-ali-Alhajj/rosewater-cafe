@@ -127,4 +127,24 @@ void main() {
       expect(t.title, 'Stored English title');
     });
   });
+
+  group('subscription_upgraded', () {
+    final n = _notification('subscription_upgraded', {
+      'previous_plan_name': 'Basic',
+      'plan_name': 'VIP',
+      'valid_until': '2026-10-28T12:00:00+00:00',
+    });
+
+    test('English', () {
+      final t = localizeNotification(n, _en);
+      expect(t.title, 'Membership Upgraded');
+      expect(t.body, "You've upgraded from Basic to VIP. Your new membership is active until Oct 28, 2026.");
+    });
+
+    test('Arabic', () {
+      final t = localizeNotification(n, _ar);
+      expect(t.title, 'تمت ترقية العضوية');
+      expect(t.body, startsWith('تمت ترقيتك من Basic إلى VIP.'));
+    });
+  });
 }

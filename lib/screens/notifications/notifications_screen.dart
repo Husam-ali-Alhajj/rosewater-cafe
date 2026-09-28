@@ -26,6 +26,8 @@ const _detailsPurpleDark = Color(0xFFC27AFF);
   switch (type) {
     case 'subscription_activated':
       return (icon: Icons.check, color: const Color(0xFF00A63E));
+    case 'subscription_upgraded':
+      return (icon: Icons.workspace_premium_outlined, color: const Color(0xFF9810FA));
     case 'event_reservation_confirmed':
     case 'event_reminder':
       return (icon: Icons.calendar_today_outlined, color: const Color(0xFF9810FA));
@@ -155,6 +157,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           );
         };
       case 'subscription_activated':
+      case 'subscription_upgraded':
         return () {
           // Fire-and-forget: leaving the screen shouldn't wait on it, and a
           // failure just leaves it unread (no snackbar on a closing screen).

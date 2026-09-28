@@ -4806,6 +4806,547 @@ Notifications" off, nothing is queued; `authenticated` reading Vault ->
 
 ---
 
+### 75. Sprint 9 Task 3 — `upgrade_subscription` RPC
+
+Lets a member move straight from their current active plan to a more
+expensive one in one call, instead of the client orchestrating
+cancel-then-start_subscription-then-confirm_subscription_payment itself
+(and risking a half-done sequence if it crashed partway).
+
+**Migration:** `20260930150000_upgrade_subscription.sql`.
+
+- Same security shape as every prior RPC: `SECURITY DEFINER`,
+  `search_path` pinned to `public`, `auth.uid()` read internally (never a
+  caller-supplied user id), `EXECUTE` revoked from `PUBLIC` *and*
+  explicitly from `anon` (decision #16 -- a bare `revoke ... from public`
+  never touches Supabase's own per-function auto-grant to `anon`).
+- "Active" means what it means everywhere else in this project (decision
+  #27's defensive check, `log_door_access`/Home): `status = 'active' AND
+  valid_until > now()`, not just `status = 'active'` -- a stale row the
+  daily `expire_subscriptions` cron hasn't caught up to yet isn't
+  upgradeable, the same way it isn't door-access-eligible.
+- The caller's current active row is locked (`for update of s`) and its
+  price re-read from `membership_plans` inside the same transaction the
+  target plan's price is also read from -- never trusted from anything
+  the client claims about either plan. Equal or cheaper price ->
+  `downgrade_not_supported` (the task's own exact wording), with the two
+  real prices in `DETAIL` for debugging. A target plan id that doesn't
+  exist -> `plan_not_found`, same defensive-lookup pattern as every other
+  RPC that takes a foreign id.
+- Old row -> `cancelled` (not deleted -- stays as real history, same as
+  `cancel_subscription`); new row inserted `active`, `valid_until = now()
+  + 30 days` (flat, not prorated off whatever time was left on the old
+  plan -- this project has no proration logic anywhere, and the task
+  didn't ask for any); one new `usage_allowances` row for the fresh
+  period, `hookah_used`/`drinks_used` needing no explicit `0` -- that's
+  the column's own default, same as every other place this project
+  creates one. The cancel happens *before* the insert deliberately, not
+  just for tidiness: `uq_subscriptions_one_active_per_user` (a partial
+  unique index on `(user_id) where status = 'active'`) would reject the
+  new row if the old one were still marked active when it's inserted.
+
+**Verification method, same one decision #65 established and for the
+same reason:** this session's network egress to the project's own
+Supabase host is still blocked (`CONNECT tunnel failed, response 403`,
+explicitly "organization policy" per the proxy's own error) -- re-checked
+before writing this entry rather than assumed still true, since decision
+#74 right above this one *was* verified against the real project
+(evidently from a session with different network access). Verified
+instead against the same from-scratch local Postgres 16 stand-in as
+#65: every real migration file replayed in order, unmodified, skipping
+only the four that lean on Supabase-managed services this stand-in
+doesn't reproduce (pg_cron, pg_net, Realtime) and that this task has no
+relationship to (`expire_subscriptions_cron`,
+`event_reminders_and_allowance_alerts`, `notifications_realtime`,
+`notification_emails`) -- confirmed first that nothing skipped is
+something `upgrade_subscription` touches or depends on.
+
+**All acceptance points confirmed, real output, role-impersonation via
+the same `set local role` + `request.jwt.claims` mechanism:**
+
+- `anon` (no session at all): `permission denied for function
+  upgrade_subscription` -- rejected at the grant level, function body
+  never runs.
+- `authenticated` with a valid session but no active subscription row
+  isn't reachable in this test shape (the seeded user always has one),
+  but the equivalent -- `authenticated` role with no JWT claims set at
+  all -- correctly hits this function's own `auth.uid() is null` check:
+  `not_authenticated`.
+- Equal-price "upgrade" (a second plan priced identically to the
+  active one): `downgrade_not_supported`,
+  `DETAIL: {"current_price_cents":9900,"requested_price_cents":9900}`.
+- Genuinely cheaper plan (4900 vs the active 9900): same
+  `downgrade_not_supported`, `DETAIL` showing the real two prices.
+- Re-"upgrading" to the plan already active (equal price, same id):
+  same rejection.
+- A target plan id that doesn't exist: `plan_not_found`.
+- None of the five rejections above left any trace: re-queried
+  afterward, still exactly one `active` subscription row and the
+  original `usage_allowances` row's `hookah_used`/`drinks_used`
+  unchanged (7/9, the seeded values).
+- **A real upgrade**: seeded a user active on a 9900-cent plan (usage
+  7 hookah / 9 drinks used, a period that started 10 days ago) and
+  called `upgrade_subscription` with a 29900-cent plan's id. Result,
+  re-queried after commit: exactly one `active` row for the user (the
+  old one now `cancelled`, not deleted, `plan_id` unchanged); the new
+  row's `plan_id` is the expensive plan; two `usage_allowances` rows
+  total -- the original (`period_start` 10 days ago) still showing
+  7/9 untouched, and a brand new one (`period_start` = today) at 0/0,
+  the "correctly zeroed fresh usage" the acceptance bar asked for.
+
+**Live project check (2026-09-27) -- one real bug found and fixed.**
+Like #65, this had been committed but never applied to the live dev
+project. Applied there (the exact committed file, loaded from GitHub at
+commit `09cf0b4` and hash-checked), then re-tested as real roles in one
+rolled-back transaction. Every acceptance point held -- `anon` ->
+`42501 permission denied`; Basic -> Basic and Premium -> Basic ->
+`downgrade_not_supported`; unknown plan -> `plan_not_found`; Basic ->
+Premium -> exactly one active row, old row `cancelled`, `valid_until` 30
+days out, fresh usage row 0/0 -- **but a second upgrade on the same day
+(Premium -> VIP) failed**: `23505 duplicate key value violates unique
+constraint "usage_allowances_user_id_period_start_key"`.
+`usage_allowances` allows one row per user per `period_start`, and the
+upgrade always inserted a new row starting today -- so anyone who paid
+today and upgrades today (the most natural "join on Basic, then see VIP"
+path), or upgrades twice in a day, couldn't upgrade at all. (The failed
+call rolled back fully; nothing was corrupted.) The local replay missed
+it because its seeded user's period started 10 days earlier.
+
+**Fix:** migration `20260930160000_upgrade_subscription_same_day_fix.sql`
+-- identical function except the usage insert now reuses today's row
+when one exists (`ON CONFLICT (user_id, period_start) DO UPDATE`),
+resetting it to a fresh period: new `period_end`, usage 0/0, and #70's
+low-allowance "already alerted" markers cleared. Re-tested live after
+the fix: all the above still hold, and the same-day Premium -> VIP
+upgrade now succeeds with exactly one active row (VIP) and exactly one
+usage row for today, reset to 0/0 (the test had used 4 hookah / 2
+drinks on it first) with the new end date.
+
+**Related, not fixed here:** `confirm_subscription_payment` inserts the
+same way, so cancelling and re-subscribing on the same day would hit the
+same constraint there -- a rarer path, worth the same one-line fix when
+that flow is touched.
+
+---
+
+### 76. Sprint 9 Task 4 — Upgrade Membership screen
+
+Wires the real `upgrade_subscription` RPC (#75) into a real screen,
+reachable from Profile's existing stub button.
+
+**What was built:**
+
+- **`MembershipPlanCard`** (new, `widgets/membership_plan_card.dart`) --
+  Choose Membership's own `_MembershipCard` extracted and made shared,
+  the same reasoning `localizedFeatureBullets` already established for
+  the two screens' benefit lists: one card, one place, so Choose
+  Membership and Upgrade Membership can't drift apart. `rank` (which
+  tier icon/gradient a card gets) is deliberately the plan's index in
+  the FULL price-sorted catalog, not whichever list happens to be
+  showing it -- a Premium card on Upgrade Membership (where Basic is
+  filtered out) still has to render as Premium, not "whatever's first in
+  this shorter list." `actionLabel`/`submittingLabel` are the only
+  things that differ per caller ("Select {plan}" vs. "Upgrade to
+  {plan}"), passed in rather than hardcoded.
+- **`UpgradeMembershipScreen`** (new) -- fetches the full plan catalog
+  live (same `fetchPlans()` Choose Membership already uses), filters to
+  `price_cents > currentPlan.price_cents` while keeping each surviving
+  plan's true rank, and routes a selection straight into `PaymentScreen`
+  -- no ID Upload step, unlike the signup flow: an upgrading member is
+  already verified. Carries a defensive "no plan available" message for
+  the narrow race where prices changed between Profile's own gate (below)
+  and this screen's fetch -- expected to be unreachable in the ordinary
+  case, not a real empty state users should ever see.
+- **`PaymentScreen.upgrade`** (new named constructor, same class) --
+  the task's own "reused as-is": identical card form, identical "Pay"
+  button; only `_pay()` branches on a new `isUpgrade` flag to call
+  `upgradeSubscription(plan.id)` instead of
+  `confirmSubscriptionPayment(subscriptionId)`. `subscriptionId` is now
+  nullable (null in upgrade mode -- there's no separate pending row to
+  confirm) rather than duplicating the whole screen. `PaymentSuccessScreen`
+  needed no changes at all: it already pushes a brand new `MainShell`
+  and clears the stack, which is exactly why Home already shows the new
+  plan immediately after any successful payment, upgrade included --
+  `MainShell._load()` re-fetches `ActiveMembership` from scratch every
+  time a fresh instance is created.
+- **`SubscriptionService.hasUpgradeOption(currentPriceCents)`** (new) --
+  a `.limit(1)` existence check ("does any plan cost more"), not a full
+  `fetchPlans()`: Profile only needs a yes/no to decide whether to show
+  the button at all. **`SubscriptionService.upgradeSubscription`** (new)
+  -- calls the RPC, maps its four failure cases
+  (`not_authenticated`/`no_active_subscription`/`plan_not_found`/
+  `downgrade_not_supported`) to a new `UpgradeSubscriptionFailure` with a
+  safe message, the same one-type-per-RPC shape every other RPC-calling
+  method here already uses. Kept English-only, on purpose, matching the
+  already-documented scope boundary (#64) that service-layer exception
+  messages don't get translated the way screen chrome does.
+- **Profile's gate**: `ProfileScreen` now calls `hasUpgradeOption` once
+  in `initState`, defaulting to hidden (not shown-then-hidden) while
+  that resolves or if it errors -- the task's own "disable/hide the
+  entry point entirely... rather than showing an empty screen," read as
+  literally as possible: the button doesn't exist in the tree at all
+  when there's nothing to upgrade to, not a disabled/greyed-out one.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 317/317,
+including new coverage in `profile_content_test.dart` for both states
+of the gate (shows and fires its callback when a higher plan exists;
+hidden entirely, rest of the card still shown, when it doesn't -- run
+against a VIP membership specifically, the case the task calls out by
+name).
+
+**Not verified here, disclosed rather than assumed passing:** the
+task's own acceptance bar is a live test -- real Basic -> Premium and
+Premium -> VIP upgrades, watching Home update immediately after, and
+confirming a VIP account genuinely shows no upgrade path. Same
+constraint as #65/#75: this session has no network path to the live
+Supabase project, and (checked this time, not just assumed) no working
+local alternative either -- `docker ps` can't reach a daemon in this
+sandbox, so standing up a full local Supabase stack (PostgREST + GoTrue,
+not just Postgres itself) the way #65/#75 approximated with a bare
+Postgres replay isn't possible for a change that has to be driven
+through the real Flutter app, not SQL directly. What's confirmed here is
+that the code compiles, type-checks, and behaves correctly at the
+widget level for the one state (`hasUpgradeOption`) that's actually
+unit-testable without a live backend. The live click-through -- both
+upgrade paths, Home's immediate refresh, and the VIP hidden-button
+check -- is still the user's own to run, the same way #65/#75's SQL
+needs a live re-check whenever this session (or one with real access)
+next can.
+
+---
+
+### 77. Upgrade notification + paying with saved cards (user-reported, after Task 4)
+
+Two gaps found by the user while testing Task 4 live:
+
+**1. Upgrading created no notification** (unlike a first payment's
+"Membership Activated"). Migration
+`20260930170000_upgrade_subscription_notification.sql` -- the same
+function as the same-day fix (#75) plus one insert: a
+`subscription_upgraded` notification ("Membership Upgraded -- You've
+upgraded from Basic to Premium. Your new membership is active until
+..."), `related_id` = the new active subscription, `data` =
+`{previous_plan_name, plan_name, valid_until}`, all read/set by the
+function itself. Being an ordinary notification it also gets the email
+(#74), live badge + chime (#71) and the feed, in the app's language (#66);
+its "View Details" goes to Profile like "Membership Activated".
+Verified live, rolled back: a Basic -> Premium upgrade created exactly one
+such notification with the right text/data and `related_id` pointing at
+the new active row; a rejected downgrade created none.
+
+**2. Saved payment methods couldn't be used to pay.** The Payment screen
+(signup payment and upgrades alike) always showed the empty card form;
+cards saved in Profile -> Payment Methods were never offered. Now (user's
+choices):
+- If the user has saved cards, they're listed under **"Pay with"**, the
+  default (non-expired) card preselected -- paying is one tap. Expired
+  cards are shown but can't be picked. **"Use a new card"** shows the
+  usual form. With no saved cards (e.g. a brand-new signup) the screen is
+  exactly the plain form it always was; if the cards can't be loaded, it
+  falls back to the form rather than an error.
+- Under the new-card form, **"Save this card for next time"**: saves
+  brand / last 4 / expiry only (same as Payment Methods -- there is no
+  column for anything more), and only AFTER the payment succeeds; a
+  failed payment saves nothing, and a failure to save never undoes a
+  successful payment.
+- Payment is still simulated (#4), so "paying with" a saved card means
+  choosing it instead of typing; no card data reaches the payment RPCs
+  either way. A real gateway would pay with a stored provider token here.
+`PaymentScreen` now takes its `PaymentMethodService` and
+`SubscriptionService` as parameters (defaults unchanged) so all of this is
+widget-tested without a backend (9 tests: listing, preselection, one-tap
+saved-card payment, new-card validation, save-after-success only, no save
+when unticked or when payment fails, expired cards). The tests also caught
+a `CheckboxListTile` that can't paint on this screen's coloured card
+(a red debug error) -- replaced with a plain checkbox + label.
+
+---
+
+### 78. Sprint 9 Task 5 — Privacy Policy & Terms of Service copy
+
+**This is draft, placeholder text, pending real review -- not company-approved
+copy.** Flagging that up front and as plainly as the task itself asked for:
+neither document below was written or reviewed by a lawyer. It is fine as
+placeholder content so this training project's UI isn't shipping blank
+stubs; it is **not** fine as the actual legal text of a live consumer app
+that handles ID documents and payment metadata. Before this app is a real
+product, both documents need to go through the company (or an actual lawyer)
+and get replaced with approved copy -- this entry, and the in-app banner
+described below, exist specifically so that replacement never gets confused
+with "already done."
+
+**What was built:**
+
+- **`lib/widgets/legal_document_screen.dart`** -- a shared `LegalDocumentScreen`
+  (title + an ordered list of `LegalSection(heading, body)`) used by both
+  documents, so the two screens are just data, not two copies of the same
+  layout. It renders a persistent **draft-disclaimer banner** above the
+  document body -- not just a note in this file -- reading (in English or
+  Arabic, via a new `legalDraftDisclaimer` ARB key): *"Draft placeholder text
+  -- not written or reviewed by a lawyer. This is not final legal coverage
+  and will be replaced with company-approved copy before launch."* Putting
+  this in the running app, not only here, was the point of the task's "needs
+  saying plainly, not just implied."
+- **`lib/screens/profile/privacy_policy_screen.dart`** / **`terms_of_service_screen.dart`**
+  -- the actual draft copy, structured the way a real policy/terms document
+  is (numbered sections: what's collected, how it's used, sharing, retention,
+  security, rights, liability, governing law placeholder, contact, etc.),
+  but written against *this app's actual schema and behavior* rather than
+  generic filler:
+  - Data categories named are real tables (`profiles`, `id_documents`,
+    `payment_methods`, `door_access_logs`, `event_reservations`,
+    `subscriptions`, `usage_allowances`, `notifications`), and the payment
+    section is accurate to decision #4/#16/#43: only card brand/last 4/expiry
+    are ever stored, never a full card number.
+  - The account-deletion section in both documents describes decision #52's
+    *actual* current behavior -- immediate, self-service, password-gated,
+    no recovery period, no staff-processed request queue -- not decision
+    #45's older queued-request design, which no longer exists.
+  - The Terms' billing section states this app's real upgrade-only rule
+    (decision #75: `upgrade_subscription` rejects anything that isn't a
+    strictly higher-priced plan) instead of a generic "you may change plans"
+    line that wouldn't be true here.
+  - Placeholders that a real legal review must fill in are marked as such
+    in-line (a bracketed governing-law jurisdiction; a `support@example.com`
+    contact address flagged as one to replace) rather than left as
+    unexplained gaps or invented as if real.
+- **`PrivacySecurityScreen`**: "View Privacy Policy" / "Terms of Service" now
+  push these real screens instead of `ComingSoonScreen`; the now-unused
+  `_openComingSoon` helper and `coming_soon_screen.dart` import were removed
+  from that file (checked first that nothing else in it still used them).
+- **Scope call, stated explicitly rather than silently decided:** the
+  document *body* text stays English-only regardless of
+  `SettingsProvider.locale` -- only the screen chrome (title, back button,
+  and the disclaimer banner itself) is run through `AppLocalizations`. This
+  draws the same line decision #64 already drew for RPC exception messages
+  (some text stays outside the i18n rollout), for a different reason here:
+  this body text is *known to be temporary* pending a real legal rewrite, so
+  translating it now would be translation work redone from scratch the
+  moment real copy replaces it. Once a lawyer-reviewed version exists, it
+  should absolutely be localized like every other real screen in this app --
+  this is a decision about draft text, not a standing exemption.
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 334/334, including
+a new `legal_document_screens_test.dart` (both screens render their real
+section headings and the disclaimer text, neither shows "coming soon", the
+back button pops correctly) and two new cases in
+`privacy_security_screen_test.dart` proving both rows now open the real
+screens instead of the old coming-soon page.
+
+
+**Accuracy fix after pulling (2026-09-28):** the Privacy Policy was drafted
+before the notifications roadmap landed, and three of its statements had
+become untrue. Corrected: (1) it said the app collects "language, theme,
+and notification settings" -- language and theme never leave the device;
+only notification preferences are stored server-side (#67); (2) it
+described notifications as in-app only -- they can also be emailed (#74);
+(3) its sharing section named only hosting providers -- notification
+emails go through an email service provider (Resend), which receives the
+user's email address and the email content, and now says so. Still draft
+text pending real legal review, exactly as above.
+
+**Arabic versions added (user's request, 2026-09-28):** both documents now
+also exist in Arabic and are shown in the app's language (previously only
+the title, back button and banner were translated). The Arabic is itself
+a placeholder -- a translation of the draft, using the app's real Arabic
+menu names (e.g. "الخصوصية والأمان ← حذف الحساب") -- not a legal
+translation. When the company's approved copy replaces the English, it
+needs a professional legal translation too. A test keeps the two
+languages' section counts and numbering in step.
+---
+
+### 79. Sprint 9 Task 6 — Remaining FAQ answers
+
+**Draft answers, not the company's confirmed copy -- the open question stays
+open.** The Sprint 2 checkpoint's "only 1 of 4 FAQ answers exported" gap
+(decisions #32/#45/#46) isn't resolved by this task; it's still true that
+the design only ever exported one real answer. What this task does is stop
+Help & Support from showing three blank "Answer not available yet."
+accordions in the meantime, the same "draft placeholder so the UI isn't
+empty, clearly flagged as not final" move as Task 5's legal screens (#78).
+
+**What was built:** `_FaqItem` gained an `isDraft` flag; the three
+previously-unanswered questions now get a plausible answer grounded in
+this app's *actual* behavior, never generic filler:
+- *"What happens when my monthly allowance runs out?"* -- states the real
+  3-or-fewer alert threshold (decision #70's `usage_allowances` trigger)
+  and the real 30-day period reset / upgrade option (#75/#76), not an
+  invented overage policy (this app charges nothing extra and doesn't lock
+  anyone out -- there's no enforcement mechanism built at all, per #70's
+  own "nothing records usage yet" gap, so a draft answer claiming otherwise
+  would have been actively wrong).
+- *"Can I bring guests to the café?"* -- points at the real `maxGuests`
+  field shown as "Max Guests" on Membership Details, not an invented guest
+  count.
+- *"What's the difference between full service and self-service hours?"*
+  -- uses the real Full/Self-Service hour values (`ServiceHours`,
+  9:00 AM–11:00 PM / 11:00 PM–9:00 AM) and the plain, undocumented-beyond-
+  the-name reading of "full service" (staffed) vs. "self-service"
+  (access-only, no staff on site) -- the one place this answer is
+  genuinely a guess rather than read off existing app behavior, since
+  nothing else in the app defines what the two labels mean beyond the
+  hours themselves.
+
+Each draft answer shows a small note under it (new `faqDraftAnswerNote` ARB
+key, English + Arabic): *"Draft answer — pending confirmation from the
+company, not final copy."* -- the real, design-exported first answer shows
+no such note. The now-unused `faqAnswerNotAvailable` key and its "Answer
+not available yet." rendering path were removed (nothing shows it anymore).
+
+**Verified:** `flutter analyze` -- clean. `flutter test` -- 338/338,
+including `help_support_screen_test.dart` rewritten to assert each real
+draft answer plus its disclosure note (replacing the old assertions that a
+placeholder showed and that no plausible-sounding answer existed -- the
+opposite is now true on purpose).
+
+
+**Accuracy fixes after pulling (2026-09-28)** -- still draft copy pending
+the company's real answers; the open question stays open:
+- **Guests (Q3)** said to "let the host know how many guests are joining
+  you" -- but the app's own Door Access screen asks that ("How many people
+  are with you?"), as FAQ answer 1 already says. Now: choose the number of
+  guests when opening the door, up to Max Guests; plus the rule the app
+  states elsewhere (Door Access note, plan-picker footer) that guest orders
+  get member discounts but aren't covered by the allowance.
+- **Allowance (Q2)** said it "resets automatically" -- there's no automatic
+  renewal (#25); a new period starts on renewal or upgrade. Now says
+  "starts fresh with each new membership period", and that the low-allowance
+  alert needs Allowance Alerts turned on (#70).
+- **Arabic wording:** the answers called hookah "أرجيلة" while the rest of
+  the app says "شيشة" -- now "شيشة" throughout.
+---
+
+### 80. Sprint 10 Task 1 — `usage_allowances.subscription_id` + real linkage
+
+**The bug this fixes:** `UsageService.fetchCurrentUsage()` (decision #28)
+picked "whichever of this user's `usage_allowances` rows has the latest
+`period_start`" as *the* current one. That happened to work as long as a
+user only ever had one row on record, but it's wrong the moment they
+don't: **a lapsed member** (subscription expired, never renewed or
+upgraded) still has their last real period's row sitting there with the
+newest `period_start` they'll ever have -- so Home would keep showing
+their old hookah/drink counts as if the membership were still active, with
+nothing anywhere saying otherwise. There was no reliable way to tell
+"the row for my current membership" from "an old row that happens to be
+the newest one on file" without a real link to the subscription itself.
+
+**Migration** (`20261001100000_usage_allowances_subscription_id.sql`):
+- `usage_allowances` gets a `subscription_id uuid references subscriptions
+  (id) on delete cascade` column, nullable at first.
+- **Backfill, three passes, each only touching rows the previous pass
+  left null:**
+  1. **Exact date match** (`started_at::date = period_start` AND
+     `valid_until::date = period_end`) -- this is the strong signal,
+     since every real usage row and its subscription were written by the
+     same RPC transaction, from the same `now()`/`current_date`. This has
+     to run first: a same-day upgrade leaves an old (now cancelled) and a
+     new (active) subscription whose date ranges **both** genuinely
+     overlap a reused row, and only the exact match tells them apart --
+     preferring "active" as the tiebreak would wrongly steal an
+     *earlier*, unrelated row (a different period, another exact match of
+     its own) that happens to also overlap the active subscription's
+     range.
+  2. **Overlap, active-preferred, closest start date** -- for older/
+     messier historical data with no exact match.
+  3. **Nearest subscription by start date, no overlap required at all** --
+     true last resort for hand-inserted test rows.
+  - A `do $$ ... raise exception ... $$` guard runs after all three passes
+    and **fails the migration loudly**, naming the exact row count, if
+    anything is still unmatched, rather than silently leaving a gap that
+    `alter column ... set not null` would then fail on anyway with a far
+    less useful error. (Every real row should match in pass 1 alone --
+    these rows only ever exist because an RPC inserted one alongside a
+    subscription in the same transaction.)
+  - Only then: `alter column subscription_id set not null` + an index.
+- **`confirm_subscription_payment` and `upgrade_subscription`** (both
+  `create or replace`d again here, full bodies unchanged otherwise) now
+  set `subscription_id` on their `usage_allowances` insert -- to the
+  subscription each function itself just activated/created, already in
+  hand as a local variable, never a second lookup. **The same-day-upgrade
+  `ON CONFLICT` upsert (decision #75's fix) now also sets
+  `subscription_id = excluded.subscription_id`** in its `DO UPDATE` --
+  without this, a reused row would keep pointing at whichever
+  subscription originally created it, now cancelled, which would have
+  defeated the entire point of this column the first time it mattered.
+- **`UsageService.fetchCurrentUsage()`** rewritten: first finds the
+  caller's current active subscription (`status = 'active' and
+  valid_until > now()`), then the `usage_allowances` row whose
+  `subscription_id` matches it -- `null` (no usage card at all) if there
+  isn't one, instead of falling back to "newest row on file" the way a
+  lapsed member's stale data used to.
+
+**Verified against a from-scratch local Postgres replay** (same technique
+as #65/#75 -- live network access to the project blocked in this session):
+replayed every real migration file in order, then ran the new one against
+seeded historical data covering four scenarios and checked the actual
+resulting linkage, not just that the migration ran without error:
+- **Plain case:** one subscription, one row -- linked correctly, and its
+  real numbers (6 hookah / 3 drinks against a 10/10 plan) still read back
+  correctly through the new query -- the regression check decision #28's
+  own acceptance test asked for.
+- **Same-day-upgrade reuse:** an old cancelled + a new active subscription
+  both overlapping one reused row -- correctly linked to the **active**
+  one, not the cancelled one.
+- **Two separate historical rows, same user:** an original-signup row and
+  a later (different-day) upgrade's row, each independently exact-matching
+  its OWN subscription (cancelled and active respectively) rather than
+  both landing on the active one -- proves pass 1 disambiguates correctly
+  even when two candidate subscriptions' date ranges both technically
+  overlap a given row.
+- **Lapsed member:** an expired subscription, one usage row from that
+  now-ended period -- backfill still links it (to the expired
+  subscription, correctly), but the new "current active subscription"
+  query correctly returns **nothing** for this user, exactly the bug this
+  task exists to fix (the old "newest `period_start`" logic would have
+  shown their stale 10/10 as current).
+- **Genuinely unmatchable row** (a user with a usage row but zero
+  subscriptions ever) in a separate throwaway database: the guard fired as
+  designed, refusing to proceed rather than silently leaving a null.
+- **The real RPCs, exercised through actual role-impersonated calls, not
+  just seeded data:** a fresh user's `start_subscription` ->
+  `confirm_subscription_payment` produced exactly one usage row correctly
+  linked to the subscription just confirmed; a same-day
+  `upgrade_subscription` right after left **still exactly one row** (the
+  `ON CONFLICT` reuse), now correctly re-pointed at the new Premium
+  subscription rather than the old, now-cancelled Basic one.
+- RLS unaffected: `anon` still sees zero rows; `authenticated` still only
+  ever sees their own.
+
+`flutter analyze` -- clean. `flutter test` -- 338/338 (unchanged; no
+existing test exercises `UsageService` directly -- like `subscription_service.dart`,
+it calls the real Supabase client with no mock/fake seam, so it's only ever
+been verified this way, live-role-impersonation and local replay, not a
+Flutter widget test). **The live project itself was not touched from this
+session** (network blocked, as in #65/#75/#76) -- applying this migration
+against real historical data, and confirming the backfill actually reaches
+100% there too, is still this task's own live-verification step, not done
+here.
+
+
+**Live project check (2026-09-28): applied and verified -- no bugs found.**
+Applied the exact committed file (loaded from GitHub at `4d8e5a0`,
+hash-checked) after a **dry run** first -- the whole migration plus a
+report, in one batch that aborted and rolled back (confirmed afterwards:
+column absent). Dry run and real run agreed: all 4 existing usage rows
+linked by the **exact** date match (pass 1), none needed the overlap or
+last-resort passes; every link is to a subscription of the same user;
+each of the 4 active subscriptions has exactly one usage row. After
+applying, the task's direct query: `subscription_id` is `NOT NULL`, 4/4
+rows non-null and pointing at the right subscription. **Home regression
+(#28):** for all 4 active members, the new lookup (active subscription ->
+its usage row) returns exactly the same hookah/drinks numbers as the old
+one (latest `period_start`). Both functions, as `authenticated`, rolled
+back: a fresh payment's usage row is linked to the paid subscription at
+0/0; a same-day upgrade re-points that same row to the new subscription
+and resets it to 0/0 (after 6/3 had been used), leaving no row on the old
+subscription and one row for today.
+
+**Possible follow-up (not done):** `check_low_allowance` (#70) still finds
+the plan's limits via "the user's active subscription"; it could now use
+the row's own `subscription_id` directly -- same result today, but exact
+if a non-current period's row is ever updated.
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before
@@ -4866,8 +5407,10 @@ need to think about them now:
   the design never confirmed a real list. Both still need the real
   answer from the company; nothing here blocks further work until then.
 - **Full FAQ copy**: only 1 of 4 answers was visible in the design
-  export — the other 3 are needed only once the Help & Support screen
-  gets built.
+  export. **Still open** — the other 3 now show a draft, grounded-in-real-
+  behavior answer instead of a blank accordion (#79), each flagged as
+  pending the company's confirmation, but that's a stopgap, not the real
+  answer.
 - **Notification preferences storage** -- **resolved (#44), then reversed
   by #67:** now a `notification_preferences` table the server can read.
   (Originally: local on-device setting only (`shared_preferences`), no table.) Moving them to the backend stays
