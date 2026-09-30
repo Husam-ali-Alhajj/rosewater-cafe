@@ -9,10 +9,8 @@ import 'package:rosewater_cafe/services/payment_method_service.dart';
 PaymentMethod _card(String id, String brand, String last4, {bool isDefault = false, int month = 12, int year = 2030}) =>
     PaymentMethod(id: id, brand: brand, last4: last4, expMonth: month, expYear: year, isDefault: isDefault);
 
-/// Stands in for the real service. It keeps its own "server" list, and how it
-/// reacts to setDefault/delete is decided by the test -- so the UI tests can
-/// prove the screen shows what the SERVER ended up with, not what a naive
-/// client-side reorder would have produced.
+/// A fake service with its own "server" list. Each test decides how it reacts, so we can check the
+/// screen shows what the server returns.
 class _FakeService extends PaymentMethodService {
   _FakeService(this.cards, {this.failLoad = false, this.failure});
 
@@ -25,7 +23,7 @@ class _FakeService extends PaymentMethodService {
   final List<Map<String, Object?>> addCalls = [];
   int listCalls = 0;
 
-  /// What the "database" does when a delete removes the default card.
+  /// What the "database" does when the default card is deleted.
   String? promoteOnDeleteId;
 
   @override
@@ -85,8 +83,7 @@ Future<void> _pumpList(WidgetTester tester, _FakeService service) async {
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      // Sprint 8 Task 6 Phase 2: ScreenHeader now reads AppLocalizations for
-      // its back button -- this screen's own strings aren't localized yet.
+      // Needed for the translated back button.
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: PaymentMethodsScreen(service: service),
@@ -95,8 +92,7 @@ Future<void> _pumpList(WidgetTester tester, _FakeService service) async {
   await tester.pumpAndSettle();
 }
 
-/// Opens Add Payment Method from a host screen so a test can see what it
-/// pops with (`true` once saved).
+/// Opens Add Payment Method from another screen so the test can see what it returns.
 class _AddResult {
   bool? popped;
   bool didPop = false;
@@ -109,8 +105,7 @@ Future<_AddResult> _openAdd(WidgetTester tester, _FakeService service, {required
   final result = _AddResult();
   await tester.pumpWidget(
     MaterialApp(
-      // Sprint 8 Task 6 Phase 2: ScreenHeader now reads AppLocalizations for
-      // its back button -- this screen's own strings aren't localized yet.
+      // Needed for the translated back button.
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(
@@ -167,10 +162,7 @@ void main() {
     });
 
     testWidgets('default card has only Delete; other cards also get Set as default', (tester) async {
-      final service = _FakeService([
-        _card('1', 'Visa', '4242', isDefault: true),
-        _card('2', 'Mastercard', '8888'),
-      ]);
+      final service = _FakeService([_card('1', 'Visa', '4242', isDefault: true), _card('2', 'Mastercard', '8888')]);
       await _pumpList(tester, service);
 
       expect(find.byTooltip('Delete'), findsNWidgets(2));
@@ -199,21 +191,17 @@ void main() {
     });
 
     testWidgets('Set as default asks the server once and shows what the server returns', (tester) async {
-      final service = _FakeService([
-        _card('1', 'Visa', '4242', isDefault: true),
-        _card('2', 'Mastercard', '8888'),
-      ]);
+      final service = _FakeService([_card('1', 'Visa', '4242', isDefault: true), _card('2', 'Mastercard', '8888')]);
       await _pumpList(tester, service);
       final loadsBefore = service.listCalls;
 
       await tester.tap(find.byTooltip('Set as default'));
       await tester.pumpAndSettle();
 
-      // One request, for the tapped card -- the client never unchecks the old
-      // default itself; the database does that.
+      // One request for the tapped card; the database unsets the old default.
       expect(service.setDefaultCalls, ['2']);
       expect(service.listCalls, loadsBefore + 1); // reloaded from the server
-      // The Default badge is now on the Mastercard's card, and only there.
+      // The Default badge is now only on the Mastercard.
       expect(find.text('Default'), findsOneWidget);
       expect(find.byTooltip('Set as default'), findsOneWidget); // now on the Visa
     });
@@ -235,9 +223,7 @@ void main() {
     });
 
     testWidgets('confirming a delete removes it, and shows the card the SERVER promoted', (tester) async {
-      // Three cards; the default is deleted and the server promotes the middle
-      // one -- not the first in the list, which is what a naive client-side
-      // "make the next card default" would have picked.
+      // The server makes the middle card the new default, not the first one in the list.
       final service = _FakeService([
         _card('1', 'Visa', '4242', isDefault: true),
         _card('2', 'Mastercard', '8888'),
@@ -253,16 +239,15 @@ void main() {
       expect(service.deleteCalls, ['1']);
       expect(find.text('Visa'), findsNothing);
       expect(find.text('Default'), findsOneWidget);
-      // The Discover (id 3) holds the badge: it has no "Set as default" button,
-      // the remaining Mastercard does.
+      // The Discover card is now the default: it has no "Set as default" button.
       expect(find.byTooltip('Set as default'), findsOneWidget);
     });
 
     testWidgets('a failed action shows a message and the list stays consistent', (tester) async {
-      final service = _FakeService(
-        [_card('1', 'Visa', '4242', isDefault: true), _card('2', 'Mastercard', '8888')],
-        failure: const PaymentMethodFailure("That didn't go through. Please try again."),
-      );
+      final service = _FakeService([
+        _card('1', 'Visa', '4242', isDefault: true),
+        _card('2', 'Mastercard', '8888'),
+      ], failure: const PaymentMethodFailure("That didn't go through. Please try again."));
       await _pumpList(tester, service);
 
       await tester.tap(find.byTooltip('Set as default'));
@@ -309,7 +294,7 @@ void main() {
         'expYear': 2099,
         'makeDefault': true, // the first card is always the default
       });
-      // Nothing in what was sent contains the full number or the CVV.
+      // Nothing sent contains the full number or the CVV.
       expect(call.values.join(' '), isNot(contains('4242424242429876')));
       expect(call.values.join(' '), isNot(contains('123')));
       expect(result.didPop, isTrue);

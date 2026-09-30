@@ -1,26 +1,16 @@
--- Sprint 9 Task 1 follow-up: notifications in the user's language.
+-- Notifications in the user's language.
 --
--- `title`/`body` (20260928100000) are English sentences baked at insert
--- time, so an Arabic user would read "Membership Activated" -- and a
--- language switch could never re-translate an existing row. Rather than
--- adding title_ar/body_ar (duplicating the app's Arabic event-type names
--- in SQL, and a new column pair per future language), each row now also
--- stores the FACTS it reports, in `data`, and the app builds the text in
--- whatever language is active from its own translation files (see
--- lib/utils/notification_localization.dart). `title`/`body` stay as an
--- English fallback for any type the app doesn't know yet.
+-- The title and body are fixed English text, so each notification now also stores its details in
+-- `data`, and the app builds the text in the current language (see
+-- lib/utils/notification_localization.dart). The English text stays as a fallback.
 --
--- `data` is written only by the two SECURITY DEFINER functions below,
--- from the same values they already validated/computed, never anything
--- else client-supplied. It is NOT client-updatable: the column-level
--- `grant update (is_read)` from 20260928100000 still covers only
--- is_read, and a new column gets no UPDATE grant of its own.
+-- `data` is only written by the functions below; users can't change it (they can only update
+-- `is_read`).
 --
---   subscription_activated:      {plan_name, valid_until}
---   event_reservation_confirmed: {event_type, event_date, start_time (HH24:MI), guest_count}
+-- subscription_activated:      {plan_name, valid_until}
+-- event_reservation_confirmed: {event_type, event_date, start_time (HH24:MI), guest_count}
 --
--- Both functions below are 20260928100000's versions verbatim except the
--- notification insert, which now also fills `data`.
+-- The functions below are unchanged except that their notification insert also fills `data`.
 
 alter table public.notifications
   add column data jsonb not null default '{}'::jsonb;
@@ -45,18 +35,12 @@ begin
     raise exception 'not_authenticated';
   end if;
 
-  -- TODO(payments): there is no real payment gateway wired up yet, so this
-  -- call just marks the subscription paid with no charge attached. Any
-  -- authenticated user can activate their own pending subscription for
-  -- free by calling this directly. Accepted as a known, temporary gap for
-  -- this sprint -- must be replaced with a server-verified charge (e.g. a
-  -- payment provider webhook) before this goes anywhere near production.
+  -- TODO(payments): there's no real payment gateway yet, so this just marks the subscription paid.
+  -- A signed-in user could activate their own pending subscription for free by calling this
+  -- directly. Must be replaced with a server-verified payment before going live.
   --
-  -- The `and status = 'pending'` guard below is still load-bearing even
-  -- with the mock payment: it makes the call idempotent (calling it again
-  -- on an already-active subscription does nothing) and, combined with
-  -- `user_id = v_user_id`, it stops a caller from activating someone
-  -- else's subscription by guessing/enumerating subscription ids.
+  -- The `status = 'pending'` check makes repeat calls do nothing, and together with `user_id =
+  -- v_user_id` stops anyone activating another user's subscription.
   update public.subscriptions
   set status = 'active',
       started_at = now(),
@@ -73,10 +57,7 @@ begin
   insert into public.usage_allowances (user_id, period_start, period_end)
   values (v_user_id, current_date, v_valid_until::date);
 
-  -- Sprint 9 Task 1: a real notification for the payment that just
-  -- happened -- the plan name and valid_until are read back from what
-  -- this function itself just resolved/computed above, not re-derived
-  -- from anything the client could influence.
+  -- Notify the user about the payment, using the plan name and date this function just set.
   select name into v_plan_name from public.membership_plans where id = v_plan_id;
 
   insert into public.notifications (user_id, type, title, body, related_id, data)
@@ -111,10 +92,8 @@ set search_path = public
 as $$
 declare
   v_user_id uuid := auth.uid();
-  -- Placeholder flat pricing, pending real numbers from the company (see
-  -- docs/decisions.md #33/#36). One named constant here means plugging in
-  -- real pricing later is a one-line change in one place, not a hunt
-  -- through the codebase for every place a price was computed.
+  -- Placeholder price until the company gives real numbers. Change it here only (the app uses the
+  -- same value for its estimate).
   c_price_per_hour constant numeric := 150.00;
   v_total_price numeric;
   v_reservation_id uuid;
@@ -146,14 +125,8 @@ begin
   )
   returning id into v_reservation_id;
 
-  -- Sprint 9 Task 1: same pattern as confirm_subscription_payment above
-  -- -- a real notification from what this call already validated
-  -- (event type/date/guest count), inside the same transaction as the
-  -- reservation it's reporting.
-  -- `to_char` has no overload for a bare `time` (no implicit cast to
-  -- anything it accepts) -- (p_event_date + p_start_time) combines them
-  -- into a real `timestamp` first, the standard Postgres `date + time`
-  -- operator, so the time-of-day formats correctly.
+  -- Notify the user about the reservation. to_char can't format a plain `time`, so the date and
+  -- time are combined into a timestamp first.
   insert into public.notifications (user_id, type, title, body, related_id, data)
   values (
     v_user_id,

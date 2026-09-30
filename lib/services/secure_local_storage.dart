@@ -2,19 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Persists the Supabase auth session (access + refresh tokens) using the
-/// platform's encrypted storage — Android Keystore-backed
-/// EncryptedSharedPreferences, iOS/macOS Keychain, Windows Credential
-/// Locker — instead of supabase_flutter's default [SharedPreferencesLocalStorage],
-/// which writes the same data to disk in plain text.
-///
-/// Passed into `Supabase.initialize(authOptions: FlutterAuthClientOptions(
-/// localStorage: SecureLocalStorage()))`.
+/// Stores the Supabase login session in the platform's encrypted storage (Keystore, Keychain,
+/// Windows Credential Locker) instead of plain-text files.
 class SecureLocalStorage extends LocalStorage {
-  SecureLocalStorage({
-    this.persistSessionKey = 'supabase.session',
-    FlutterSecureStorage? storage,
-  }) : _storage = storage ?? const FlutterSecureStorage();
+  SecureLocalStorage({this.persistSessionKey = 'supabase.session', FlutterSecureStorage? storage})
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final String persistSessionKey;
   final FlutterSecureStorage _storage;
@@ -25,7 +17,7 @@ class SecureLocalStorage extends LocalStorage {
   @override
   Future<bool> hasAccessToken() async {
     final hasToken = await _storage.containsKey(key: persistSessionKey);
-    // Never print the session value itself — only whether one exists.
+    // Never log the session itself, only whether there is one.
     debugPrint('[SecureLocalStorage] hasAccessToken() -> $hasToken');
     return hasToken;
   }

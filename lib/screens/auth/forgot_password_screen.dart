@@ -7,10 +7,8 @@ import '../../utils/validators.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 
-/// Real password-reset request: supabase.auth.resetPasswordForEmail(...).
-/// Shows the exact same success screen whether or not the email is
-/// registered — this is the one screen in the app where hiding account
-/// existence is the explicit goal, not an incidental side effect.
+/// Sends a password-reset email. Shows the same success message whether or not the email has an
+/// account, so the screen can't be used to check who's registered.
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -34,7 +32,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _submit() async {
-    if (_isSubmitting) return; // same re-entry guard as the other auth forms
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -45,10 +43,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     try {
       await _authService.resetPassword(_emailController.text.trim());
       if (!mounted) return;
-      // Always the success state on a non-throwing call — resetPassword()
-      // only ever throws for a genuine technical problem, never because
-      // the email isn't registered, so reaching here means "show success"
-      // unconditionally, by design.
+      // Always show success: resetPassword() only throws for real technical errors, never for an
+      // unknown email.
       setState(() {
         _isSubmitting = false;
         _submitted = true;
@@ -62,9 +58,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).genericConnectionError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).genericConnectionError)));
     }
   }
 
@@ -81,8 +77,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  // Sprint 8 Task 6: see sign_in_screen.dart for why this
-                  // needs an explicit RTL check.
+                  // The back arrow has to point the other way in right-to-left.
                   icon: Icon(
                     Directionality.of(context) == TextDirection.rtl ? Icons.arrow_forward : Icons.arrow_back,
                     color: colors.textPrimary,
@@ -95,9 +90,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   decoration: BoxDecoration(
                     color: colors.surface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(14),
-                    // Figma's fractional hairline stroke (same value as App
-                    // Settings' _hairline), confirmed in Sprint 6 Task 3 --
-                    // was missing entirely before this fidelity pass.
                     border: Border.all(color: colors.border, width: 0.515),
                     boxShadow: [
                       BoxShadow(
@@ -128,11 +120,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const SizedBox(height: 24),
           Text(l10n.forgotPassword, style: AppTextStyles.heading1(context)),
           const SizedBox(height: 8),
-          Text(
-            l10n.forgotPasswordSubtitle,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMuted(context),
-          ),
+          Text(l10n.forgotPasswordSubtitle, textAlign: TextAlign.center, style: AppTextStyles.bodyMuted(context)),
           const SizedBox(height: 24),
           TextFormField(
             controller: _emailController,
@@ -148,13 +136,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Align(
-                // AlignmentDirectional.centerStart, not physical
-                // Alignment.centerLeft (Sprint 8 Task 6).
                 alignment: AlignmentDirectional.centerStart,
-                child: Text(
-                  _requestError!,
-                  style: TextStyle(color: context.colors.danger, fontSize: 12),
-                ),
+                child: Text(_requestError!, style: TextStyle(color: context.colors.danger, fontSize: 12)),
               ),
             ),
           const SizedBox(height: 24),
@@ -183,28 +166,20 @@ class _SuccessContent extends StatelessWidget {
         Container(
           width: 96,
           height: 96,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: colors.success.withValues(alpha: 0.12),
-          ),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: colors.success.withValues(alpha: 0.12)),
           child: Icon(Icons.mark_email_read_outlined, color: colors.success, size: 44),
         ),
         const SizedBox(height: 24),
         Text(l10n.checkYourEmail, style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
         const SizedBox(height: 8),
         Text(
-          // Deliberately worded to be true and identical whether or not
-          // "$email" actually has an account — never "we sent a link to
-          // your account", which would confirm the account exists.
+          // Worded so it's true whether or not this email has an account.
           l10n.resetLinkSentBody(email),
           textAlign: TextAlign.center,
           style: AppTextStyles.bodyMuted(context),
         ),
         const SizedBox(height: 24),
-        GradientButton(
-          label: l10n.backToSignIn,
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
+        GradientButton(label: l10n.backToSignIn, onPressed: () => Navigator.of(context).maybePop()),
       ],
     );
   }

@@ -1,19 +1,7 @@
--- Closes a real, live-confirmed gap found during the consolidated security
--- audit (docs/decisions.md #53): the "Users can update own reservations"
--- policy from the initial schema let a client directly overwrite their own
--- reservation's total_price (and any other column) after creation, via a
--- normal PostgREST update call -- confirmed live by actually doing it
--- (450.00 -> 0.01 succeeded). event_reservations.total_price is meant to be
--- server-computed exactly once, by create_event_reservation, the same way
--- decision #36 already closed the equivalent direct-INSERT bypass for this
--- table (this migration's own header explains that reasoning).
+-- Removes the "update own reservations" policy: it let users change their reservation's price after
+-- booking (tested: 450.00 -> 0.01 worked). The price should only ever be set by
+-- create_event_reservation.
 --
--- Checked before removing: nothing in the app (lib/services/
--- event_reservation_service.dart, lib/screens/events/) ever calls .update()
--- on this table -- there is no cancellation-by-update or any other feature
--- relying on this policy today. Dropping it is a pure fix, not a feature
--- regression. If a real "cancel my reservation" feature is built later, it
--- should be its own SECURITY DEFINER RPC (same pattern as
--- cancel_subscription) that only ever allows status -> 'cancelled' and
--- never touches total_price -- not a general-purpose UPDATE policy.
+-- The app never updates reservations. A future "cancel reservation" feature should be its own
+-- function that only changes the status.
 drop policy if exists "Users can update own reservations" on public.event_reservations;

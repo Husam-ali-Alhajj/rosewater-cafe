@@ -4,13 +4,8 @@ import '../../models/reservation_summary.dart';
 import 'reservation_confirmed_screen.dart';
 import 'reserve_event_screen.dart';
 
-/// The Events tab's actual content inside MainShell's IndexedStack. Holds
-/// which of the tab's two states is showing -- the reservation form, or
-/// the confirmation screen for whatever was just submitted -- as plain
-/// local state, swapped with a simple conditional rather than a nested
-/// Navigator. That's what makes "returning to Home doesn't leave a
-/// dangling nav stack entry" true by construction: this transition was
-/// never a `Navigator.push` to begin with (see docs/decisions.md #38).
+/// The Events tab: shows the booking form, or the confirmation after a booking. Swapped with a
+/// simple condition instead of navigation, so going back to Home leaves nothing behind.
 class EventsTab extends StatefulWidget {
   final VoidCallback onGoToHome;
 
@@ -28,10 +23,7 @@ class _EventsTabState extends State<EventsTab> {
   }
 
   void _backToDashboard() {
-    // Cleared here, not only on next entry -- so the next time the user
-    // opens the Events tab at all (not just the next time this screen
-    // happens to rebuild), they see a fresh, blank ReserveEventScreen
-    // rather than the reservation they already confirmed.
+    // Clear it so the next visit shows an empty form.
     setState(() => _confirmedReservation = null);
     widget.onGoToHome();
   }

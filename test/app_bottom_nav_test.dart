@@ -3,12 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/widgets/app_bottom_nav.dart';
 
-/// Sprint 8 Task 6 -- one of the three screens the acceptance criteria
-/// explicitly names for RTL confirmation. `AppBottomNav` needed zero layout
-/// changes for Arabic (every tab is a plain vertical Column with no
-/// left/right positioning to mirror, and the enclosing Row already
-/// reverses under RTL Directionality) -- this proves that claim rather
-/// than leaving it as an unverified comment.
+/// The bottom navigation in both directions. It needs no special right-to-left code; these tests
+/// prove that.
 Future<int?> _pump(WidgetTester tester, {String locale = 'en', int currentIndex = 0}) async {
   int? tapped;
   await tester.pumpWidget(
@@ -55,9 +51,7 @@ void main() {
     testWidgets('the active tab still shows its dot and bold label under RTL', (tester) async {
       await _pump(tester, locale: 'ar', currentIndex: 2); // Events
 
-      // The dot is an unlabelled 4x4 Container -- located via its known
-      // active-tab sibling, the same way the design draws exactly one at
-      // a time.
+      // The dot is found through the active tab, since there's only one at a time.
       final activeLabel = tester.widget<Text>(find.text('الفعاليات'));
       expect(activeLabel.style?.fontWeight, FontWeight.w600);
 
@@ -68,19 +62,15 @@ void main() {
     });
 
     testWidgets('tapping a tab still reports the right index under RTL', (tester) async {
-      // Sprint 8 Task 6's whole point: RTL reverses the VISUAL order (tap
-      // targets swap sides), but the logical tab-index contract with
-      // MainShell must not change -- tapping "Profile" (still logically
-      // index 3, now rendered on the visual left) must still report 3.
+      // In right-to-left the tabs swap sides visually, but each still reports its own index
+      // (Profile is still 3).
       late int? tapped;
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('ar'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            bottomNavigationBar: AppBottomNav(currentIndex: 0, onTap: (i) => tapped = i),
-          ),
+          home: Scaffold(bottomNavigationBar: AppBottomNav(currentIndex: 0, onTap: (i) => tapped = i)),
         ),
       );
       await tester.pumpAndSettle();

@@ -5,9 +5,9 @@ import '../theme/app_semantic_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'screen_header.dart';
 
-const _hairline = 0.515; // same fractional hairline the rest of Profile's cards use
+const _hairline = 0.515;
 
-/// One heading + body pair of a [LegalDocumentScreen].
+/// One heading and paragraph of a legal document.
 class LegalSection {
   final String heading;
   final String body;
@@ -15,20 +15,11 @@ class LegalSection {
   const LegalSection(this.heading, this.body);
 }
 
-/// Shared renderer for Privacy Policy / Terms of Service (Sprint 9 Task 5).
+/// Shows the Privacy Policy or Terms of Service.
 ///
-/// **This is placeholder legal-shaped text, not company-approved copy.**
-/// Neither document was written or reviewed by a lawyer -- see
-/// docs/decisions.md's Task 5 entry for the full disclosure. The banner
-/// below says so in the app itself too, not just in the decisions log,
-/// since a document that reads exactly like a real, final policy is the
-/// easiest thing to mistake for one later.
-///
-/// Each document supplies its sections in English and Arabic and picks by
-/// the app's language (the Arabic is a placeholder translation of the
-/// placeholder text -- the final, approved copy needs a professional legal
-/// translation). The screen chrome -- title, back button, the banner -- goes
-/// through `AppLocalizations` like everything else.
+/// This is DRAFT placeholder text, not reviewed by a lawyer or approved by the company. The banner
+/// at the top says so in the app too. Each document has English and Arabic versions, picked by the
+/// app's language.
 class LegalDocumentScreen extends StatelessWidget {
   final String title;
   final List<LegalSection> sections;

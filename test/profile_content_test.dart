@@ -32,7 +32,8 @@ const _profile = Profile(
 
 class _Calls {
   final List<String> log = [];
-  VoidCallback rec(String name) => () => log.add(name);
+  VoidCallback rec(String name) =>
+      () => log.add(name);
 }
 
 Future<_Calls> _pump(
@@ -40,9 +41,7 @@ Future<_Calls> _pump(
   Profile? profile = _profile,
   ActiveMembership? membership,
   bool signOutEnabled = true,
-  // Sprint 9 Task 4: defaults true so every pre-existing test below (which
-  // all assume "Upgrade Membership" shows) keeps working unchanged --
-  // the false case gets its own dedicated test.
+  // True by default so the tests below see "Upgrade Membership"; the false case has its own test.
   bool hasUpgradeOption = true,
 }) async {
   // Tall enough that nothing needs scrolling, so taps land on-screen.
@@ -53,8 +52,7 @@ Future<_Calls> _pump(
   final calls = _Calls();
   await tester.pumpWidget(
     MaterialApp(
-      // Sprint 8 Task 6 Phase 2: this screen now reads AppLocalizations
-      // throughout (see profile_screen.dart).
+      // The screen uses translations.
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
@@ -163,16 +161,7 @@ void main() {
       await tester.tap(find.text(label));
     }
 
-    expect(calls.log, [
-      'edit',
-      'upgrade',
-      'payment',
-      'notifications',
-      'privacy',
-      'help',
-      'settings',
-      'signout',
-    ]);
+    expect(calls.log, ['edit', 'upgrade', 'payment', 'notifications', 'privacy', 'help', 'settings', 'signout']);
   });
 
   testWidgets('a failed profile load shows a retry, but the rest (incl. Sign Out) still works', (tester) async {
@@ -197,7 +186,7 @@ void main() {
     expect(calls.log, isEmpty);
   });
 
-  group('Sprint 9 Task 4: Upgrade Membership entry point', () {
+  group('Upgrade Membership button', () {
     testWidgets('shows and fires its callback when a higher-priced plan exists', (tester) async {
       final calls = await _pump(tester, hasUpgradeOption: true);
 

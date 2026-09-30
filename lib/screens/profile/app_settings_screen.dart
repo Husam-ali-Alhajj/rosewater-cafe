@@ -6,33 +6,14 @@ import '../../services/app_settings_service.dart';
 import '../../services/settings_provider.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/screen_header.dart';
+import '../../widgets/app_logo.dart';
 import '../../widgets/setting_toggle_row.dart';
 import '../auth/sign_out.dart';
 
-// Values follow the same shared/established patterns as the rest of the
-// Profile section (Notification settings, Privacy & Security, Help &
-// Support), reused rather than re-measured -- the Figma REST API was still
-// rate-limited when this screen was built (see decision #47). Sprint 8 Task
-// 2 made this screen theme-aware (it's where Dark Mode itself is toggled,
-// so it has to actually look right the instant that switch flips): the
-// fixed neutral inks/fills this file used to hardcode (title/body text, the
-// cache-size row fill, the card divider) are gone -- every build() below
-// reads them from `context.colors` instead. The v3 accent rebuild went
-// further and tokenized the language-selected wash and the
-// destructive-action ink/border too (`colors.accent`/`colors.danger`), so
-// both react to the blue-in-dark-mode accent instead of staying the
-// design's fixed pink/red literals.
+const _hairline = 0.515;
 
-const _hairline = 0.515; // Figma's fractional hairline stroke width
-
-/// One row in the Language list. [label] is always shown in that
-/// language's OWN script ("العربية", not "Arabic") -- the standard
-/// convention for a language picker, and not something that needs
-/// `AppLocalizations` at all, unlike everything else this task touches.
-/// [translated] is false for French/Spanish: shown (the design lists all
-/// four) but not selectable -- greyed out with "(Coming Soon)" until they
-/// have translations (decision #72, which replaced #63's "selectable, but
-/// shows English text" approach at the user's request).
+/// A language option, shown in its own script ("العربية", not "Arabic"). French and Spanish are
+/// listed but disabled until they're translated.
 class _Language {
   final String code;
   final String label;
@@ -48,77 +29,27 @@ const _languages = [
   _Language(code: 'es', label: 'Español', translated: false),
 ];
 
-// pubspec.yaml's real `version: 1.0.0+1` -- shown instead of the design's
-// mock "Build 2024.01.14" (a demo date, not anything this project tracks).
-// Same idea as decision #3's member-ID fix: real data over plausible-looking
-// mock data.
+// The real app version instead of the design's demo build date.
 const _appVersion = '1.0.0';
 const _appBuild = '1';
 
-/// App Settings (Figma frame "AppSettingsScreen"): Appearance, Language,
-/// Interactions, Data & Storage.
+/// App Settings: Appearance, Language, Interactions, Data & Storage. Every switch here works:
 ///
-/// **Dark Mode is real now (Sprint 8 Task 2)** -- decision #5 originally
-/// scoped it out alongside Language, but this task un-scopes exactly Dark
-/// Mode: the toggle reads and writes `SettingsProvider.themeMode` (the same
-/// provider `main.dart`'s `MaterialApp` watches for `themeMode`), so
-/// flipping it here changes every screen's theme immediately, with no
-/// restart and no "(Coming Soon)" label anymore.
+/// - Dark Mode and Language change the whole app immediately (Arabic also switches to
+/// right-to-left).
+/// - Animations, Sound Effects and Haptic Feedback control the app's transitions and feedback.
+/// - Cache Size shows the real image-cache size, and Clear Cache empties it.
+/// - Clear All App Data removes local settings and signs the user out.
 ///
-/// **Language is real for English/Arabic as of Sprint 8 Task 6** (decision
-/// #63, superseding decision #5's original "shown for visual accuracy,
-/// built nowhere"): tapping a row calls `SettingsProvider.setLocale`, which
-/// `main.dart`'s `MaterialApp.locale` reads -- Arabic switches every
-/// translated string AND flips `Directionality` to RTL app-wide, live, no
-/// restart. French/Spanish are real, storable picks too (the row is
-/// tappable and shows selected), they just have no ARB translation yet --
-/// `MaterialApp.supportedLocales` only lists en/ar, so picking one of them
-/// falls back to English TEXT, with a caption saying so, rather than a
-/// missing-key crash or silently wrong text.
-///
-/// **Animations is real too** (Sprint 8 Task 3, decision #60): the toggle
-/// reads/writes `SettingsProvider.animationsEnabled`, which
-/// `AppPageRoute`/`appRoute` (every screen transition) and
-/// `context.animDuration` (every explicit `Animated*` widget duration)
-/// read at the moment they'd animate.
-///
-/// **Sound Effects and Haptic Feedback are real as of Sprint 8 Task 4**
-/// (decision #61): each toggle reads/writes its own
-/// `SettingsProvider.soundEnabled`/`.hapticsEnabled`, and
-/// `context.triggerButtonPress`/`.triggerSuccess`/`.triggerError`
-/// (`lib/utils/app_feedback.dart`) gate sound and haptics independently
-/// through them at a small, fixed set of real trigger points -- not every
-/// tap. (This app's Sound & Vibration toggle on the Notifications screen is
-/// a *different* setting -- notification sound, not general UI sound --
-/// kept deliberately separate, the same kind of naming collision decision
-/// #33 already called out for two different "guests" fields.)
-///
-/// **Data & Storage is real**, by this task's explicit "your call": this app
-/// has almost nothing to manage locally (no bulk asset/network image
-/// caching -- the one real user of Flutter's image cache is the profile
-/// photo's signed URL), so "Cache Size" shows the real, computed number of
-/// bytes currently cached -- never the design's fabricated "12.5 MB" -- and
-/// "Clear Cache" really clears it. "Clear All App Data" really wipes every
-/// local preference (`shared_preferences`: the onboarding flag, saved
-/// notification settings) and then signs the device out for real, since a
-/// device with no local session should not still look signed in.
+/// (The Notifications "Sound & Vibration" switch is a separate setting, for notification sounds.)
 class AppSettingsScreen extends StatefulWidget {
   final AppSettingsService service;
 
-  /// What runs right after local preferences are cleared and confirmed.
-  /// Defaults to [signOutAndShowLanding] -- the real thing, which needs a
-  /// live Supabase client. Overridable so this can be proven without one
-  /// (widget tests can't initialise Supabase): a test passes a spy here to
-  /// confirm this step would run, the same way other screens in this app
-  /// inject their services rather than unit-testing a real sign-out call
-  /// directly (see ProfileScreen/HomeScreen).
+  /// Runs after local data is cleared (signs out by default). A parameter so tests can check it
+  /// without Supabase.
   final Future<void> Function(BuildContext context)? onDataCleared;
 
-  const AppSettingsScreen({
-    super.key,
-    this.service = const AppSettingsService(),
-    this.onDataCleared,
-  });
+  const AppSettingsScreen({super.key, this.service = const AppSettingsService(), this.onDataCleared});
 
   @override
   State<AppSettingsScreen> createState() => _AppSettingsScreenState();
@@ -131,9 +62,9 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   void _clearCache() {
     widget.service.clearImageCache();
     setState(() => _cacheBytes = widget.service.cacheSizeBytes());
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context).cacheClearedMessage)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).cacheClearedMessage)));
   }
 
   Future<void> _confirmClearAllData() async {
@@ -159,8 +90,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     widget.service.clearImageCache();
     await widget.service.clearLocalPreferences();
     if (!mounted) return;
-    // A device with no local preferences shouldn't still look signed in --
-    // clears the session too, and returns to Auth Landing.
+    // No local data means no session either, so sign out and go back to the start.
     if (widget.onDataCleared != null) {
       await widget.onDataCleared!(context);
     } else {
@@ -179,7 +109,10 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ScreenHeader(title: AppLocalizations.of(context).appSettingsLabel, onBack: () => Navigator.of(context).pop()),
+                ScreenHeader(
+                  title: AppLocalizations.of(context).appSettingsLabel,
+                  onBack: () => Navigator.of(context).pop(),
+                ),
                 const SizedBox(height: 24),
                 const _AppearanceCard(),
                 const SizedBox(height: 24),
@@ -201,10 +134,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   }
 }
 
-/// A white card with a titled header. [gradientHeader] matches the
-/// Notification/Security Options band pattern for the section that leads the
-/// screen; the others use a plain header with a hairline divider, matching
-/// Privacy & Security's Password/Privacy cards.
+/// A card with a title. The first section uses the gradient header, the others a plain one.
 class _Card extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -231,7 +161,9 @@ class _Card extends StatelessWidget {
             decoration: gradientHeader
                 ? BoxDecoration(gradient: colors.accentGradient)
                 : BoxDecoration(
-                    border: Border(bottom: BorderSide(color: colors.border, width: _hairline)),
+                    border: Border(
+                      bottom: BorderSide(color: colors.border, width: _hairline),
+                    ),
                   ),
             child: Row(
               children: [
@@ -262,11 +194,6 @@ class _AppearanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Real now (Sprint 8 Task 2) -- `watch`, not `read`, so this row's
-    // switch reflects `SettingsProvider.themeMode` immediately if it's
-    // changed anywhere else (there's nowhere else yet, but the same
-    // `ChangeNotifierProvider` this reads from is what `main.dart`'s
-    // `MaterialApp` also watches, so the two never disagree).
     final settings = context.watch<SettingsProvider>();
     final isDark = settings.themeMode == ThemeMode.dark;
     final l10n = AppLocalizations.of(context);
@@ -292,12 +219,6 @@ class _AppearanceCard extends StatelessWidget {
             iconSize: 20,
             label: l10n.animationsLabel,
             description: l10n.animationsDescription,
-            // Real now (Sprint 8 Task 3): page transitions (AppPageRoute,
-            // via every screen's `appRoute` call) and every explicit
-            // Animated* widget duration (this very switch included --
-            // SettingSwitch's AnimatedContainer/AnimatedPositioned read
-            // `context.animDuration`) collapse to near-zero the instant
-            // this flips off.
             value: settings.animationsEnabled,
             onToggle: () => settings.setAnimationsEnabled(!settings.animationsEnabled),
             showDivider: false,
@@ -319,7 +240,7 @@ class _AppearanceCard extends StatelessWidget {
             _LanguageRow(
               language: language,
               selected: language.code == settings.locale,
-              // Untranslated languages can't be picked (decision #72).
+              // Languages without translations can't be picked.
               onTap: language.translated ? () => settings.setLocale(language.code) : null,
             ),
           const SizedBox(height: 8),
@@ -329,11 +250,7 @@ class _AppearanceCard extends StatelessWidget {
   }
 }
 
-/// One language option (Sprint 8 Task 6, decision #63): English and Arabic
-/// are real (tapping one calls `SettingsProvider.setLocale`, live-switching
-/// the whole app -- and, for Arabic, its `Directionality`). French/Spanish
-/// have no translations yet, so their rows are disabled ([onTap] null):
-/// greyed out, not tappable, marked "(Coming Soon)" (decision #72).
+/// One language row. Disabled rows (no onTap) are greyed out with "(Coming Soon)".
 class _LanguageRow extends StatelessWidget {
   final _Language language;
   final bool selected;
@@ -356,9 +273,7 @@ class _LanguageRow extends StatelessWidget {
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            // A light accent wash, not the design's fixed pink literals --
-            // derived from `colors.accent` so it's pink-tinted in light mode
-            // and blue-tinted in dark, matching whatever the accent is.
+            // Light accent tint for the selected language.
             color: selected ? colors.accent.withValues(alpha: 0.08) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: selected ? Border.all(color: colors.accent.withValues(alpha: 0.4), width: _hairline) : null,
@@ -398,9 +313,6 @@ class _InteractionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Real now (Sprint 8 Task 4) -- same `watch` reasoning as Dark
-    // Mode/Animations above: this row's own switches need to reflect
-    // SettingsProvider immediately.
     final settings = context.watch<SettingsProvider>();
     final l10n = AppLocalizations.of(context);
     return _Card(
@@ -503,9 +415,7 @@ class _DataStorageCard extends StatelessWidget {
   }
 }
 
-/// The full-width outlined button shape shared by "Clear Cache" and "Clear
-/// All App Data" (Figma-consistent with Profile's Edit Profile / Sign Out
-/// buttons -- same 51.09 height, radius 8, hairline border).
+/// The outlined button used by "Clear Cache" and "Clear All App Data".
 class _OutlinedActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -563,13 +473,8 @@ class _FooterInfo extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return Column(
       children: [
-        // "Rosewater Café" is the app's own name, kept as-is in every
-        // locale -- same convention as versionFooter's brand tail elsewhere.
-        Text(
-          'Rosewater Café',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
-        ),
-        const SizedBox(height: 4),
+        const AppLogo(height: 40),
+        const SizedBox(height: 8),
         Text(l10n.versionLine(_appVersion), style: TextStyle(fontSize: 12, color: colors.textMuted)),
         const SizedBox(height: 2),
         Text(l10n.buildLine(_appBuild), style: TextStyle(fontSize: 12, color: colors.textMuted)),

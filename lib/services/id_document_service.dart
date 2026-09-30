@@ -2,16 +2,13 @@ import 'dart:typed_data';
 
 import 'supabase_client.dart';
 
-/// Thrown by [IdDocumentService.validate] when a file is over the design's
-/// stated limit. Carries the limit so the UI can phrase the message without
-/// hardcoding the number twice.
+/// The file is bigger than the design's limit.
 class IdDocumentTooLarge implements Exception {
   final int maxBytes;
   const IdDocumentTooLarge(this.maxBytes);
 }
 
-/// Thrown by [IdDocumentService.validate] for any extension other than
-/// PNG/JPG/PDF — the exact set the design's upload box states.
+/// The file isn't PNG, JPG or PDF.
 class IdDocumentInvalidType implements Exception {
   const IdDocumentInvalidType();
 }
@@ -20,12 +17,10 @@ class IdDocumentService {
   const IdDocumentService();
 
   static const bucket = 'id-documents';
-  static const maxBytes = 10 * 1024 * 1024; // 10MB, per the design's "max 10MB" label
+  static const maxBytes = 10 * 1024 * 1024; // 10MB, as the design says
   static const allowedExtensions = {'png', 'jpg', 'jpeg', 'pdf'};
 
-  /// Checked against just the file's name/size — never its bytes — so this
-  /// can run (and reject) immediately after picking, before any upload is
-  /// even attempted, not after one fails partway through.
+  /// Only checks the name and size, so a bad file is rejected right after picking.
   void validate({required String fileName, required int sizeBytes}) {
     final dot = fileName.lastIndexOf('.');
     final ext = dot == -1 ? '' : fileName.substring(dot + 1).toLowerCase();
@@ -48,17 +43,9 @@ class IdDocumentService {
     };
   }
 
-  /// Uploads to the private `id-documents` bucket at `{user_id}/{filename}`
-  /// — that exact path shape is what the storage RLS policies
-  /// (initial_schema.sql) check via
-  /// `(storage.foldername(name))[1] = auth.uid()::text`, so a mismatched
-  /// path would be rejected by RLS rather than land somewhere unreadable.
-  ///
-  /// `verification_status` is deliberately never sent — the column
-  /// defaults to 'pending', and the insert policy's
-  /// `with check (... and verification_status = 'pending')` would reject
-  /// the row outright if anything else were ever sent, so there's no path
-  /// from this client to a non-pending row.
+  /// Uploads to the private `id-documents` bucket at `{user_id}/{filename}` (storage rules require
+  /// this path) and records it. The status always starts as 'pending'; the database rejects
+  /// anything else.
   Future<void> uploadAndRecord({required Uint8List bytes, required String fileName}) async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) throw StateError('Not authenticated');
@@ -70,9 +57,6 @@ class IdDocumentService {
 
     await supabase.storage.from(bucket).uploadBinary(storagePath, bytes);
 
-    await supabase.from('id_documents').insert({
-      'user_id': userId,
-      'storage_path': storagePath,
-    });
+    await supabase.from('id_documents').insert({'user_id': userId, 'storage_path': storagePath});
   }
 }

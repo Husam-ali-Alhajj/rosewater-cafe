@@ -5,13 +5,11 @@ import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/screens/profile/app_settings_screen.dart';
 import 'package:rosewater_cafe/services/app_settings_service.dart';
 import 'package:rosewater_cafe/services/settings_provider.dart';
+import 'package:rosewater_cafe/widgets/app_logo.dart';
 import 'package:rosewater_cafe/widgets/setting_toggle_row.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Records calls instead of touching the real image cache / SharedPreferences
-/// singleton, so the screen's own logic (confirm dialog, ordering, disabled
-/// state while clearing) can be tested in isolation from AppSettingsService's
-/// own already-covered behaviour (test/app_settings_service_test.dart).
+/// A fake that records calls instead of clearing real data, so we can test the screen's own logic.
 class _FakeService extends AppSettingsService {
   _FakeService({this.bytes = 0});
 
@@ -43,17 +41,12 @@ Future<void> _pump(
   tester.view.physicalSize = const Size(800, 3000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  // The Dark Mode row is real now (Sprint 8 Task 2): it reads/writes
-  // `SettingsProvider`, the same provider `main.dart` registers above
-  // `MaterialApp` for real -- so this screen needs one in its own widget
-  // tree here too, the same way `main.dart` provides it.
+  // The switches use SettingsProvider, as in main.dart.
   await tester.pumpWidget(
     ChangeNotifierProvider<SettingsProvider>.value(
       value: settings ?? await SettingsProvider.load(),
       child: MaterialApp(
-        // Sprint 8 Task 6 Phase 2: ScreenHeader (this screen's back button)
-        // now reads AppLocalizations for its tooltip/RTL-aware arrow --
-        // this screen's own strings aren't localized yet (a later task).
+        // Needed for the translated back button.
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: AppSettingsScreen(service: service ?? _FakeService(), onDataCleared: onDataCleared ?? (_) async {}),
@@ -63,8 +56,7 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
-bool _isOn(WidgetTester tester, String key) =>
-    tester.widget<SettingSwitch>(find.byKey(ValueKey(key))).value;
+bool _isOn(WidgetTester tester, String key) => tester.widget<SettingSwitch>(find.byKey(ValueKey(key))).value;
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -81,9 +73,7 @@ void main() {
         'Animations',
         'Enable smooth animations throughout the app',
         'Language',
-        // Each language is shown in its own script (Sprint 8 Task 6) --
-        // "العربية", not "Arabic" -- the standard language-picker
-        // convention, not something AppLocalizations governs.
+        // Each language is shown in its own script.
         'English',
         'العربية',
         'Français',
@@ -97,10 +87,10 @@ void main() {
         'Cache Size',
         'Clear Cache',
         'Clear All App Data',
-        'Rosewater Café',
       ]) {
         expect(find.text(text), findsOneWidget, reason: text);
       }
+      expect(find.byType(AppLogo), findsOneWidget); // the footer logo
     });
 
     testWidgets('shows the real app version/build, not the design\'s mock build date', (tester) async {
@@ -108,11 +98,11 @@ void main() {
 
       expect(find.text('Version 1.0.0'), findsOneWidget);
       expect(find.text('Build 1'), findsOneWidget);
-      expect(find.textContaining('2024.01.14'), findsNothing); // the mock's fabricated date
+      expect(find.textContaining('2024.01.14'), findsNothing); // the design's demo date
     });
   });
 
-  group('Dark Mode is real (Sprint 8 Task 2)', () {
+  group('Dark Mode', () {
     testWidgets('reflects SettingsProvider.themeMode and tapping flips it', (tester) async {
       final settings = await SettingsProvider.load();
       await _pump(tester, settings: settings);
@@ -142,12 +132,12 @@ void main() {
     });
   });
 
-  group('Animations is real (Sprint 8 Task 3)', () {
+  group('Animations', () {
     testWidgets('reflects SettingsProvider.animationsEnabled and tapping flips it', (tester) async {
       final settings = await SettingsProvider.load();
       await _pump(tester, settings: settings);
 
-      expect(settings.animationsEnabled, isTrue); // design shows it on, and that's the default
+      expect(settings.animationsEnabled, isTrue); // on by default, as in the design
       expect(_isOn(tester, 'animations'), isTrue);
 
       await tester.tap(find.byKey(const ValueKey('animations')));
@@ -172,7 +162,7 @@ void main() {
     });
   });
 
-  group('Language is real for English/Arabic (Sprint 8 Task 6)', () {
+  group('Language', () {
     testWidgets('starts on English selected, and tapping Arabic switches SettingsProvider.locale', (tester) async {
       final settings = await SettingsProvider.load();
       await _pump(tester, settings: settings);
@@ -203,7 +193,7 @@ void main() {
     });
   });
 
-  group('Sound Effects / Haptic Feedback are real (Sprint 8 Task 4)', () {
+  group('Sound Effects / Haptic Feedback', () {
     testWidgets('each reflects its own SettingsProvider value and tapping flips only that one', (tester) async {
       final settings = await SettingsProvider.load();
       await _pump(tester, settings: settings);
@@ -231,10 +221,7 @@ void main() {
     });
 
     testWidgets('start off when SettingsProvider already has them disabled', (tester) async {
-      SharedPreferences.setMockInitialValues({
-        'settings.sound_enabled': false,
-        'settings.haptics_enabled': false,
-      });
+      SharedPreferences.setMockInitialValues({'settings.sound_enabled': false, 'settings.haptics_enabled': false});
       final settings = await SettingsProvider.load();
       await _pump(tester, settings: settings);
 
@@ -288,37 +275,39 @@ void main() {
       expect(service.clearImageCacheCalls, 0);
     });
 
-    testWidgets('confirming clears the image cache AND local preferences, THEN runs the post-clear step, in that order', (tester) async {
-      final service = _FakeService(bytes: 999);
-      final log = <String>[];
-      await _pump(
-        tester,
-        service: service,
-        onDataCleared: (_) async => log.add('signed out'),
-      );
+    testWidgets(
+      'confirming clears the image cache AND local preferences, THEN runs the post-clear step, in that order',
+      (tester) async {
+        final service = _FakeService(bytes: 999);
+        final log = <String>[];
+        await _pump(tester, service: service, onDataCleared: (_) async => log.add('signed out'));
 
-      await tester.tap(find.text('Clear All App Data'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Clear & Sign Out'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Clear All App Data'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Clear & Sign Out'));
+        await tester.pumpAndSettle();
 
-      expect(service.clearImageCacheCalls, 1);
-      expect(service.clearLocalPreferencesCalls, 1);
-      expect(log, ['signed out']);
-    });
+        expect(service.clearImageCacheCalls, 1);
+        expect(service.clearLocalPreferencesCalls, 1);
+        expect(log, ['signed out']);
+      },
+    );
 
-    testWidgets('with no onDataCleared override, real prefs are really wiped (the default path only fakes the sign-out)', (tester) async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('has_seen_onboarding', true);
-      final realService = AppSettingsService();
+    testWidgets(
+      'with no onDataCleared override, real prefs are really wiped (the default path only fakes the sign-out)',
+      (tester) async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('has_seen_onboarding', true);
+        final realService = AppSettingsService();
 
-      await _pump(tester, service: realService, onDataCleared: (_) async {});
-      await tester.tap(find.text('Clear All App Data'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Clear & Sign Out'));
-      await tester.pumpAndSettle();
+        await _pump(tester, service: realService, onDataCleared: (_) async {});
+        await tester.tap(find.text('Clear All App Data'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Clear & Sign Out'));
+        await tester.pumpAndSettle();
 
-      expect((await SharedPreferences.getInstance()).getKeys(), isEmpty);
-    });
+        expect((await SharedPreferences.getInstance()).getKeys(), isEmpty);
+      },
+    );
   });
 }

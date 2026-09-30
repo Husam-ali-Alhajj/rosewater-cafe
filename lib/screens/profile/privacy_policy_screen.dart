@@ -3,16 +3,8 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/legal_document_screen.dart';
 
-/// Sprint 9 Task 5. **Draft placeholder text, not company-approved copy**, in
-/// English and Arabic (shown in the app's language) --
-/// see docs/decisions.md's Task 5 entry and [LegalDocumentScreen]'s doc
-/// comment. The account-deletion section describes decision #52's real,
-/// immediate self-service deletion; every other data category names an
-/// actual table this app has (`profiles`, `id_documents`, `payment_methods`,
-/// `door_access_logs`, `event_reservations`, `subscriptions`,
-/// `usage_allowances`, `notifications`) rather than invented, generic
-/// filler -- "matching the structure real ones have" was the ask, not
-/// "sounds like one."
+/// Privacy Policy, in English and Arabic. DRAFT placeholder text, not reviewed by a lawyer or
+/// approved by the company. It describes the data this app actually stores.
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
 
@@ -102,8 +94,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
     ),
   ];
 
-  /// The same draft in Arabic -- also placeholder text pending real review
-  /// (and a professional legal translation of the final copy).
+  /// The same draft in Arabic (also a placeholder).
   static const _sectionsAr = [
     LegalSection(
       '1. مقدمة',
@@ -138,10 +129,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
       '7. خياراتك وحقوقك',
       'يمكنك مراجعة معلومات ملفك الشخصي وتعديلها في أي وقت من تعديل الملف الشخصي، وتحديث تفضيلات الإشعارات -- بما في ذلك إيقاف إشعارات البريد الإلكتروني -- من إعدادات الإشعارات، وطلب حذف حسابك وبياناته في أي وقت كما هو موضح في القسم 5.',
     ),
-    LegalSection(
-      '8. خصوصية الأطفال',
-      'التطبيق غير موجّه للأطفال دون سن 16 عامًا، ولا نجمع معلومات منهم عن علم.',
-    ),
+    LegalSection('8. خصوصية الأطفال', 'التطبيق غير موجّه للأطفال دون سن 16 عامًا، ولا نجمع معلومات منهم عن علم.'),
     LegalSection(
       '9. التغييرات على هذه السياسة',
       'قد نحدّث سياسة الخصوصية هذه مع تطوّر التطبيق. ويعني استمرارك في استخدام التطبيق بعد أي تحديث قبولك للسياسة المعدّلة.',

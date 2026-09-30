@@ -4,20 +4,12 @@ import '../theme/app_semantic_colors.dart';
 class OnboardingIconBadge extends StatelessWidget {
   final IconData icon;
 
-  /// Null uses this theme's own accent gradient (via `context.colors`) --
-  /// the auth screens (Create Account, Forgot Password, Set New Password,
-  /// Sign In) all rely on this default so their badge goes blue in dark
-  /// mode along with everything else. The onboarding carousel passes its
-  /// own per-slide gradient explicitly instead, unaffected by theme.
+  /// Null uses the theme's accent gradient (used by the auth screens). Onboarding passes its own
+  /// per-slide gradient.
   final Gradient? gradient;
   final double size;
 
-  const OnboardingIconBadge({
-    super.key,
-    required this.icon,
-    this.gradient,
-    this.size = 96,
-  });
+  const OnboardingIconBadge({super.key, required this.icon, this.gradient, this.size = 96});
 
   @override
   Widget build(BuildContext context) {

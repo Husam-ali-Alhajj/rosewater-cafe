@@ -1,40 +1,18 @@
--- Sprint 10 Task 1: usage_allowances.subscription_id -- a real FK linking
--- each usage row to the subscription it belongs to, instead of picking
--- "whichever usage_allowances row for this user has the latest
--- period_start" and hoping that's the current one. That heuristic
--- (decision #28) happened to work while a user only ever had one row, but
--- breaks the moment it doesn't: a lapsed member whose subscription expired
--- would still show their last period's leftover hookah/drink counts as if
--- they were current, and a same-day-upgrade's reused row (decision #75's
--- same-day fix) has no way to prove *which* subscription it now belongs to
--- other than "it happens to be the newest".
+-- Links each usage row to its subscription (usage_allowances.subscription_id). Before, the app
+-- picked the usage row with the latest start date, which is wrong once a user has more than one
+-- (for example, a lapsed member would still see old numbers).
 
--- ------------------------------------------------------------
--- 1. Add the column, nullable at first (existing rows have none yet)
--- ------------------------------------------------------------
+-- 1. Add the column (empty at first)
 alter table public.usage_allowances
   add column subscription_id uuid references public.subscriptions (id) on delete cascade;
 
--- ------------------------------------------------------------
--- 2. Backfill existing rows, best-effort
--- ------------------------------------------------------------
+-- 2. Fill it in for existing rows
 
--- Pass 1: an EXACT date match first. Every usage_allowances row this app
--- has ever inserted (confirm_subscription_payment, upgrade_subscription)
--- was written in the same transaction, from the same `now()`/`current_date`,
--- as the subscription row it belongs to -- so period_start/period_end and
--- that subscription's started_at/valid_until (cast to date) line up
--- exactly. This has to run BEFORE the looser overlap pass below, because a
--- same-day upgrade leaves two subscriptions (the just-cancelled old one and
--- the new active one) whose date ranges both genuinely overlap a reused
--- usage row -- only the exact match tells them apart correctly (the
--- reused row keeps the OLD row's period_start, but the trigger's own
--- ON CONFLICT re-points it to the NEW subscription, so it's the new one
--- that should exact-match after that upsert).
--- (Written as a scalar subquery in SET rather than `FROM LATERAL`: the
--- UPDATE target's own columns, like `ua.user_id` below, are only in scope
--- for a correlated subquery in SET/WHERE, not for a FROM-list item, even a
--- LATERAL one.)
+-- Pass 1: exact date match. Usage rows are created in the same transaction as their subscription,
+-- so the dates match exactly. This runs first because after a same-day upgrade two subscriptions
+-- overlap the same dates.
+--
+-- (A subquery in SET, because the updated table's columns can't be used in a FROM item.)
 update public.usage_allowances ua
 set subscription_id = (
   select s.id
@@ -49,10 +27,8 @@ set subscription_id = (
 )
 where ua.subscription_id is null;
 
--- Pass 2: no exact match (older/messier historical data) -- fall back to
--- any subscription for the same user whose date range overlaps this
--- usage period at all, preferring an active one, then the closest
--- started_at.
+-- Pass 2: no exact match. Use a subscription of the same user whose dates overlap, preferring an
+-- active one, then the closest start date.
 update public.usage_allowances ua
 set subscription_id = (
   select s.id
@@ -67,10 +43,8 @@ set subscription_id = (
 )
 where ua.subscription_id is null;
 
--- Pass 3: truly best-effort last resort -- no overlapping subscription at
--- all (e.g. hand-inserted test data). Link to whichever of that user's
--- subscriptions started closest to this period, overlap or not, rather
--- than leave it unmatched.
+-- Pass 3: last resort (for example, hand-made test data). Use the user's subscription that started
+-- closest to this period.
 update public.usage_allowances ua
 set subscription_id = (
   select s.id
@@ -82,13 +56,7 @@ set subscription_id = (
 )
 where ua.subscription_id is null;
 
--- ------------------------------------------------------------
--- 3. Lock it down -- fail loudly, don't silently leave a gap, if any row
---    truly couldn't be matched (a user with a usage row but no
---    subscription at all ever -- shouldn't exist, since these rows are
---    only ever inserted alongside a subscription insert/update in the
---    same transaction).
--- ------------------------------------------------------------
+-- 3. Stop with an error if any row still has no subscription, then make the column required.
 do $$
 declare
   v_missing integer;
@@ -106,15 +74,10 @@ alter table public.usage_allowances
 
 create index idx_usage_allowances_subscription_id on public.usage_allowances (subscription_id);
 
--- ------------------------------------------------------------
--- 4. Both RPCs that insert a usage_allowances row now set subscription_id
---    to the subscription they themselves just created/activated -- never
---    a second lookup, since each already has that id in hand.
--- ------------------------------------------------------------
+-- 4. Both functions that create usage rows now set subscription_id to the subscription they just
+-- created or activated.
 
--- Same body as 20260929100000's confirm_subscription_payment, plus
--- subscription_id in the insert (v_found_id is the subscription this
--- function itself just activated, via `returning id ... into v_found_id`).
+-- Same as the previous confirm_subscription_payment, plus subscription_id in the usage insert.
 create or replace function public.confirm_subscription_payment(p_subscription_id uuid)
 returns timestamptz
 language plpgsql
@@ -168,13 +131,8 @@ revoke execute on function public.confirm_subscription_payment(uuid) from public
 revoke execute on function public.confirm_subscription_payment(uuid) from anon;
 grant execute on function public.confirm_subscription_payment(uuid) to authenticated;
 
--- Same body as 20260930170000's upgrade_subscription, plus subscription_id
--- in the insert (v_new_sub_id, the subscription this function itself just
--- created). Also added to the ON CONFLICT branch: a same-day second
--- upgrade (or a same-day payment-then-upgrade) reuses the existing row,
--- and that row must be re-pointed at the NEW subscription -- otherwise it
--- would keep pointing at whichever subscription originally created it,
--- now cancelled, defeating the whole point of this column.
+-- Same as the previous upgrade_subscription, plus subscription_id in the usage insert. A reused
+-- same-day row is also re-pointed to the new subscription.
 create or replace function public.upgrade_subscription(p_new_plan_id uuid)
 returns timestamptz
 language plpgsql

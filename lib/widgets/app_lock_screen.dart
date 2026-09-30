@@ -5,15 +5,8 @@ import '../services/auth_service.dart';
 import '../services/biometric_service.dart';
 import '../theme/app_semantic_colors.dart';
 
-/// Sprint 8 Task 5's lock screen -- shown by [AppLockGate] over whatever
-/// screen the app was on, blocking it until the user actually unlocks.
-///
-/// If Biometric Authentication is on and the device supports it, a
-/// biometric prompt fires automatically the moment this screen appears
-/// (and again on "Try Again"). "Use Password Instead" is always visible
-/// too, never hidden behind a failed biometric attempt first -- the
-/// acceptance criterion is that a device/user without working biometrics
-/// has a real path forward, not a dead end.
+/// The lock screen shown by AppLockGate. If biometric login is on, the fingerprint/face prompt
+/// starts automatically. "Use Password Instead" is always shown, so there's always a way in.
 class AppLockScreen extends StatefulWidget {
   final bool biometricEnabled;
   final BiometricService biometricService;
@@ -44,9 +37,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
   void initState() {
     super.initState();
     if (widget.biometricEnabled) {
-      // Fire once the first frame is up, not from initState directly --
-      // showing a native biometric prompt before this screen has actually
-      // painted anything looks broken on some devices.
+      // Wait for the first frame; showing the system prompt earlier looks broken on some devices.
       WidgetsBinding.instance.addPostFrameCallback((_) => _attemptBiometric());
     }
   }
@@ -60,15 +51,11 @@ class _AppLockScreenState extends State<AppLockScreen> {
   Future<void> _attemptBiometric() async {
     if (_biometricInFlight || !mounted) return;
     setState(() => _biometricInFlight = true);
-    final ok = await widget.biometricService.authenticate(
-      reason: AppLocalizations.of(context).unlockReasonPrompt,
-    );
+    final ok = await widget.biometricService.authenticate(reason: AppLocalizations.of(context).unlockReasonPrompt);
     if (!mounted) return;
     setState(() => _biometricInFlight = false);
     if (ok) widget.onUnlocked();
-    // A failed/cancelled attempt just leaves the lock screen up -- "Try
-    // Again" and "Use Password Instead" are both always visible, not
-    // revealed only after a failure.
+    // A failed attempt just leaves the lock screen up.
   }
 
   Future<void> _submitPassword() async {
@@ -107,8 +94,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
     final colors = context.colors;
     final l10n = AppLocalizations.of(context);
     return Material(
-      // A screen unto itself, not a dialog -- fully opaque, no way to see
-      // or interact with whatever's underneath until unlocked.
+      // A full opaque screen, so nothing underneath can be seen or tapped.
       color: colors.surface,
       child: Container(
         decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
@@ -186,10 +172,10 @@ class _AppLockScreenState extends State<AppLockScreen> {
                         onPressed: _verifyingPassword
                             ? null
                             : () => setState(() {
-                                  _showPasswordField = false;
-                                  _passwordError = null;
-                                  _passwordController.clear();
-                                }),
+                                _showPasswordField = false;
+                                _passwordError = null;
+                                _passwordController.clear();
+                              }),
                         child: Text(l10n.useBiometricInsteadButton),
                       ),
                     ],

@@ -10,18 +10,13 @@ import '../../widgets/app_page_route.dart';
 import '../../widgets/screen_header.dart';
 import '../events/reservation_details_screen.dart';
 
-const _hairline = 0.515; // Figma's fractional hairline stroke width
+const _hairline = 0.515;
 
-/// "View Details" purple from the design (App-23), and a lighter shade of
-/// the same hue that stays readable on the dark theme's navy surface.
+/// "View Details" purple from the design, and a lighter purple for dark mode.
 const _detailsPurple = Color(0xFF9810FA);
 const _detailsPurpleDark = Color(0xFFC27AFF);
 
-/// How each notification type looks: the tinted icon circle on the left of
-/// its card. Colors follow the design's cards -- green check for a payment
-/// ("Payment Successful"), purple calendar for an event ("Event Reminder"),
-/// orange alert for low allowance ("Low Allowance Alert"), and blue info
-/// for anything this app version doesn't know yet.
+/// The icon and colour for each notification type. Unknown types get a blue info icon.
 ({IconData icon, Color color}) _typeVisual(String type) {
   switch (type) {
     case 'subscription_activated':
@@ -32,34 +27,24 @@ const _detailsPurpleDark = Color(0xFFC27AFF);
     case 'event_reminder':
       return (icon: Icons.calendar_today_outlined, color: const Color(0xFF9810FA));
     case 'allowance_low':
-      // The design's "Low Allowance Alert": an orange "!" in a warm circle.
       return (icon: Icons.error_outline, color: const Color(0xFFE17100));
     default:
       return (icon: Icons.info_outline, color: const Color(0xFF155DFC));
   }
 }
 
-/// Notifications feed (Figma frame App-23), opened from the Home bell
-/// (notifications roadmap step 2). Real rows from `public.notifications`,
-/// newest first, each rendered in the active language from its `type` +
-/// `data` (decision #66).
+/// The notifications list, opened from the Home bell. Newest first, shown in the user's language.
 ///
-/// Per card, as in the design: unread ones get an accent border, a strip
-/// on their leading edge, a dot and a "Mark as Read" action; every card has
-/// a delete button (own rows only -- migration 20260930110000). "View
-/// Details" on an event notification (confirmation or reminder) opens that
-/// reservation's read-only details page on top of this list (decision
-/// #73); on a membership payment it goes to the Profile tab, which shows
-/// the plan and valid-until date. Opening details also marks the
-/// notification read.
+/// Unread cards have an accent border and edge, a dot and "Mark as Read". Every card can be
+/// deleted. "View Details" opens the reservation for event notifications, or the Profile tab for
+/// membership ones, and marks the notification read.
 ///
-/// Mark-as-read and delete update the list immediately, then save; if the
-/// save fails the card goes back to how it was and a snackbar says so.
+/// Changes show immediately; if saving fails, the card goes back and a message is shown.
 class NotificationsScreen extends StatefulWidget {
   final NotificationService service;
   final VoidCallback onViewMembership;
 
-  /// "Now" for the relative timestamps; defaults to the real clock.
+  /// "Now" for the relative times; a parameter so tests can control it.
   final DateTime? now;
 
   const NotificationsScreen({
@@ -74,7 +59,7 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  List<AppNotification>? _items; // null while loading
+  List<AppNotification>? _items;
   bool _loadFailed = false;
 
   @override
@@ -99,9 +84,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _showUpdateError() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context).couldntUpdateNotificationError)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).couldntUpdateNotificationError)));
   }
 
   AppNotification _withRead(AppNotification n, bool isRead) => AppNotification(
@@ -133,7 +118,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _delete(AppNotification notification) async {
     final before = _items!;
-    setState(() => _items = [for (final n in before) if (n.id != notification.id) n]);
+    setState(
+      () => _items = [
+        for (final n in before)
+          if (n.id != notification.id) n,
+      ],
+    );
     try {
       await widget.service.delete(notification.id);
     } catch (_) {
@@ -152,15 +142,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         if (reservationId == null) return null;
         return () {
           _markRead(notification);
-          Navigator.of(context).push(
-            appRoute(context, (_) => ReservationDetailsScreen(reservationId: reservationId)),
-          );
+          Navigator.of(context).push(appRoute(context, (_) => ReservationDetailsScreen(reservationId: reservationId)));
         };
       case 'subscription_activated':
       case 'subscription_upgraded':
         return () {
-          // Fire-and-forget: leaving the screen shouldn't wait on it, and a
-          // failure just leaves it unread (no snackbar on a closing screen).
+          // Don't wait for it; if it fails the notification just stays unread.
           _markRead(notification, reportFailure: false);
           Navigator.of(context).pop();
           widget.onViewMembership();
@@ -183,14 +170,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           child: RefreshIndicator(
             onRefresh: _load,
             child: ListView(
-              // Figma's frame padding: 16 sides, 32 top.
               padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 ScreenHeader(title: l10n.notifications, onBack: () => Navigator.of(context).pop()),
                 if (items != null)
                   Padding(
-                    // Lines up under the title: 40 back button + 16 gap.
+                    // Lines up under the title.
                     padding: const EdgeInsetsDirectional.only(start: 56),
                     child: Text(
                       l10n.unreadNotificationsCount(unread),
@@ -312,10 +298,8 @@ class _NotificationCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // The design's thick accent edge on unread cards. A Row child
-            // rather than a one-sided Border (which can't be combined with
-            // rounded corners) -- and a Row mirrors itself in RTL, so the
-            // strip is always on the reading-start side.
+            // The accent edge on unread cards. A Row child (a one-sided border can't have rounded
+            // corners), so it also flips sides in right-to-left.
             if (unread) Container(width: 4, color: colors.accent),
             Expanded(
               child: Padding(
@@ -412,8 +396,7 @@ class _NotificationCard extends StatelessWidget {
   }
 }
 
-/// "✓ Mark as Read" / "View Details": colored text (with an optional
-/// leading icon), no button chrome -- as drawn in the design.
+/// Coloured text actions, as in the design.
 class _CardAction extends StatelessWidget {
   final IconData? icon;
   final String label;
@@ -433,7 +416,10 @@ class _CardAction extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[Icon(icon, size: 16, color: color), const SizedBox(width: 8)],
-            Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: color)),
+            Text(
+              label,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: color),
+            ),
           ],
         ),
       ),

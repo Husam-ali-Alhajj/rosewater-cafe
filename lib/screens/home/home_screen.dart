@@ -19,14 +19,7 @@ import '../../widgets/app_page_route.dart';
 import '../auth/sign_out.dart';
 import '../notifications/notifications_screen.dart';
 
-// Sprint 8 Task 2 (real dark mode): every one of these Figma-exact light
-// literals now has a hand-picked dark counterpart below, kept at the same
-// hue -- warm neutral greys and a green status chip -- so this card and its
-// status banner still look like this design's, just at dark-mode luminance,
-// rather than falling back to the generic AppSemanticColors tokens (whose
-// [AppSemanticColors.textMuted]/`.surface` etc. are close but weren't tuned
-// against these specific fills). See `_homeColors` below for which one a
-// given build picks.
+// Colours taken from the design for this screen, each with a matching dark-mode version.
 const _iconGrey = Color(0xFF4A5565);
 const _mutedText = Color(0xFF6A7282);
 const _rowFill = Color(0xFFF9FAFB);
@@ -45,10 +38,7 @@ const _statusFillDark = Color(0xFF122A1C);
 const _statusBorderDark = Color(0xFF1F5C34);
 const _statusInkDark = Color(0xFF6FDD86);
 
-/// This screen's own Figma-literal tokens (see the doc comment above),
-/// picked by brightness -- a small brightness-keyed record, not the shared
-/// [AppSemanticColors] extension, because these are specific to this
-/// dashboard's exact fills rather than generic surface/text roles.
+/// Picks the light or dark set of the colours above.
 class _HomeColors {
   final Color iconGrey;
   final Color mutedText;
@@ -96,42 +86,26 @@ const _darkHomeColors = _HomeColors(
 _HomeColors _homeColors(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark ? _darkHomeColors : _lightHomeColors;
 
-// Figma's hairline stroke width on cards / badges (a fractional value from
-// the design export, kept exactly).
+// Hairline border width from the design.
 const _hairline = 0.515;
 
-/// Home tab (Figma frame "MemberDashboard", node 1217:3554).
+/// The Home tab. Membership and profile come from MainShell; this screen only loads the current
+/// usage.
 ///
-/// `membership` and `profile` come from [MainShell]'s single shared fetch
-/// (the same objects the QR Code and Profile tabs get), so nothing they
-/// already have is re-queried here; the only thing this screen loads itself
-/// is the current period's usage, via [UsageService.fetchCurrentUsage].
-/// Real data only -- never hardcoded.
+/// "Access Cafe" and "Reserve Event" switch tabs instead of navigating.
 ///
-/// The two quick-action buttons don't navigate via `Navigator` -- "Access
-/// Café" and "Reserve Event" are tabs of the same [MainShell] Home lives
-/// in, so `MainShell` passes down the same tab-switch callback its bottom
-/// nav uses ([onGoToQrCode]/[onGoToEvents]).
-///
-/// The notification bell opens the real Notifications feed (notifications
-/// roadmap step 2) and shows the design's red unread-count badge, read from
-/// `public.notifications` -- refreshed when the feed is closed, since that's
-/// where things get marked read or deleted, and live (Supabase Realtime)
-/// whenever a new notification is created for this user, which also plays
-/// the arrival chime/vibration if the user's switches allow it (roadmap
-/// step 4). Home stays alive in MainShell's IndexedStack for the whole
-/// signed-in session, so this listens on every tab, not just Home.
+/// The bell shows the unread count. It refreshes when the notifications screen closes, and live
+/// (Supabase Realtime) when a new notification arrives, which also plays the arrival sound. Home
+/// stays alive in the background, so this works on every tab.
 class HomeScreen extends StatefulWidget {
   final ActiveMembership membership;
 
-  /// Null if the profile couldn't be loaded; the header then falls back to
-  /// a plain "Welcome!" and omits the Member ID line.
+  /// Null if the profile couldn't be loaded; the header then just says "Welcome!".
   final Profile? profile;
   final VoidCallback onGoToQrCode;
   final VoidCallback onGoToEvents;
 
-  /// For a membership notification's "View Details" (Profile shows the
-  /// membership's plan and valid-until date).
+  /// Used by a membership notification's "View Details" (Profile shows the plan details).
   final VoidCallback onGoToProfile;
 
   const HomeScreen({
@@ -173,10 +147,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  /// Supabase Realtime: told the moment a notification row is INSERTed for
-  /// this user (payment, reservation, reminder, allowance alert). Realtime
-  /// applies the table's RLS, so a client only ever hears about its own
-  /// rows; the filter just avoids asking for anyone else's.
+  /// Listens for new notifications for this user. Realtime respects the same security rules, so
+  /// users only hear about their own.
   void _listenForNewNotifications() {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
@@ -198,8 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
     context.triggerNotificationArrived(_arrivalFeedback);
   }
 
-  /// The bell badge. A failure just means no badge -- never an error on
-  /// the dashboard over a secondary number.
+  /// If this fails we just show no badge.
   Future<void> _loadUnreadCount() async {
     int count;
     try {
@@ -212,20 +183,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openNotifications() async {
-    await Navigator.of(context).push(
-      appRoute(
-        context,
-        (_) => NotificationsScreen(onViewMembership: widget.onGoToProfile),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(appRoute(context, (_) => NotificationsScreen(onViewMembership: widget.onGoToProfile)));
     _loadUnreadCount();
   }
 
   Future<void> _load() async {
-    // A missing usage row (shouldn't happen for a genuinely active
-    // subscription -- confirm_subscription_payment always creates one --
-    // but this isn't the access-gating check MainShell's fetch already
-    // did, so it degrades to "0 used" instead of bouncing anywhere.
+    // No usage row found: show "0 used" instead of an error.
     final usage = await _usageService.fetchCurrentUsage();
     if (!mounted) return;
     setState(() {
@@ -244,11 +209,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      // The Figma frame's own fill: the same soft 3-stop page wash used on
-      // every other screen.
       decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
       child: SafeArea(
-        bottom: false, // the bottom nav in MainShell handles its own inset
+        bottom: false,
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : HomeContent(
@@ -266,9 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// The dashboard's content, separated from data loading so the data mapping
-/// (greeting, member ID, usage, unlimited plans, service-hours status) can
-/// be widget-tested without a Supabase connection.
+/// The dashboard content, kept separate from data loading so it can be tested without Supabase.
 class HomeContent extends StatelessWidget {
   final Profile? profile;
   final ActiveMembership membership;
@@ -278,11 +239,10 @@ class HomeContent extends StatelessWidget {
   final VoidCallback onNotifications;
   final VoidCallback? onLogout;
 
-  /// Unread notifications, for the bell's badge (none shown at 0).
+  /// Unread notifications for the bell badge (hidden at 0).
   final int unreadNotifications;
 
-  /// "Now" for the service-hours status banner; defaults to the real clock.
-  /// A parameter only so both banner states are testable.
+  /// "Now" for the service-hours status; a parameter so tests can control it.
   final DateTime? now;
 
   const HomeContent({
@@ -302,9 +262,6 @@ class HomeContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return SingleChildScrollView(
-      // Figma's frame padding: 16 sides, 32 top. Bottom 16 is the gap the
-      // design leaves above the bottom nav (which sits outside this scroll
-      // view in MainShell).
       padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -364,9 +321,7 @@ class HomeContent extends StatelessWidget {
   }
 }
 
-/// White-at-90% (this theme's `surface` token in dark mode) card with the
-/// design's hairline border and 14px radius, shared by the usage,
-/// service-hours and benefits cards.
+/// Card style shared by the usage, service-hours and benefits cards.
 BoxDecoration _whiteCardDecoration(BuildContext context) {
   final colors = context.colors;
   return BoxDecoration(
@@ -376,16 +331,8 @@ BoxDecoration _whiteCardDecoration(BuildContext context) {
   );
 }
 
-/// "Welcome, {first name}!" + "Member ID: …" on the left, the notification
-/// bell and Logout on the right (Figma nodes 1217:3557-3575).
-///
-/// Everything is real data: the first name comes from the profile's full
-/// name, the member ID from `profiles.member_id`. If the profile couldn't be
-/// loaded (or has no name) the greeting is a plain "Welcome!" and a missing
-/// member ID hides its line -- never a placeholder name or number.
-///
-/// The bell is the design's 40x36 button, with the red unread-count badge
-/// whenever something is unread (see the class doc on [HomeScreen]).
+/// Greeting and member ID on the left, the notification bell and Logout on the right. Falls back to
+/// "Welcome!" if there's no name.
 class _HomeHeader extends StatelessWidget {
   final Profile? profile;
   final int unreadNotifications;
@@ -432,12 +379,7 @@ class _HomeHeader extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   l10n.memberIdLabel(memberId),
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 24 / 16,
-                    letterSpacing: -0.3125,
-                    color: home.iconGrey,
-                  ),
+                  style: TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.3125, color: home.iconGrey),
                 ),
               ],
             ],
@@ -457,10 +399,7 @@ class _HomeHeader extends StatelessWidget {
                 children: [
                   Icon(Icons.notifications_none, size: 16, color: home.iconGrey),
                   if (unreadNotifications > 0)
-                    // The design's red count bubble on the bell's top corner
-                    // (Figma App-22). Directional, so it sits on the
-                    // trailing corner in RTL too. Capped at "9+" so a big
-                    // count can't outgrow the bubble.
+                    // Red unread-count bubble on the bell. Capped at "9+" so it always fits.
                     PositionedDirectional(
                       top: 0,
                       end: 4,
@@ -537,25 +476,27 @@ class _MembershipStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final d = membership.validUntil;
-    // Kept as the app's existing M/D/YYYY, not re-formatted per locale --
-    // this task translates text, not date conventions, which weren't asked
-    // for. Only the surrounding "Valid until:" wording is localized.
     final validUntilText = '${d.month}/${d.day}/${d.year}';
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        // Same purple gradient as every instance of this card in the
-        // Figma file (node 1217:3576) -- one fixed accent for the Home
-        // status card regardless of which plan the member is actually on,
-        // not per-tier like the Choose Membership cards. Coincidentally
-        // the same hex pair already named `membershipPremiumGradient`,
-        // reused here rather than duplicated -- see docs/decisions.md #27.
+        // The design uses the same purple gradient for every plan on this card.
         gradient: AppColors.membershipPremiumGradient,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 8), spreadRadius: -6),
-          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 25, offset: const Offset(0, 20), spreadRadius: -5),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 8),
+            spreadRadius: -6,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 25,
+            offset: const Offset(0, 20),
+            spreadRadius: -5,
+          ),
         ],
       ),
       child: Column(
@@ -578,20 +519,11 @@ class _MembershipStatusCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // The design's title box is one line (36) tall inside a
-                    // fixed-height card; at 375 wide "Premium Member" wraps
-                    // and its second line spills into the 40px gap above
-                    // "Valid until" (Figma exports the text as 72 tall in
-                    // a 36 tall frame). Reproduced here -- the box keeps
-                    // its one-line height and the wrapped line overflows
-                    // visibly -- so the card stays 169.03 tall, as designed.
+                    // Matches the design: the title box is one line tall, so a wrapped title
+                    // overflows instead of growing the card.
                     SizedBox(
                       height: 36,
                       child: OverflowBox(
-                        // `AlignmentDirectional.topStart`, not physical
-                        // `Alignment.topLeft` (Sprint 8 Task 6) -- the
-                        // overflowing second line needs to spill toward
-                        // the same edge the text itself starts from.
                         alignment: AlignmentDirectional.topStart,
                         minHeight: 0,
                         maxHeight: double.infinity,
@@ -620,7 +552,12 @@ class _MembershipStatusCard extends StatelessWidget {
                 ),
                 child: Text(
                   l10n.activeStatus,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 16 / 12, color: Colors.white),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    height: 16 / 12,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -641,20 +578,8 @@ class _MembershipStatusCard extends StatelessWidget {
   }
 }
 
-/// One usage stat card (Figma nodes 1217:3615/3633) -- real `used` from
-/// [UsageService.fetchCurrentUsage], real `limit` from the active plan.
-///
-/// Layout, top to bottom, exactly as exported: the icon + label/value row,
-/// the progress bar (40 below), then the "used this month" caption (32
-/// below the bar).
-///
-/// `limit == null` is this app's established "unlimited" sentinel (see
-/// [MembershipPlan.hookahLimit]/`drinksLimit`, which VIP's seed row sets to
-/// SQL `NULL`, not a magic number like -1 or 0) -- so there is no limit to
-/// divide by and no fraction to show. Rendered as "Unlimited" with no
-/// progress bar at all, rather than computing `used / null` or inventing a
-/// fake full bar that would suggest a cap exists. The design has no
-/// unlimited variant, so the caption simply follows the header row at 16.
+/// One usage card (hookah or drinks). A null limit means unlimited: we show "Unlimited" and no
+/// progress bar.
 class _UsageCard extends StatelessWidget {
   final IconData icon;
   final Color iconBackground;
@@ -679,10 +604,7 @@ class _UsageCard extends StatelessWidget {
     final colors = context.colors;
     final home = _homeColors(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // The design's progress bar is near-black (#030213) on a white card --
-    // on a dark card that fill and its 20%-alpha track both collapse into
-    // the background, so dark mode swaps to a near-white fill instead
-    // (same idea, inverted for the surface it sits on).
+    // The dark progress bar would disappear on a dark card, so dark mode uses a light one.
     final progressColor = isDark ? Colors.white.withValues(alpha: 0.85) : const Color(0xFF030213);
     return Container(
       padding: const EdgeInsets.all(24),
@@ -704,12 +626,7 @@ class _UsageCard extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 20 / 14,
-                      letterSpacing: -0.15,
-                      color: colors.textMuted,
-                    ),
+                    style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
                   ),
                   Text(
                     planLimit == null ? l10n.unlimited : '$used / $planLimit',
@@ -749,10 +666,7 @@ class _UsageCard extends StatelessWidget {
   }
 }
 
-/// One quick-action button (Figma node 1217:3587's two `Button`s) --
-/// "Access Café" (filled, the app's real primary gradient -- same
-/// `primaryGradient` the Sign In button already uses) and "Reserve Event"
-/// (white/outlined). They switch [MainShell] to the QR Code / Events tab.
+/// One of the two quick-action buttons ("Access Cafe" / "Reserve Event").
 class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -814,15 +728,7 @@ class _QuickActionButton extends StatelessWidget {
   }
 }
 
-/// Service Hours card (Figma node 1217:3650) -- static hours from the
-/// design, no database involved. The one real piece of logic is "Current
-/// Status," computed from [ServiceHours.isFullServiceAt] against [now] --
-/// not hardcoded, and not a stored value that could drift from the clock.
-///
-/// **Single-Figma-instance judgment call**: the design only shows the
-/// status banner in its full-service state (green). Both states reuse the
-/// same green treatment and differ only in text; the self-service copy
-/// ("Self-service hours") isn't literal design copy (decision #30).
+/// Service hours from the design. The status line is worked out from the current time.
 class _ServiceHoursCard extends StatelessWidget {
   final DateTime now;
 
@@ -856,11 +762,7 @@ class _ServiceHoursCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 40),
-          // The flex weights are the label/value box widths Figma lays out
-          // (128.83:141.13 and 131.48:138.48), so on a 375-wide screen the
-          // text wraps exactly where the design does instead of
-          // overflowing; on wider screens the rows stay on one line with
-          // the value pushed to the right.
+          // Flex values from the design so the text wraps in the same place on small screens.
           _ServiceHoursRow(
             label: l10n.fullServiceHours,
             value: l10n.fullServiceHoursValue,
@@ -885,14 +787,12 @@ class _ServiceHoursCard extends StatelessWidget {
             ),
             child: Text.rich(
               TextSpan(
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 20 / 14,
-                  letterSpacing: -0.15,
-                  color: statusColors.statusInk,
-                ),
+                style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: statusColors.statusInk),
                 children: [
-                  TextSpan(text: l10n.currentStatusLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(
+                    text: l10n.currentStatusLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   TextSpan(
                     text: isFullService ? l10n.fullServiceAvailable : l10n.selfServiceHoursStatus,
                     style: const TextStyle(fontWeight: FontWeight.w400),
@@ -913,12 +813,7 @@ class _ServiceHoursRow extends StatelessWidget {
   final int labelFlex;
   final int valueFlex;
 
-  const _ServiceHoursRow({
-    required this.label,
-    required this.value,
-    required this.labelFlex,
-    required this.valueFlex,
-  });
+  const _ServiceHoursRow({required this.label, required this.value, required this.labelFlex, required this.valueFlex});
 
   @override
   Widget build(BuildContext context) {
@@ -930,18 +825,21 @@ class _ServiceHoursRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Flexible(flex: labelFlex, child: Text(label, style: style.copyWith(color: home.rowLabel))),
-          Flexible(flex: valueFlex, child: Text(value, style: style.copyWith(color: home.rowValue))),
+          Flexible(
+            flex: labelFlex,
+            child: Text(label, style: style.copyWith(color: home.rowLabel)),
+          ),
+          Flexible(
+            flex: valueFlex,
+            child: Text(value, style: style.copyWith(color: home.rowValue)),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Membership Benefits card (Figma node 1217:3673). Deliberately renders
-/// [localizedFeatureBullets] -- the exact same helper Choose Membership's
-/// own cards already call, not a hand-copied list -- so this card and
-/// Choose Membership can't drift out of sync for the same plan (#31).
+/// Uses the same bullet list as Choose Membership so the two never disagree.
 class _BenefitsCard extends StatelessWidget {
   final MembershipPlan plan;
 
@@ -972,12 +870,7 @@ class _BenefitsCard extends StatelessWidget {
             if (i > 0) const SizedBox(height: 8),
             Text(
               '• ${bullets[i]}',
-              style: TextStyle(
-                fontSize: 14,
-                height: 20 / 14,
-                letterSpacing: -0.15,
-                color: colors.textMuted,
-              ),
+              style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
             ),
           ],
         ],

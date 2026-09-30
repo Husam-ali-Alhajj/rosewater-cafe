@@ -10,44 +10,21 @@ import '../../widgets/form_buttons.dart';
 import '../../widgets/payment_fields.dart';
 import '../../widgets/screen_header.dart';
 
-const _hairline = 0.515; // Figma's fractional hairline stroke width
+const _hairline = 0.515;
 
-/// Add Payment Method.
+/// Add a card. Not in the design, so it reuses the payment form's fields and the Profile screens'
+/// layout.
 ///
-/// **There is no Figma frame for this screen** -- the design has only the
-/// "Add New Payment Method" button on the list, not the form behind it -- so
-/// it's built to match the app's own Complete Payment form (Figma node
-/// 1213:1281): the same card fields, and the same header/card/buttons as the
-/// other Profile sub-screens. (Same situation as the Payment Success screen,
-/// decision #23.)
+/// Only the brand, last 4 digits, expiry and default flag are saved. The full number and CVV are
+/// only checked, then thrown away; they're never stored or sent.
 ///
-/// **The real Payment flow's rules apply exactly** (decision #22): Card Number
-/// / Expiry / CVV use [PaymentValidators] -- 16 digits, MM/YY not in the past,
-/// 3-digit CVV -- and are checked before anything is saved.
-///
-/// **Only metadata is stored:** brand, last 4, expiry and the default flag. The
-/// brand and last 4 are derived here from the typed number ([CardBrand]) purely
-/// for display -- the same accepted training-project simplification as
-/// `confirm_subscription_payment`, not a new one. The full number and the CVV
-/// are validated for shape and then discarded: they are never passed to the
-/// service (it has no parameter for them), never logged, never sent anywhere,
-/// and the controllers are cleared and disposed. No autofill hints, so the
-/// OS/browser never offers to save a card.
-///
-/// A user's first card becomes their default automatically (enforced in the
-/// database); for later cards a checkbox asks whether to make this one the
-/// default. Pops with `true` once saved.
+/// The first card becomes the default automatically. Returns true once saved.
 class AddPaymentMethodScreen extends StatefulWidget {
-  /// True when the user has no cards yet: the checkbox is hidden, since the
-  /// first card is always the default.
+  /// True if this is the user's first card (then it's always the default, so no checkbox).
   final bool isFirstCard;
   final PaymentMethodService service;
 
-  const AddPaymentMethodScreen({
-    super.key,
-    required this.isFirstCard,
-    this.service = const PaymentMethodService(),
-  });
+  const AddPaymentMethodScreen({super.key, required this.isFirstCard, this.service = const PaymentMethodService()});
 
   @override
   State<AddPaymentMethodScreen> createState() => _AddPaymentMethodScreenState();
@@ -65,9 +42,7 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
 
   @override
   void dispose() {
-    // The card fields never leave this screen -- disposing (and clearing, in
-    // _save) is belt-and-suspenders on top of the values never being copied
-    // into any variable that outlives this State.
+    // Clear the card fields when leaving.
     _cardNumberController.dispose();
     _expiryController.dispose();
     _cvvController.dispose();
@@ -76,10 +51,10 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
 
   Future<void> _save() async {
     if (_saving) return;
-    // Same shape checks as the real Payment flow, before anything is saved.
+    // Same checks as the payment form.
     if (!_formKey.currentState!.validate()) return;
 
-    // The validators guarantee 16 digits and a well-formed, unexpired MM/YY.
+    // The validators already guarantee 16 digits and a valid MM/YY.
     final number = _cardNumberController.text;
     final brand = CardBrand.detect(number);
     final last4 = CardBrand.lastFour(number)!;
@@ -100,7 +75,7 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
         makeDefault: widget.isFirstCard || _makeDefault,
       );
       if (!mounted) return;
-      // Card fields are discarded here, never read again.
+      // Clear the card fields; they're not needed anymore.
       _cardNumberController.clear();
       _expiryController.clear();
       _cvvController.clear();
@@ -157,7 +132,10 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
                           validator: PaymentValidators.cardNumber,
                           keyboardType: TextInputType.number,
                           enabled: !_saving,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(16)],
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(16),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -184,7 +162,10 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
                                 keyboardType: TextInputType.number,
                                 obscureText: true,
                                 enabled: !_saving,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(3),
+                                ],
                               ),
                             ),
                           ],
@@ -204,7 +185,12 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
                                 Expanded(
                                   child: Text(
                                     l10n.setAsDefaultPaymentCheckbox,
-                                    style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textPrimary),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      height: 20 / 14,
+                                      letterSpacing: -0.15,
+                                      color: colors.textPrimary,
+                                    ),
                                   ),
                                 ),
                               ],

@@ -1,18 +1,8 @@
--- Fix for 20260930150000_upgrade_subscription (decision #75 follow-up).
+-- Fix: upgrading on the same day a usage period started (paid today and upgraded today, or upgraded
+-- twice in a day) failed, because usage_allowances allows only one row per user per start date.
 --
--- Found verifying that migration on the live project: upgrading on the
--- same day a usage period already started -- a member who paid for a
--- plan today and upgrades today, or upgrades twice in one day -- failed
--- with `23505 duplicate key value violates unique constraint
--- "usage_allowances_user_id_period_start_key"`: usage_allowances allows
--- one row per user per period_start, and the upgrade always inserted a
--- new row starting today. The whole upgrade rolled back, so nothing was
--- corrupted, but the upgrade was impossible.
---
--- Only change from 20260930150000: that usage insert now reuses today's
--- row when there is one (ON CONFLICT DO UPDATE), resetting it to a fresh
--- zeroed period. Everything else -- auth, locking, the price check, the
--- cancel-then-insert order, the grants -- is identical.
+-- The only change: the usage insert reuses today's row if there is one, resetting it for the new
+-- period.
 
 create or replace function public.upgrade_subscription(p_new_plan_id uuid)
 returns timestamptz
@@ -69,11 +59,8 @@ begin
   values (v_user_id, p_new_plan_id, 'active', now(), v_valid_until)
   returning id into v_new_sub_id;
 
-  -- A usage row starting today may already exist (paid today, or a
-  -- second upgrade today) -- `unique (user_id, period_start)` would reject
-  -- a second one and abort the whole upgrade. Reuse it as the fresh
-  -- period instead: new end date, usage back to zero, and the low-
-  -- allowance "already alerted" markers (decision #70) cleared.
+  -- A usage row starting today may already exist (paid today, or a second upgrade today). Reuse it
+  -- instead of failing: new end date, usage back to zero, alert flags cleared.
   insert into public.usage_allowances (user_id, period_start, period_end)
   values (v_user_id, current_date, v_valid_until::date)
   on conflict (user_id, period_start) do update

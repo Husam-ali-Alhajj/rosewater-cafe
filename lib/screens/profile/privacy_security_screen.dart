@@ -16,85 +16,30 @@ import '../auth/sign_out.dart';
 import 'privacy_policy_screen.dart';
 import 'terms_of_service_screen.dart';
 
-// Values read from the Figma `PrivacySecurityScreen` frames (nodes 1217:2644
-// default, 1217:2946 with the password form open) in the Figma app's Design
-// panel -- the REST API was rate-limited when this was built, so a few spacing
-// values not read directly are derived from the shared card/row pattern and
-// the frames' measured heights (see docs/decisions.md #45).
-//
-// Sprint 8 Task 2 (dark mode rebuild): all of these were fixed light-mode
-// neutrals; they now come from `context.colors` instead (`_deleteInk` maps
-// onto `colors.danger`, the semantic token already re-picked per brightness
-// to clear AA contrast -- not a generic color, the correct one for "this is
-// destructive" in either theme).
+// Sizes from the design; colours come from the theme so dark mode works (the delete red uses the
+// theme's danger colour).
 
-const _hairline = 0.515; // Figma's fractional hairline stroke width
+const _hairline = 0.515;
 
-/// Privacy & Security (Figma frames 1217:2644 / 1217:2946): Security Options,
-/// Password, and Privacy.
+/// Privacy & Security: security options, password, email and privacy.
 ///
-/// **Biometric Authentication and Auto-Lock are real** (Sprint 8 Task 5,
-/// decision #62). Auto-Lock reads/writes `SettingsProvider.autoLockEnabled`;
-/// [AppLockGate] (mounted once, above `MaterialApp` in `main.dart`) is what
-/// actually tracks elapsed background time and shows the lock screen on
-/// resume -- this row is just the switch. Biometric Authentication checks
-/// [BiometricService.isAvailable] before it's allowed to turn on at all
-/// ("fail gracefully... rather than a toggle that silently does nothing");
-/// turning it off never needs that check. **Two-Factor Authentication stays
-/// a disabled placeholder** (decision #45) -- a separate later task, not
-/// this one.
-///
-/// **Change Password is real.** It asks for the CURRENT password first and
-/// re-authenticates with it before anything is changed (see
-/// [AuthService.changePassword]) -- Supabase's API doesn't require that, but a
-/// phone left unlocked shouldn't let anyone silently change the password. The
-/// new password must pass decision #10's rules, [Validators.password], the
-/// same as signup.
-///
-/// **Delete Account is real, immediate, self-service deletion** (decision #52,
-/// replacing the request-queue of decision #45 after the user was shown that
-/// tradeoff and explicitly chose self-service instead; hardened afterwards to
-/// require the current password and clean up storage first). Tapping the row
-/// opens an inline form -- the same expand-in-place pattern Change Password
-/// already uses on this screen -- asking for the CURRENT password before
-/// anything happens. Confirming calls [AccountDeletionService.deleteAccount],
-/// which re-verifies that password, removes every file the user ever stored
-/// (avatars + ID documents), and only then deletes the account itself via the
-/// `delete_own_account` RPC -- cascading through every table of their data.
-/// This screen then ends the local session and returns to Auth Landing. There
-/// is no undo, and the form says so before anything happens.
-///
-/// **Change Email is real** (decision #57). Same expand-in-place pattern and
-/// password re-check as Change Password. Requesting a change only ever
-/// starts it: Supabase emails a confirmation link to the NEW address, and
-/// the current email keeps signing in the whole time -- there's nothing
-/// else for this screen to do once the request succeeds, since the actual
-/// `auth.users.email` change (and `profiles.email` following it, via the
-/// new sync trigger) happens server-side when that link is clicked, whether
-/// or not this screen -- or even this device -- is still open. Reads the
-/// current/pending email via [AuthService.currentUserEmail] /
-/// [AuthService.pendingEmailChange] (the real auth state) rather than the
-/// `profiles` row, which only ever reflects a confirmed value.
-///
-/// "View Privacy Policy" and "Terms of Service" open real screens now
-/// (Sprint 9 Task 5) -- draft, placeholder legal-shaped text, not
-/// company-approved copy; see [PrivacyPolicyScreen]/[TermsOfServiceScreen]'s
-/// doc comments and docs/decisions.md's Task 5 entry.
+/// - Biometric login and Auto-Lock work. Biometric can only be turned on if the device supports it.
+/// Two-factor authentication is a disabled placeholder.
+/// - Change Password and Change Email ask for the current password first, so an unlocked phone
+/// can't be used to change them. A new email only takes effect after the user clicks the
+/// confirmation link sent to it.
+/// - Delete Account asks for the password, deletes the user's stored files, then deletes the
+/// account and all its data. There is no undo.
+/// - Privacy Policy and Terms of Service open draft placeholder text.
 class PrivacySecurityScreen extends StatefulWidget {
   final AuthService authService;
   final AccountDeletionService accountDeletionService;
 
-  /// Passed straight through to `_SecurityOptionsCard` -- private to this
-  /// file, so a test can't construct it directly and inject a fake here
-  /// instead, the same shape as [authService]/[accountDeletionService].
+  /// A parameter so tests can pass a fake.
   final BiometricService biometricService;
 
-  /// What runs right after the account is deleted server-side. Defaults to
-  /// [signOutAndShowLanding] -- the real thing, which needs a live Supabase
-  /// client. Overridable so this can be proven without one (widget tests
-  /// can't initialise Supabase): a test passes a spy here to confirm this
-  /// step would run, the same pattern AppSettingsScreen's onDataCleared
-  /// uses for "Clear All App Data".
+  /// Runs after the account is deleted (signs out by default). A parameter so tests can check it
+  /// without Supabase.
   final Future<void> Function(BuildContext context)? onAccountDeleted;
 
   const PrivacySecurityScreen({
@@ -141,16 +86,12 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   String? _emailFieldError;
   String? _emailPasswordError;
   String? _emailFormError;
-  // Set right after a successful request so the pending notice shows
-  // immediately, without waiting on a fresh `currentUser` read -- Supabase
-  // updates `currentUser.newEmail` from the same response, but re-reading
-  // it here keeps this screen's own state the obvious source during this
-  // build, matching every other field on this screen.
+  // Set right away so the "pending change" note shows immediately.
   String? _justRequestedEmail;
 
   @override
   void dispose() {
-    // Password fields never leave this screen.
+    // Clear the password fields when leaving.
     _currentController.dispose();
     _newController.dispose();
     _confirmController.dispose();
@@ -160,7 +101,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     super.dispose();
   }
 
-  // ---- Change Password ----
+  // Change Password
 
   void _openPasswordForm() => setState(() => _changingPassword = true);
 
@@ -183,7 +124,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   String? _validateNew(String? value) {
     if (_serverNewError != null) return _serverNewError;
-    final rule = Validators.password(value); // decision #10, same as signup
+    final rule = Validators.password(value);
     if (rule != null) return rule;
     if (value == _currentController.text) return AppLocalizations.of(context).passwordMustDifferError;
     return null;
@@ -196,11 +137,11 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   Future<void> _submitPassword() async {
     if (_saving) return;
-    // Clear last attempt's server errors so the validators start clean.
+    // Clear the last attempt's errors.
     _serverCurrentError = null;
     _serverNewError = null;
     setState(() => _formError = null);
-    // Client-side checks first: an invalid form never reaches the network.
+    // Check the form first so invalid input never reaches the server.
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _saving = true);
@@ -236,7 +177,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     }
   }
 
-  // ---- Delete Account (real, immediate, self-service, password-gated) ----
+  // Delete Account
 
   void _openDeleteForm() => setState(() => _deletingAccountForm = true);
 
@@ -258,19 +199,17 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   Future<void> _submitDeleteAccount() async {
     if (_deletingAccount) return;
-    // Clear last attempt's server error so the validator starts clean.
+    // Clear the last attempt's error.
     _deletePasswordError = null;
     setState(() => _deleteFormError = null);
-    // Client-side check first: an empty field never reaches the network.
+    // Don't send an empty password.
     if (!_deleteFormKey.currentState!.validate()) return;
 
     setState(() => _deletingAccount = true);
     try {
       await widget.accountDeletionService.deleteAccount(currentPassword: _deletePasswordController.text);
       if (!mounted) return;
-      // The account is gone server-side; end the local session too, the
-      // same way App Settings' "Clear All App Data" does -- a device with
-      // no live account shouldn't still look signed in.
+      // The account is gone, so sign out locally too.
       if (widget.onAccountDeleted != null) {
         await widget.onAccountDeleted!(context);
       } else {
@@ -296,7 +235,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     }
   }
 
-  // ---- Change Email (real, password-gated, request-only) ----
+  // Change Email
 
   void _openEmailForm() => setState(() => _changingEmailForm = true);
 
@@ -325,20 +264,17 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   Future<void> _submitChangeEmail() async {
     if (_changingEmail) return;
-    // Clear last attempt's server errors so the validators start clean.
+    // Clear the last attempt's errors.
     _emailFieldError = null;
     _emailPasswordError = null;
     setState(() => _emailFormError = null);
-    // Client-side checks first: an invalid form never reaches the network.
+    // Check the form first so invalid input never reaches the server.
     if (!_emailFormKey.currentState!.validate()) return;
 
     final newEmail = _newEmailController.text.trim();
     setState(() => _changingEmail = true);
     try {
-      await widget.authService.changeEmail(
-        currentPassword: _emailPasswordController.text,
-        newEmail: newEmail,
-      );
+      await widget.authService.changeEmail(currentPassword: _emailPasswordController.text, newEmail: newEmail);
       if (!mounted) return;
       _newEmailController.clear();
       _emailPasswordController.clear();
@@ -386,7 +322,6 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
         decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
-            // Figma's frame padding: 16 sides, 32 top; 32 below the last card.
             padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -513,7 +448,9 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: CancelButton(label: l10n.cancelButton, onTap: _saving ? null : _closePasswordForm)),
+                Expanded(
+                  child: CancelButton(label: l10n.cancelButton, onTap: _saving ? null : _closePasswordForm),
+                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: SaveButton(
@@ -648,7 +585,9 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: CancelButton(label: l10n.cancelButton, onTap: _changingEmail ? null : _closeEmailForm)),
+                Expanded(
+                  child: CancelButton(label: l10n.cancelButton, onTap: _changingEmail ? null : _closeEmailForm),
+                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: SaveButton(
@@ -720,7 +659,9 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: CancelButton(label: l10n.cancelButton, onTap: _deletingAccount ? null : _closeDeleteForm)),
+              Expanded(
+                child: CancelButton(label: l10n.cancelButton, onTap: _deletingAccount ? null : _closeDeleteForm),
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: _DangerButton(
@@ -738,9 +679,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   }
 }
 
-/// A white card with a titled header (16 padding, 18px title, hairline divider
-/// below) and a body 24px under it -- the shape of the Password and Privacy
-/// cards (Figma nodes 1217:2707 / 1217:2714: header 60.51, gap 24).
+/// A card with a title and a thin divider, used for the Password and Privacy sections.
 class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;
@@ -763,7 +702,9 @@ class _SectionCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: colors.border, width: _hairline)),
+              border: Border(
+                bottom: BorderSide(color: colors.border, width: _hairline),
+              ),
             ),
             child: Text(
               title,
@@ -784,9 +725,7 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-/// The gradient-banded "Security Options" card (Figma node 1217:2653): a 60px
-/// band with a shield icon and title, then the three toggles 24px apart. All
-/// three are disabled placeholders -- see [PrivacySecurityScreen].
+/// The "Security Options" card: gradient header, then the three switches.
 class _SecurityOptionsCard extends StatefulWidget {
   final BiometricService biometricService;
 
@@ -802,7 +741,7 @@ class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
   Future<void> _toggleBiometric(SettingsProvider settings) async {
     if (_checkingBiometric) return;
     if (settings.biometricEnabled) {
-      // Turning it off never needs a capability check.
+      // Turning it off never needs a device check.
       await settings.setBiometricEnabled(false);
       return;
     }
@@ -811,9 +750,9 @@ class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
     if (!mounted) return;
     setState(() => _checkingBiometric = false);
     if (!available) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).noBiometricsAvailableError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).noBiometricsAvailableError)));
       return;
     }
     await settings.setBiometricEnabled(true);
@@ -823,9 +762,7 @@ class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final l10n = AppLocalizations.of(context);
-    // `watch`, not `read` -- this card's own switches (Biometric, Auto-Lock)
-    // need to reflect SettingsProvider immediately, same reasoning as every
-    // other real toggle this sprint.
+    // Watches the settings so the switches update right away.
     final settings = context.watch<SettingsProvider>();
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -875,7 +812,7 @@ class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
             label: l10n.twoFactorAuthLabel,
             description: l10n.twoFactorAuthDescription,
             value: false,
-            onToggle: null, // a separate later task, not #62 -- decision #45
+            onToggle: null,
             showDivider: true,
             note: l10n.comingSoonNote,
             switchKey: const ValueKey('placeholder-two-factor'),
@@ -897,9 +834,7 @@ class _SecurityOptionsCardState extends State<_SecurityOptionsCard> {
   }
 }
 
-/// A labelled password field with a show/hide eye: a 14px label, 8px gap, then
-/// a 309.95x36 input (radius 8, fill `#F3F3F5`, 12px left padding, the eye 12px
-/// from the right) -- Figma nodes 1217:3009 / 1217:3013.
+/// A password field with a show/hide button.
 class _PasswordField extends StatelessWidget {
   final String label;
   final String hint;
@@ -948,7 +883,7 @@ class _PasswordField extends StatelessWidget {
               validator: validator,
               enabled: enabled,
               obscureText: !visible,
-              // A password field: no suggestions or autocorrect learning it.
+              // No suggestions or autocorrect for passwords.
               enableSuggestions: false,
               autocorrect: false,
               autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -959,11 +894,7 @@ class _PasswordField extends StatelessWidget {
                 fillColor: colors.inputFill,
                 hintText: hint,
                 hintStyle: textStyle.copyWith(color: colors.textMuted),
-                // Sprint 8 Task 6: EdgeInsetsDirectional, not EdgeInsets --
-                // this custom eye-icon overlay isn't InputDecoration.suffixIcon
-                // (which auto-mirrors), so the padding has to be made
-                // directional by hand, same as edit_profile_screen.dart's
-                // _EditField.
+                // The eye icon is drawn by hand, so its padding has to flip for right-to-left.
                 contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 8.5, 44, 8.5),
                 border: border(),
                 enabledBorder: border(),
@@ -999,12 +930,7 @@ class _PasswordField extends StatelessWidget {
   }
 }
 
-/// The same shape as [SaveButton] (48 tall, radius 8, Inter Medium 14 white
-/// label), but solid `_deleteInk` red instead of the app's primary gradient
-/// -- this confirms a destructive, irreversible action, not a normal save,
-/// and shouldn't look like one. No Figma frame covers this (the original
-/// design never had self-service deletion); the color matches the
-/// already-red "Delete Account" row this button replaces once tapped.
+/// Solid red button for the irreversible delete, so it doesn't look like a normal save.
 class _DangerButton extends StatelessWidget {
   final String label;
   final String savingLabel;
@@ -1044,8 +970,7 @@ class _DangerButton extends StatelessWidget {
   }
 }
 
-/// A tappable text row: 36 tall, radius 8, 16px left padding, Inter Medium 14
-/// (Figma nodes 1217:2719-2720). "Delete Account" is drawn in red.
+/// A tappable text row. "Delete Account" is shown in red.
 class _PrivacyRow extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
@@ -1062,8 +987,6 @@ class _PrivacyRow extends StatelessWidget {
       child: SizedBox(
         height: 36,
         child: Padding(
-          // Sprint 8 Task 6: was EdgeInsets.only(left:)/Alignment.centerLeft
-          // -- physical values that wouldn't flip to the trailing edge in RTL.
           padding: const EdgeInsetsDirectional.only(start: 16),
           child: Align(
             alignment: AlignmentDirectional.centerStart,
@@ -1083,4 +1006,3 @@ class _PrivacyRow extends StatelessWidget {
     );
   }
 }
-

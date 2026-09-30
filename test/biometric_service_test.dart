@@ -3,11 +3,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:local_auth_platform_interface/local_auth_platform_interface.dart';
 import 'package:rosewater_cafe/services/biometric_service.dart';
 
-/// A fake `LocalAuthPlatform` -- there's no real platform channel in a
-/// widget/unit test environment (the same reason this whole task's real
-/// verification is the user's own, on a real device), so `BiometricService`
-/// is proven against a fake implementation of the plugin's own platform
-/// interface instead of the real `local_auth` package.
+/// A fake of the `local_auth` platform layer, since tests have no real device.
 class _FakePlatform extends LocalAuthPlatform {
   _FakePlatform({this.supported = true, this.canCheck = true, this.authResult = true, this.throwOnAuth = false});
 

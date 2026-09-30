@@ -3,11 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/services/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Simulates the app being closed and reopened: the in-memory
-/// SharedPreferences singleton is thrown away, so the next [SettingsProvider
-/// .load] has to come from what was actually written to the (fake) device
-/// storage -- the same restart-simulation pattern
-/// `notification_prefs_test.dart`/`remember_me_prefs_test.dart` already use.
+/// Simulates closing and reopening the app: the next [SettingsProvider.load] reads what was
+/// actually saved.
 void _restartApp() => SharedPreferences.resetStatic();
 
 void main() {
@@ -16,9 +13,7 @@ void main() {
   group('SettingsProvider -- fresh-install defaults', () {
     test('themeMode defaults to light, not system', () async {
       final settings = await SettingsProvider.load();
-      // Not ThemeMode.system: App Settings' Dark Mode row is a plain on/off
-      // switch, not a System/Light/Dark picker, so a fresh install starts in
-      // the state that switch shows as off.
+      // Light, not "system": Dark Mode is a simple on/off switch.
       expect(settings.themeMode, ThemeMode.light);
     });
 
@@ -28,8 +23,8 @@ void main() {
       expect(settings.animationsEnabled, isTrue);
       expect(settings.soundEnabled, isTrue);
       expect(settings.hapticsEnabled, isTrue);
-      expect(settings.autoLockEnabled, isFalse); // decision #45: never implies protection that isn't real
-      expect(settings.biometricEnabled, isFalse); // same reasoning
+      expect(settings.autoLockEnabled, isFalse); // off by default
+      expect(settings.biometricEnabled, isFalse); // off by default
       expect(settings.autoLockTimeoutSeconds, 300);
     });
   });

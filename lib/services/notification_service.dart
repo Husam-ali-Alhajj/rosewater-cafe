@@ -1,14 +1,8 @@
 import '../models/app_notification.dart';
 import 'supabase_client.dart';
 
-/// The signed-in user's in-app notifications (`public.notifications`),
-/// for the Notifications feed and the Home bell's unread badge.
-///
-/// Every row is written server-side (payment, reservation); a client may
-/// only flip `is_read` (column-level grant) and delete its own rows. RLS
-/// limits every read, update and delete to the caller's own rows, so no
-/// query here needs its own `user_id` filter to be safe -- the `eq`s are
-/// there to make the intent explicit, not for security.
+/// The user's notifications, for the notifications screen and the Home bell badge. Rows are created
+/// by the server; users can only mark their own as read or delete them.
 class NotificationService {
   const NotificationService();
 
@@ -28,13 +22,9 @@ class NotificationService {
     return rows.map(AppNotification.fromMap).toList();
   }
 
-  /// How many are unread, for the Home bell's badge.
+  /// Number of unread notifications.
   Future<int> unreadCount() async {
-    final rows = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('user_id', _userId)
-        .eq('is_read', false);
+    final rows = await supabase.from('notifications').select('id').eq('user_id', _userId).eq('is_read', false);
     return rows.length;
   }
 

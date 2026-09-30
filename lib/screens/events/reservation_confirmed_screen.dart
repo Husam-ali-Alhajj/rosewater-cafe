@@ -6,18 +6,7 @@ import '../../models/reservation_summary.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../widgets/gradient_button.dart';
 
-/// Reservation Confirmed screen (Figma App-13). Takes the just-created
-/// reservation's data via constructor from ReserveEventScreen's own
-/// already-known state -- zero additional DB reads, same pattern as
-/// PaymentSuccessScreen (docs/decisions.md).
-///
-/// "Back to Dashboard" calls [onBackToDashboard] -- MainShell's own
-/// tab-switching callback, the same pattern QrAccessScreen and HomeScreen
-/// already use to move between tabs, never a `Navigator.push`. This screen
-/// is swapped in by [EventsTab] over ReserveEventScreen directly rather
-/// than pushed onto the nav stack in the first place, so there's no
-/// dangling entry to leave behind by construction, not just by care taken
-/// on the way out.
+/// Shown after a successful booking. "Back to Dashboard" switches tabs instead of navigating.
 class ReservationConfirmedScreen extends StatelessWidget {
   final ReservationSummary reservation;
   final VoidCallback onBackToDashboard;
@@ -87,11 +76,7 @@ class ReservationConfirmedScreen extends StatelessWidget {
                 Text(
                   l10n.reservationConfirmedHeading,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: colors.textPrimary,
-                  ),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: colors.textPrimary),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -129,7 +114,10 @@ class ReservationConfirmedScreen extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textMuted)),
+        Text(
+          label,
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textMuted),
+        ),
         Text(
           value,
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary),

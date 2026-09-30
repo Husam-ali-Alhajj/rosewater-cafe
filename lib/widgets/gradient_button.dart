@@ -7,19 +7,13 @@ class GradientButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
 
-  /// Null uses this theme's own accent gradient (via `context.colors`) --
-  /// pink/purple in light mode, blue in dark -- instead of a fixed
-  /// light-mode gradient. Callers pass an explicit gradient only when they
-  /// want a specific one regardless of theme (e.g. Choose Membership's
-  /// per-tier "Select" buttons, or Onboarding's per-page accent), same
-  /// "null defaults to the theme" pattern as [OutlinedSecondaryButton].
+  /// Null uses the theme's accent gradient (pink/purple in light mode, blue in dark). Pass one only
+  /// for a fixed colour, like the per-plan buttons.
   final Gradient? gradient;
   final IconData? trailingIcon;
 
-  /// Figma uses two distinct button sizes: full-width primary CTAs (Sign
-  /// In, Continue to Payment) at the default 48/18, and compact in-card
-  /// buttons (the plan "Select" buttons) at a smaller height/font — hence
-  /// these being overridable rather than fixed.
+  /// Two sizes in the design: full-width main buttons (the default) and smaller buttons inside
+  /// cards.
   final double height;
   final double fontSize;
 
@@ -65,10 +59,7 @@ class GradientButton extends StatelessWidget {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
-            // Sprint 8 Task 4: every primary CTA's press point, wired once
-            // here rather than at each of this button's call sites --
-            // "a small fixed set of real trigger points," not
-            // instrumenting every tap individually.
+            // A light vibration on every main button press.
             onTap: onPressed == null
                 ? null
                 : () {

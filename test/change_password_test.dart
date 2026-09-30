@@ -2,10 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// A stand-in for the real auth client that records every call, in order, so a
-/// test can prove WHAT `changePassword` does and -- just as important -- what it
-/// refuses to do. Only the four members `AuthService.changePassword` touches
-/// are implemented; anything else would throw.
+/// A fake auth client that records every call in order, so tests can check what changePassword does
+/// and what it refuses to do. Only the four methods it uses are implemented.
 class _FakeAuth implements GoTrueClient {
   _FakeAuth({this.email = 'member@example.com', this.signInError, this.updateError, this.signOutError});
 
@@ -88,7 +86,9 @@ void main() {
     });
 
     test('a WRONG current password is rejected and the password is never changed', () async {
-      final auth = _FakeAuth(signInError: const AuthException('Invalid login credentials', code: 'invalid_credentials'));
+      final auth = _FakeAuth(
+        signInError: const AuthException('Invalid login credentials', code: 'invalid_credentials'),
+      );
 
       final failure = await _failureOf(
         () => AuthService(auth: auth).changePassword(currentPassword: 'WrongPass1', newPassword: 'NewPass2'),
@@ -131,7 +131,7 @@ void main() {
       );
 
       expect(failure.message, contains("Couldn't verify your current password"));
-      expect(failure.field, isNull); // not blamed on the field: the password may well be right
+      expect(failure.field, isNull); // not shown under the field: the password may be right
       expect(auth.log.where((l) => l.startsWith('updateUser')), isEmpty);
     });
 
@@ -187,11 +187,7 @@ void main() {
 
       await AuthService(auth: auth).changePassword(currentPassword: 'OldPass1', newPassword: 'NewPass2');
 
-      expect(auth.log, [
-        'signIn(member@example.com, OldPass1)',
-        'updateUser(password: NewPass2)',
-        'signOut(others)',
-      ]);
+      expect(auth.log, ['signIn(member@example.com, OldPass1)', 'updateUser(password: NewPass2)', 'signOut(others)']);
     });
   });
 }

@@ -1,11 +1,8 @@
-/// One row of `public.notifications` (Sprint 9 Task 1). Every row is
-/// written server-side by a SECURITY DEFINER function; the only thing a
-/// client may change is [isRead] (column-level grant).
+/// A row of `notifications`. Rows are created by the server; the app can only mark them read or
+/// delete them.
 ///
-/// [title]/[body] are the English text baked at insert time -- a fallback
-/// only. What the app actually shows comes from [type] + [data] via
-/// `localizeNotification` (utils/notification_localization.dart), so the
-/// text follows the active language, including after a language switch.
+/// [title]/[body] are an English fallback. The app shows text built from [type] + [data] in the
+/// user's language (see notification_localization.dart).
 class AppNotification {
   final String id;
   final String type;
@@ -13,12 +10,10 @@ class AppNotification {
   final String? body;
   final bool isRead;
 
-  /// The subscriptions.id / event_reservations.id that triggered this row,
-  /// depending on [type].
+  /// The subscription or event reservation this notification is about.
   final String? relatedId;
 
-  /// The facts this notification reports; shape depends on [type] (see
-  /// migration 20260929100000's header).
+  /// The details the notification reports; the shape depends on [type].
   final Map<String, dynamic> data;
   final DateTime createdAt;
 

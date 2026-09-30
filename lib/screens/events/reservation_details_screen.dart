@@ -8,15 +8,8 @@ import '../../theme/app_semantic_colors.dart';
 import '../../utils/event_type_localization.dart';
 import '../../widgets/screen_header.dart';
 
-/// Read-only details of one event reservation (decision #73), opened from
-/// an event notification's "View Details" (confirmation or reminder) --
-/// before this, those went to the Events tab, which only has the booking
-/// form and said nothing about the reservation itself.
-///
-/// No Figma frame exists for it, so it reuses the booking confirmation
-/// screen's own look (same detail rows, same card treatment) plus a status
-/// chip, since unlike that screen this is fetched fresh and can show a
-/// reservation that's since been cancelled. Nothing here is editable.
+/// Read-only details of one reservation, opened from an event notification. Loaded fresh, so it
+/// shows the current status (for example, cancelled).
 class ReservationDetailsScreen extends StatefulWidget {
   final String reservationId;
   final EventReservationService service;
@@ -231,11 +224,11 @@ class _StatusChip extends StatelessWidget {
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
       ),
-      child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
     );
   }
 }

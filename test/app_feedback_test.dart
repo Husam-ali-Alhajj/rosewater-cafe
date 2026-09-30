@@ -6,17 +6,11 @@ import 'package:rosewater_cafe/services/settings_provider.dart';
 import 'package:rosewater_cafe/utils/app_feedback.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Sprint 8 Task 4 -- Sound & Haptic Feedback. Proves the acceptance
-/// criterion directly: sound and haptics are gated INDEPENDENTLY (sound off
-/// + haptics on still vibrates, and vice versa) -- by recording the actual
-/// platform-channel calls `context.triggerButtonPress`/`.triggerSuccess`/
-/// `.triggerError` make, rather than trusting the wiring by inspection.
+/// Sound and vibration are controlled separately: checked by recording the real platform calls.
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  /// Records every `HapticFeedback`/`SystemSound` platform-channel call
-  /// made during [body], instead of letting them silently no-op against
-  /// the test binding's default (unmocked) handler.
+  /// Records the sound and vibration platform calls made during [body].
   Future<List<String>> recordPlatformCalls(
     WidgetTester tester, {
     required SettingsProvider settings,
@@ -33,10 +27,12 @@ void main() {
       ChangeNotifierProvider<SettingsProvider>.value(
         value: settings,
         child: MaterialApp(
-          home: Builder(builder: (context) {
-            body(context);
-            return const SizedBox();
-          }),
+          home: Builder(
+            builder: (context) {
+              body(context);
+              return const SizedBox();
+            },
+          ),
         ),
       ),
     );
@@ -62,10 +58,7 @@ void main() {
         settings: settings,
         body: (context) => context.triggerButtonPress(),
       );
-      // Not `isEmpty` -- MaterialApp itself makes unrelated platform calls
-      // (e.g. SystemChrome.setApplicationSwitcherDescription) on this same
-      // channel during startup; only the specific call this triggers is
-      // the point of the test.
+      // Not `isEmpty`: MaterialApp makes other calls on the same channel at startup.
       expect(calls, isNot(contains('HapticFeedback.vibrate')));
     });
   });
@@ -74,11 +67,7 @@ void main() {
     testWidgets('sound OFF + haptics ON: still vibrates, no sound', (tester) async {
       final settings = await SettingsProvider.load();
       await settings.setSoundEnabled(false);
-      final calls = await recordPlatformCalls(
-        tester,
-        settings: settings,
-        body: (context) => context.triggerSuccess(),
-      );
+      final calls = await recordPlatformCalls(tester, settings: settings, body: (context) => context.triggerSuccess());
       expect(calls, contains('HapticFeedback.vibrate'));
       expect(calls, isNot(contains('SystemSound.play')));
     });
@@ -86,22 +75,14 @@ void main() {
     testWidgets('sound ON + haptics OFF: still plays a sound, no vibration', (tester) async {
       final settings = await SettingsProvider.load();
       await settings.setHapticsEnabled(false);
-      final calls = await recordPlatformCalls(
-        tester,
-        settings: settings,
-        body: (context) => context.triggerSuccess(),
-      );
+      final calls = await recordPlatformCalls(tester, settings: settings, body: (context) => context.triggerSuccess());
       expect(calls, isNot(contains('HapticFeedback.vibrate')));
       expect(calls, contains('SystemSound.play'));
     });
 
     testWidgets('both ON: vibrates AND plays a sound', (tester) async {
       final settings = await SettingsProvider.load();
-      final calls = await recordPlatformCalls(
-        tester,
-        settings: settings,
-        body: (context) => context.triggerSuccess(),
-      );
+      final calls = await recordPlatformCalls(tester, settings: settings, body: (context) => context.triggerSuccess());
       expect(calls, contains('HapticFeedback.vibrate'));
       expect(calls, contains('SystemSound.play'));
     });
@@ -110,11 +91,7 @@ void main() {
       final settings = await SettingsProvider.load();
       await settings.setSoundEnabled(false);
       await settings.setHapticsEnabled(false);
-      final calls = await recordPlatformCalls(
-        tester,
-        settings: settings,
-        body: (context) => context.triggerError(),
-      );
+      final calls = await recordPlatformCalls(tester, settings: settings, body: (context) => context.triggerError());
       expect(calls, isNot(contains('HapticFeedback.vibrate')));
       expect(calls, isNot(contains('SystemSound.play')));
     });
@@ -122,11 +99,7 @@ void main() {
     testWidgets('triggerError also gates independently', (tester) async {
       final settings = await SettingsProvider.load();
       await settings.setSoundEnabled(false);
-      final calls = await recordPlatformCalls(
-        tester,
-        settings: settings,
-        body: (context) => context.triggerError(),
-      );
+      final calls = await recordPlatformCalls(tester, settings: settings, body: (context) => context.triggerError());
       expect(calls, contains('HapticFeedback.vibrate'));
       expect(calls, isNot(contains('SystemSound.play')));
     });
@@ -141,12 +114,16 @@ void main() {
       });
       addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
 
-      await tester.pumpWidget(MaterialApp(
-        home: Builder(builder: (context) {
-          context.triggerSuccess();
-          return const SizedBox();
-        }),
-      ));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              context.triggerSuccess();
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
 
       expect(calls, contains('HapticFeedback.vibrate'));
       expect(calls, contains('SystemSound.play'));

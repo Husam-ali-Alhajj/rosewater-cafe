@@ -1,13 +1,8 @@
--- Decision #77: upgrade_subscription now creates a "Membership Upgraded"
--- notification (user-reported: upgrading produced no notification, unlike
--- a first payment's "Membership Activated"). Being a normal notification
--- row, it also gets everything else notifications get: the email (#74),
--- the live badge + arrival chime (#71), and the feed, rendered in the
--- app's language from `data` (#66).
+-- upgrade_subscription now also creates a "Membership Upgraded" notification, which also triggers
+-- the email, the live badge and the arrival sound.
 --
--- Only change from 20260930160000 (the same-day fix): the old/new plan
--- names are read alongside the prices it already reads, and one
--- notification insert at the end. Everything else is identical.
+-- The only changes: the old and new plan names are read, and one notification is inserted at the
+-- end.
 
 create or replace function public.upgrade_subscription(p_new_plan_id uuid)
 returns timestamptz
@@ -66,11 +61,8 @@ begin
   values (v_user_id, p_new_plan_id, 'active', now(), v_valid_until)
   returning id into v_new_sub_id;
 
-  -- A usage row starting today may already exist (paid today, or a
-  -- second upgrade today) -- `unique (user_id, period_start)` would reject
-  -- a second one and abort the whole upgrade. Reuse it as the fresh
-  -- period instead: new end date, usage back to zero, and the low-
-  -- allowance "already alerted" markers (decision #70) cleared.
+  -- A usage row starting today may already exist (paid today, or a second upgrade today). Reuse it
+  -- instead of failing: new end date, usage back to zero, alert flags cleared.
   insert into public.usage_allowances (user_id, period_start, period_end)
   values (v_user_id, current_date, v_valid_until::date)
   on conflict (user_id, period_start) do update
@@ -80,11 +72,8 @@ begin
         hookah_alert_sent = false,
         drinks_alert_sent = false;
 
-  -- Decision #77: a real notification for the upgrade, same pattern as
-  -- confirm_subscription_payment's "Membership Activated" -- which also
-  -- means the email (#74), the live badge + chime (#71) and the feed.
-  -- Plan names and valid_until come from what this function itself just
-  -- read/set, never from the client.
+  -- Notify the user about the upgrade, using the plan names and date this function just read or
+  -- set.
   insert into public.notifications (user_id, type, title, body, related_id, data)
   values (
     v_user_id,

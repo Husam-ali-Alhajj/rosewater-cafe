@@ -5,7 +5,7 @@ import 'package:rosewater_cafe/services/auth_service.dart';
 import 'package:rosewater_cafe/services/biometric_service.dart';
 import 'package:rosewater_cafe/widgets/app_lock_screen.dart';
 
-/// A fake with no real `local_auth` platform channel behind it.
+/// A fake biometric service (tests have no real device).
 class _FakeBiometricService extends BiometricService {
   _FakeBiometricService({this.result = true});
 
@@ -42,8 +42,7 @@ void main() {
   }) async {
     await tester.pumpWidget(
       MaterialApp(
-        // Sprint 8 Task 6 Phase 2: AppLockScreen now reads AppLocalizations
-        // throughout.
+        // The lock screen uses translations.
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: AppLockScreen(
@@ -134,7 +133,7 @@ void main() {
 
       expect(biometrics.authenticateCalls, 0);
       expect(find.widgetWithText(TextField, 'Password'), findsOneWidget);
-      expect(find.text('Use Password Instead'), findsNothing); // already showing it -- nothing to switch to
+      expect(find.text('Use Password Instead'), findsNothing); // already showing it
     });
 
     testWidgets('an empty password is rejected before any request', (tester) async {

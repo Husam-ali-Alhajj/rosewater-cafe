@@ -4,15 +4,8 @@ import '../l10n/app_localizations.dart';
 import '../models/app_notification.dart';
 import 'event_type_localization.dart';
 
-/// [notification]'s title and body in [l10n]'s language, built from its
-/// `type` + `data` (the facts the server recorded) rather than the
-/// English `title`/`body` columns -- so Arabic users read Arabic, and an
-/// existing notification re-translates when the language changes.
-///
-/// Falls back to the stored English `title`/`body` for a type this app
-/// version doesn't know yet, or a row whose `data` is missing/malformed
-/// (e.g. written before migration 20260929100000 added it) -- never a
-/// blank notification or a crash.
+/// A notification's title and text in the user's language, built from its type and data. Falls back
+/// to the stored English text for unknown types or missing data.
 ({String title, String body}) localizeNotification(AppNotification notification, AppLocalizations l10n) {
   final fallback = (title: notification.title, body: notification.body ?? '');
   final data = notification.data;
@@ -47,10 +40,7 @@ import 'event_type_localization.dart';
         final time = DateFormat.jm(l10n.localeName).format(startTime);
         final guests = data['guest_count'] as int;
         return notification.type == 'event_reminder'
-            ? (
-                title: l10n.notifEventReminderTitle,
-                body: l10n.notifEventReminderBody(eventType, date, time, guests),
-              )
+            ? (title: l10n.notifEventReminderTitle, body: l10n.notifEventReminderBody(eventType, date, time, guests))
             : (
                 title: l10n.notifEventReservationConfirmedTitle,
                 body: l10n.notifEventReservationConfirmedBody(eventType, date, time, guests),
@@ -67,8 +57,7 @@ import 'event_type_localization.dart';
         return fallback;
     }
   } catch (_) {
-    // Missing key, wrong type, unparseable date -- show the English text
-    // the server stored rather than nothing.
+    // Missing or invalid data: show the stored English text instead.
     return fallback;
   }
 }

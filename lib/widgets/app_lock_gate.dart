@@ -5,40 +5,23 @@ import '../services/settings_provider.dart';
 import '../services/supabase_client.dart';
 import 'app_lock_screen.dart';
 
-/// Sprint 8 Task 5 -- wraps the whole app (via `MaterialApp.builder` in
-/// `main.dart`) so Auto-Lock can show its lock screen over whatever screen
-/// happens to be on top of the navigation stack when the app resumes, not
-/// just at cold start. `AppEntryPoint`'s session-based routing (decision
-/// #15) still decides what's UNDER this gate; this only ever decides
-/// whether that content is currently hidden.
+/// Wraps the whole app so Auto-Lock can show the lock screen on top of any screen when the app
+/// comes back after being away too long.
 ///
-/// Tracks [AppLifecycleState.paused]/`.resumed` specifically -- not
-/// `.inactive`, which can flicker on and off during perfectly normal use
-/// (a system permission dialog, an incoming call banner) without the app
-/// ever having actually left the foreground.
-///
-/// Scoped to signed-in sessions only: nothing sensitive exists before
-/// sign-in, and locking Onboarding/Sign In itself would be a dead end, not
-/// a security feature.
+/// Uses the paused/resumed states (not "inactive", which also fires for things like permission
+/// dialogs). Only locks signed-in sessions.
 class AppLockGate extends StatefulWidget {
   final Widget child;
 
-  /// Overridable so a test can control elapsed time without actually
-  /// waiting on it -- defaults to the real clock.
+  /// The clock; replaceable in tests.
   final DateTime Function() now;
 
-  /// Overridable so a test doesn't need a real signed-in Supabase session
-  /// to prove the "only when signed in" scoping -- defaults to the real
-  /// check.
+  /// Whether someone is signed in; replaceable in tests.
   final bool Function() hasSession;
 
-  AppLockGate({
-    super.key,
-    required this.child,
-    DateTime Function()? now,
-    bool Function()? hasSession,
-  }) : now = now ?? DateTime.now,
-       hasSession = hasSession ?? (() => supabase.auth.currentSession != null);
+  AppLockGate({super.key, required this.child, DateTime Function()? now, bool Function()? hasSession})
+    : now = now ?? DateTime.now,
+      hasSession = hasSession ?? (() => supabase.auth.currentSession != null);
 
   @override
   State<AppLockGate> createState() => _AppLockGateState();
@@ -70,7 +53,7 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
 
     final pausedAt = _pausedAt;
     _pausedAt = null;
-    if (pausedAt == null) return; // resumed without a matching paused (e.g. straight from `inactive`)
+    if (pausedAt == null) return; // resumed without a pause first
     if (!widget.hasSession()) return;
 
     final settings = context.read<SettingsProvider>();
@@ -90,10 +73,7 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
         widget.child,
         if (_locked)
           Positioned.fill(
-            child: AppLockScreen(
-              biometricEnabled: biometricEnabled,
-              onUnlocked: () => setState(() => _locked = false),
-            ),
+            child: AppLockScreen(biometricEnabled: biometricEnabled, onUnlocked: () => setState(() => _locked = false)),
           ),
       ],
     );

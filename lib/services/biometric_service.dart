@@ -1,32 +1,15 @@
 import 'package:local_auth/local_auth.dart';
 
-/// Sprint 8 Task 5: a thin wrapper around `local_auth`'s
-/// [LocalAuthentication], so the rest of the app (and tests) go through one
-/// small surface rather than the plugin class directly -- the same
-/// constructor-injection pattern every other real service in this project
-/// uses (`AuthService`, `AccountDeletionService`, ...), so a fake can stand
-/// in without a real device or platform channel.
+/// A small wrapper around `local_auth`, so the app and tests use one simple class.
 class BiometricService {
   const BiometricService({LocalAuthentication? auth}) : _authOverride = auth;
 
-  // `LocalAuthentication` isn't const-constructible, so a real one is
-  // created lazily here rather than eagerly in the constructor -- keeps
-  // `const BiometricService()` itself legal as a default parameter value
-  // at every call site (AppLockScreen, _SecurityOptionsCard), the same
-  // "null overrides a lazily-created real default" shape as every other
-  // injectable service in this project.
+  // Created on first use so this class can be const.
   final LocalAuthentication? _authOverride;
   LocalAuthentication get _auth => _authOverride ?? LocalAuthentication();
 
-  /// True only if the device both supports biometrics at all
-  /// ([LocalAuthentication.isDeviceSupported]) AND has at least one
-  /// biometric actually enrolled ([LocalAuthentication.canCheckBiometrics])
-  /// -- checked before the Biometric Authentication toggle is allowed to
-  /// turn on, per the task's own "fail gracefully... rather than a toggle
-  /// that silently does nothing." Never throws: any plugin-level error
-  /// (channel not implemented, permission denied, ...) is treated the same
-  /// as "not available" -- there's nothing more specific a caller could
-  /// usefully do with it.
+  /// True only if the device supports biometrics and has at least one enrolled. Never throws; any
+  /// error means "not available".
   Future<bool> isAvailable() async {
     try {
       final supported = await _auth.isDeviceSupported();
@@ -37,14 +20,8 @@ class BiometricService {
     }
   }
 
-  /// Prompts for a biometric check (fingerprint/Face ID/Touch ID) and
-  /// returns whether it succeeded. `biometricOnly: true` -- deliberately
-  /// never falls through to the OS's own device-PIN prompt, so the lock
-  /// screen's own "Use Password Instead" is the one fallback path, not two
-  /// different fallback UIs layered on each other. A cancelled prompt, a
-  /// device with biometrics removed since the last check, or any plugin
-  /// error all just return `false` -- same "let the caller show a plain
-  /// failure state" reasoning as [isAvailable].
+  /// Asks for a fingerprint or face scan and returns whether it worked. Biometrics only, so the
+  /// lock screen's "Use Password Instead" is the only fallback. Any failure returns false.
   Future<bool> authenticate({required String reason}) async {
     try {
       return await _auth.authenticate(

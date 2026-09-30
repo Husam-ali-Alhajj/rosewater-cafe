@@ -7,44 +7,18 @@ import '../screens/auth/set_new_password_screen.dart';
 import '../widgets/app_page_route.dart';
 import 'supabase_client.dart';
 
-/// Set the moment `AuthChangeEvent.passwordRecovery` fires, if it fires
-/// before any widget exists to navigate anywhere -- see [listenForPasswordRecovery]
-/// for why that's the common case on web, not an edge case. `AppEntryPoint`
-/// checks this once, itself, right after `Supabase.initialize()` has
-/// finished (i.e. on the very first frame) and routes to
-/// [SetNewPasswordScreen] directly if it's true -- a fallback for exactly
-/// the moment [listenForPasswordRecovery]'s own `navigatorKey` isn't ready
-/// yet to act on the event itself.
+/// Set when a password-reset link arrives before the app can navigate (common on web).
+/// AppEntryPoint checks it on start and opens Set New Password.
 bool pendingPasswordRecovery = false;
 
-/// Listens for `AuthChangeEvent.passwordRecovery` -- the signal Supabase
-/// fires the moment a password-recovery deep link is opened. This is NOT
-/// something polled for: `supabase_flutter`'s own deep-link observer
-/// (`app_links` under the hood, wired up automatically inside
-/// `Supabase.initialize()`) detects the incoming link on startup or while
-/// the app is running, exchanges its token for a short-lived recovery
-/// session, and fires this event the moment that's done.
+/// Listens for Supabase's password-recovery event, fired when a reset link is opened.
 ///
-/// **On Flutter Web, that whole exchange -- and this event -- happens
-/// INSIDE `Supabase.initialize()`'s own awaited chain, before `runApp()`
-/// builds a single widget** (confirmed live: an earlier version of this
-/// function used `navigatorKey.currentState?.pushAndRemoveUntil(...)` here
-/// and nothing happened -- `currentState` was still null when the event
-/// fired, so the `?.` silently no-opped, and the app fell through to
-/// `AppEntryPoint`'s normal session-based routing instead). So this
-/// function covers BOTH cases:
+/// On web this happens inside Supabase.initialize(), before any screen exists, so there are two
+/// cases: if navigation is ready, go straight to Set New Password; if not, set
+/// [pendingPasswordRecovery] for AppEntryPoint.
 ///
-/// - The Navigator already exists (the event fires later, e.g. a second
-///   recovery link opened while the app is already running): navigate
-///   straight there.
-/// - The Navigator doesn't exist yet (the web cold-start case, which is
-///   the NORMAL case, not the exception): set [pendingPasswordRecovery]
-///   instead, for `AppEntryPoint` to notice on its very first resolve.
-///
-/// Call this once, right after calling (not yet awaiting) `Supabase
-/// .initialize()` in `main()` -- see that file's comment for why the timing
-/// there matters too. The returned subscription is meant to live for the
-/// app's whole lifetime -- there's nothing that ever needs to cancel it.
+/// Call once in main(), before awaiting Supabase.initialize(). The subscription lives as long as
+/// the app.
 StreamSubscription<AuthState> listenForPasswordRecovery(GlobalKey<NavigatorState> navigatorKey) {
   return supabase.auth.onAuthStateChange.listen((data) {
     if (data.event != AuthChangeEvent.passwordRecovery) return;
@@ -53,13 +27,8 @@ StreamSubscription<AuthState> listenForPasswordRecovery(GlobalKey<NavigatorState
       pendingPasswordRecovery = true;
       return;
     }
-    // `navigator.context` -- a NavigatorState is itself a State, so this is
-    // a real BuildContext inside the tree Provider<SettingsProvider> wraps
-    // in main.dart, even though nothing built this listener FROM a widget.
-    // The `mounted` check above (redundant with the null check in the same
-    // synchronous callback today, but this is exactly the kind of stream
-    // listener the lint doesn't trust to stay synchronous) is what actually
-    // satisfies `use_build_context_synchronously`.
+    // The navigator's context is a real context inside the app, so screens opened from here can
+    // read the settings.
     navigator.pushAndRemoveUntil(appRoute(navigator.context, (_) => const SetNewPasswordScreen()), (route) => false);
   });
 }

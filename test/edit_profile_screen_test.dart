@@ -29,9 +29,7 @@ final _membership = ActiveMembership(
   validUntil: DateTime.utc(2026, 2, 13),
 );
 
-/// Stands in for the real service so the screen can be tested with no
-/// Supabase connection -- and so a test can prove the screen did (or, for an
-/// invalid form, did NOT) call it at all.
+/// A fake service, so tests run without Supabase and can check whether the screen called it.
 class _FakeProfileService extends ProfileService {
   _FakeProfileService({this.failure});
 
@@ -39,11 +37,7 @@ class _FakeProfileService extends ProfileService {
   final List<Map<String, Object?>> calls = [];
 
   @override
-  Future<Profile> updateProfile({
-    required String fullName,
-    required String phone,
-    String? avatarPath,
-  }) async {
+  Future<Profile> updateProfile({required String fullName, required String phone, String? avatarPath}) async {
     calls.add({'fullName': fullName, 'phone': phone, 'avatarPath': avatarPath});
     final f = failure;
     if (f != null) throw f;
@@ -62,8 +56,7 @@ class _Result {
   bool didPop = false;
 }
 
-/// Opens Edit Profile from a host screen (as Profile does) so a test can see
-/// what it pops with.
+/// Opens Edit Profile from another screen so the test can see what it returns.
 Future<_Result> _open(WidgetTester tester, _FakeProfileService service) async {
   tester.view.physicalSize = const Size(800, 3000);
   tester.view.devicePixelRatio = 1;
@@ -72,8 +65,7 @@ Future<_Result> _open(WidgetTester tester, _FakeProfileService service) async {
   final result = _Result();
   await tester.pumpWidget(
     MaterialApp(
-      // Sprint 8 Task 6 Phase 2: this screen now reads AppLocalizations
-      // throughout (see edit_profile_screen.dart).
+      // The screen uses translations.
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(
@@ -82,7 +74,8 @@ Future<_Result> _open(WidgetTester tester, _FakeProfileService service) async {
             onPressed: () async {
               result.popped = await Navigator.of(context).push<Profile>(
                 MaterialPageRoute(
-                  builder: (_) => EditProfileScreen(profile: _profile, membership: _membership, profileService: service),
+                  builder: (_) =>
+                      EditProfileScreen(profile: _profile, membership: _membership, profileService: service),
                 ),
               );
               result.didPop = true;
@@ -106,7 +99,7 @@ void main() {
     await _open(tester, _FakeProfileService());
 
     expect(find.text('Edit Profile'), findsOneWidget);
-    // Exactly two inputs -- name and phone. Email is NOT a text field.
+    // Only two inputs: name and phone. Email isn't a text field.
     expect(find.byType(TextFormField), findsNWidgets(2));
     expect(find.byType(TextField), findsNWidgets(2));
     expect(find.text('Layla Hassan'), findsOneWidget);
@@ -147,7 +140,7 @@ void main() {
     expect(result.didPop, isFalse); // and we're still on Edit Profile
   });
 
-  testWidgets('rejects each invalid-phone shape from decision #10 without calling the service', (tester) async {
+  testWidgets('rejects each invalid phone number without calling the service', (tester) async {
     final service = _FakeProfileService();
     await _open(tester, service);
 
@@ -210,7 +203,9 @@ void main() {
   });
 
   testWidgets('a failed save shows the message and stays on the screen', (tester) async {
-    final service = _FakeProfileService(failure: const ProfileUpdateFailure("Couldn't save your changes. Please try again."));
+    final service = _FakeProfileService(
+      failure: const ProfileUpdateFailure("Couldn't save your changes. Please try again."),
+    );
     final result = await _open(tester, service);
 
     await tester.enterText(_nameField, 'New Name');

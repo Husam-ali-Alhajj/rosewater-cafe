@@ -1,6 +1,5 @@
-/// Mirrors a row of `public.payment_methods`. Metadata only -- brand, last 4,
-/// expiry and the default flag. There is no field for a full card number or
-/// CVV anywhere, because the table has no column for them either.
+/// A saved card: brand, last 4 digits, expiry and default flag only. The full number and CVV are
+/// never stored.
 class PaymentMethod {
   final String id;
   final String brand;

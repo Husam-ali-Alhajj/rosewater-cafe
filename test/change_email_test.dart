@@ -2,9 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// A stand-in for the real auth client that records every call, in order.
-/// Only the three members `AuthService.changeEmail` touches are
-/// implemented; anything else would throw.
+/// A fake auth client that records every call in order. Only the three methods changeEmail uses are
+/// implemented.
 class _FakeAuth implements GoTrueClient {
   _FakeAuth({this.email = 'member@example.com', this.signInError, this.updateError});
 
@@ -86,7 +85,9 @@ void main() {
     });
 
     test('a WRONG current password is rejected and no change is requested', () async {
-      final auth = _FakeAuth(signInError: const AuthException('Invalid login credentials', code: 'invalid_credentials'));
+      final auth = _FakeAuth(
+        signInError: const AuthException('Invalid login credentials', code: 'invalid_credentials'),
+      );
 
       final failure = await _failureOf(
         () => AuthService(auth: auth).changeEmail(currentPassword: 'WrongPass1', newEmail: 'new@example.com'),

@@ -4,8 +4,8 @@ import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/screens/profile/notification_settings_screen.dart';
 import 'package:rosewater_cafe/services/notification_prefs.dart';
 
-/// Stands in for the database: a single shared "row", so a brand-new
-/// screen (the app reopened) reads back what the last one saved.
+/// Stands in for the database: one shared "row", so a new screen reads back what the last one
+/// saved.
 class _MemoryPrefs extends NotificationPrefs {
   final Map<String, dynamic> row = {};
 
@@ -16,8 +16,7 @@ class _MemoryPrefs extends NotificationPrefs {
   Future<void> set(NotificationSetting setting, bool value) async => row[setting.column] = value;
 }
 
-/// Fails every write, to prove the switch doesn't keep lying about a value
-/// that wasn't saved.
+/// Fails every save, to check the switch doesn't keep showing an unsaved value.
 class _FailingPrefs extends _MemoryPrefs {
   @override
   Future<void> set(NotificationSetting setting, bool value) => throw StateError('network down');
@@ -29,8 +28,7 @@ Future<void> _pump(WidgetTester tester, {NotificationPrefs? prefs}) async {
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      // Sprint 8 Task 6 Phase 2: ScreenHeader now reads AppLocalizations for
-      // its back button -- this screen's own strings aren't localized yet.
+      // Needed for the translated back button.
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: NotificationSettingsScreen(prefs: prefs ?? _MemoryPrefs()),
@@ -41,7 +39,7 @@ Future<void> _pump(WidgetTester tester, {NotificationPrefs? prefs}) async {
 
 Finder _switch(NotificationSetting s) => find.byKey(ValueKey('toggle-${s.name}'));
 
-/// Whether the switch is showing "on" -- the design's red `#EC003F` track.
+/// Whether the switch shows "on" (the red track).
 bool _isOn(WidgetTester tester, NotificationSetting s) {
   final track = tester.widget<AnimatedContainer>(
     find.descendant(of: _switch(s), matching: find.byType(AnimatedContainer)),
@@ -110,7 +108,7 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
 
-    // "Reopen": a brand-new screen reads what was saved.
+    // "Reopen": a new screen reads what was saved.
     await _pump(tester, prefs: prefs);
     expect(_isOn(tester, NotificationSetting.sms), isTrue); // was off by default
     expect(_isOn(tester, NotificationSetting.eventReminders), isFalse); // was on by default
@@ -123,7 +121,7 @@ void main() {
     await tester.tap(_switch(NotificationSetting.push));
     await tester.pumpAndSettle();
 
-    expect(_isOn(tester, NotificationSetting.push), isTrue); // reverted to what's actually stored
+    expect(_isOn(tester, NotificationSetting.push), isTrue); // back to what's actually stored
     expect(find.text("Couldn't save that setting. Please try again."), findsOneWidget);
   });
 
@@ -135,16 +133,15 @@ void main() {
     Future<void> open() async {
       await tester.pumpWidget(
         MaterialApp(
-          // Sprint 8 Task 6 Phase 2: ScreenHeader now reads AppLocalizations
-          // for its back button -- this screen isn't localized yet.
+          // Needed for the translated back button.
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => Scaffold(
               body: TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => NotificationSettingsScreen(prefs: _MemoryPrefs())),
-                ),
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => NotificationSettingsScreen(prefs: _MemoryPrefs()))),
                 child: const Text('open'),
               ),
             ),

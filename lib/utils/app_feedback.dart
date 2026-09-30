@@ -5,29 +5,15 @@ import 'package:provider/provider.dart';
 import '../services/notification_arrival_feedback.dart';
 import '../services/settings_provider.dart';
 
-/// Sprint 8 Task 4 -- Sound & Haptic Feedback. A small, fixed set of real
-/// trigger points (not every tap), matching what the design's own copy
-/// implies ("Play sound when notifications arrive", "Vibrate on button
-/// presses"):
+/// Sound and vibration feedback, used in a few places only:
 ///
-/// - [triggerButtonPress] -- a primary button (`GradientButton`) was
-///   pressed. Haptic only; sound is reserved for success/error below, not
-///   every tap.
-/// - [triggerSuccess] -- a successful action completed: payment confirmed,
-///   door opened, reservation confirmed.
-/// - [triggerError] -- an action failed: sign-in failed, payment failed.
-/// - [triggerNotificationArrived] -- a new notification arrived while the
-///   app is open (notifications roadmap step 4): the bundled chime and a
-///   vibration, gated by BOTH the notification "Sound & Vibration" toggle
-///   and these same app switches (see [NotificationArrivalFeedback]).
+/// - [triggerButtonPress]: a main button was pressed (vibration only).
+/// - [triggerSuccess]: payment done, door opened, reservation confirmed.
+/// - [triggerError]: sign-in or payment failed.
+/// - [triggerNotificationArrived]: a notification arrived (see NotificationArrivalFeedback).
 ///
-/// Sound and haptics are gated **independently** by
-/// `SettingsProvider.soundEnabled`/`.hapticsEnabled` -- sound off with
-/// haptics on still vibrates, and vice versa, per the task's own
-/// acceptance criterion. Falls back to both enabled when no
-/// [SettingsProvider] is in the tree, the same fallback `context.colors`/
-/// `context.animDuration` already use, so existing widget tests that pump
-/// a screen directly keep working unchanged.
+/// Sound and vibration follow their own App Settings switches separately. Both count as on when
+/// there's no SettingsProvider (for example, in tests).
 extension AppFeedbackX on BuildContext {
   void triggerButtonPress() => _haptic(this, HapticFeedback.lightImpact);
 

@@ -3,9 +3,8 @@ import 'package:rosewater_cafe/config/supabase_config.dart';
 import 'package:rosewater_cafe/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// A stand-in for the real auth client that records every call, in order.
-/// Only the two members `AuthService.completePasswordRecovery` touches are
-/// implemented; anything else would throw.
+/// A fake auth client that records every call in order. Only the two methods
+/// completePasswordRecovery uses are implemented.
 class _FakeAuth implements GoTrueClient {
   _FakeAuth({this.hasSession = true, this.updateError});
 

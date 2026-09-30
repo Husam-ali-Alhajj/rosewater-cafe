@@ -1,11 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/utils/validators.dart';
 
-/// Decision #10's phone rule, now shared by Create Account and Edit Profile.
-/// These pin its exact behaviour so a future edit can't quietly change what
-/// either screen accepts.
+/// The phone rule shared by sign-up and Edit Profile, pinned so it can't change by accident.
 void main() {
-  group('Validators.phone (decision #10)', () {
+  group('Validators.phone', () {
     test('accepts a number with a country code', () {
       expect(Validators.phone('+15551234567'), isNull);
       expect(Validators.phone('+966551234567'), isNull);
@@ -43,10 +41,9 @@ void main() {
     });
   });
 
-  /// Decision #10's password rule, now shared by Create Account and Change
-  /// Password. Pinned here so a future edit can't quietly change what either
-  /// accepts.
-  group('Validators.password (decision #10)', () {
+  /// The password rule shared by sign-up and Change Password, pinned so it can't change by
+  /// accident.
+  group('Validators.password', () {
     test('accepts 8+ characters with an uppercase letter, a lowercase letter and a number', () {
       expect(Validators.password('Password1'), isNull);
       expect(Validators.password('aB3aaaaa'), isNull); // exactly 8: the floor

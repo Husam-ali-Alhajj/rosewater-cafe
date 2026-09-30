@@ -13,11 +13,10 @@ import '../home/main_shell.dart';
 import '../membership/choose_membership_screen.dart';
 import 'create_account_screen.dart';
 import 'forgot_password_screen.dart';
-import '../../widgets/onboarding_icon_badge.dart';
+import '../../widgets/app_logo.dart';
 
-/// Real sign-in: supabase.auth.signInWithPassword, then routes based on
-/// subscription state — Home if the user has an active subscription,
-/// Choose Membership if they signed up but never completed payment.
+/// Signs in, then goes to Home if the membership is active, or to Choose Membership if payment was
+/// never finished.
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
 
@@ -33,13 +32,8 @@ class _SignInScreenState extends State<SignInScreen> {
   final _subscriptionService = const SubscriptionService();
 
   bool _obscurePassword = true;
-  // "Remember me" is real (decision #56): checked (the default -- see
-  // RememberMePrefs) behaves exactly as decision #15 always did, a
-  // signed-in mobile app stays signed in. Unchecked forces a sign-out on
-  // the NEXT cold app start, checked by AppEntryPoint -- not here, and not
-  // "on close", since a mobile OS can kill a process with no callback to
-  // act on. Loaded from the last-stored value in initState so the checkbox
-  // itself remembers what was last chosen, same as the behavior it drives.
+  // "Remember me": if unticked, AppEntryPoint signs the user out on the next app start. The
+  // checkbox shows the last choice.
   bool _rememberMe = true;
   bool _isSubmitting = false;
   String? _credentialsError;
@@ -61,9 +55,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   String? _validateEmail(String? value) => Validators.email(value);
 
-  // A local validator (not shared `Validators`, which has no BuildContext
-  // access) -- localizable right here via `this.context`, a State's own
-  // instance member, without changing that shared utility's signature.
+  // A local validator so its message can be translated.
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) return AppLocalizations.of(context).passwordRequired;
     return null;
@@ -74,7 +66,7 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _submit() async {
-    if (_isSubmitting) return; // same re-entry guard as Create Account
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -83,24 +75,17 @@ class _SignInScreenState extends State<SignInScreen> {
     });
 
     try {
-      await _authService.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-      // Only stored once a session actually exists -- there's nothing to
-      // remember (or not) about a sign-in attempt that failed.
+      await _authService.signIn(email: _emailController.text.trim(), password: _passwordController.text);
+      // Only stored after a successful sign-in.
       await const RememberMePrefs().setRemembered(_rememberMe);
       final hasActive = await _subscriptionService.hasActiveSubscription();
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        appRoute(
-          context,
-          (_) => hasActive ? const MainShell() : const ChooseMembershipScreen(),
-        ),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(appRoute(context, (_) => hasActive ? const MainShell() : const ChooseMembershipScreen()));
     } on SignInFailure catch (e) {
       if (!mounted) return;
-      context.triggerError(); // Sprint 8 Task 4: failed sign-in
+      context.triggerError();
       setState(() {
         _isSubmitting = false;
         _credentialsError = e.message;
@@ -109,9 +94,9 @@ class _SignInScreenState extends State<SignInScreen> {
       if (!mounted) return;
       context.triggerError();
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).signInGenericError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).signInGenericError)));
     }
   }
 
@@ -129,12 +114,7 @@ class _SignInScreenState extends State<SignInScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  // Sprint 8 Task 6 (decision #63): a "back" arrow is
-                  // directional -- it needs to point toward where "back"
-                  // actually leads, which is the opposite screen edge in
-                  // RTL. Icons.arrow_back doesn't auto-mirror (it's not one
-                  // of the codepoints Flutter's own bidi icon-mirroring
-                  // covers), so this checks Directionality explicitly.
+                  // The back arrow has to point the other way in right-to-left.
                   icon: Icon(
                     Directionality.of(context) == TextDirection.rtl ? Icons.arrow_forward : Icons.arrow_back,
                     color: colors.textPrimary,
@@ -147,9 +127,6 @@ class _SignInScreenState extends State<SignInScreen> {
                   decoration: BoxDecoration(
                     color: colors.surface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(14),
-                    // Figma's fractional hairline stroke (same value as App
-                    // Settings' _hairline), confirmed in Sprint 6 Task 3 --
-                    // was missing entirely before this fidelity pass.
                     border: Border.all(color: colors.border, width: 0.515),
                     boxShadow: [
                       BoxShadow(
@@ -164,7 +141,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        const OnboardingIconBadge(icon: Icons.lock),
+                        const AppLogo(height: 72),
                         const SizedBox(height: 24),
                         Text(l10n.welcomeBack, style: AppTextStyles.heading1(context)),
                         const SizedBox(height: 8),
@@ -207,12 +184,8 @@ class _SignInScreenState extends State<SignInScreen> {
                             Text(l10n.rememberMe, style: AppTextStyles.bodyMuted(context)),
                             const Spacer(),
                             GestureDetector(
-                              onTap: () => Navigator.of(context).push(
-                                appRoute(
-                                  context,
-                                  (_) => const ForgotPasswordScreen(),
-                                ),
-                              ),
+                              onTap: () =>
+                                  Navigator.of(context).push(appRoute(context, (_) => const ForgotPasswordScreen())),
                               child: Text(
                                 l10n.forgotPassword,
                                 style: TextStyle(color: colors.accent, fontWeight: FontWeight.w600),
@@ -224,15 +197,8 @@ class _SignInScreenState extends State<SignInScreen> {
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Align(
-                              // Sprint 8 Task 6: `AlignmentDirectional.centerStart`,
-                              // not the physical `Alignment.centerLeft` --
-                              // this error text needs to hug the START edge
-                              // (right, in RTL), not always the left.
                               alignment: AlignmentDirectional.centerStart,
-                              child: Text(
-                                _credentialsError!,
-                                style: TextStyle(color: colors.danger, fontSize: 12),
-                              ),
+                              child: Text(_credentialsError!, style: TextStyle(color: colors.danger, fontSize: 12)),
                             ),
                           ),
                         const SizedBox(height: 16),
@@ -245,15 +211,11 @@ class _SignInScreenState extends State<SignInScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(l10n.noAccountPrompt, style: AppTextStyles.bodyMuted(context)),
-                            // A SizedBox gap, not a trailing space baked
-                            // into `noAccountPrompt` -- a translated string
-                            // shouldn't have to carry layout spacing inside
-                            // it (Sprint 8 Task 6).
                             const SizedBox(width: 4),
                             GestureDetector(
-                              onTap: () => Navigator.of(context).pushReplacement(
-                                appRoute(context, (_) => const CreateAccountScreen()),
-                              ),
+                              onTap: () => Navigator.of(
+                                context,
+                              ).pushReplacement(appRoute(context, (_) => const CreateAccountScreen())),
                               child: Text(
                                 l10n.createAccount,
                                 style: TextStyle(color: colors.accent, fontWeight: FontWeight.w600),

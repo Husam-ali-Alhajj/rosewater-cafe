@@ -8,28 +8,15 @@ import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 import '../home/main_shell.dart';
 
-/// Temporary payment-success confirmation screen — no Figma frame exists
-/// for this specific state (searched the whole file via the API; the only
-/// "Payment Successful" text in the design is a notification list item, not
-/// a dedicated screen), and the task itself frames this as a placeholder
-/// ahead of the real Home Dashboard (Sprint 3). Built to match the app's
-/// existing visual language (same card/gradient treatment as every other
-/// screen in this flow) rather than inventing an unrelated look.
-///
-/// Takes the plan via constructor from PaymentScreen's own already-known
-/// state — the last hop in a chain that started with Choose Membership's
-/// real fetch, so this screen (like every screen before it in the flow)
-/// makes zero database reads and has zero hardcoded plan data.
+/// Shown after a successful payment. Not in the design, so it uses the same card style as the rest
+/// of this flow.
 class PaymentSuccessScreen extends StatelessWidget {
   final MembershipPlan plan;
 
   const PaymentSuccessScreen({super.key, required this.plan});
 
   void _continue(BuildContext context) {
-    Navigator.of(context).pushAndRemoveUntil(
-      appRoute(context, (_) => const MainShell()),
-      (route) => false,
-    );
+    Navigator.of(context).pushAndRemoveUntil(appRoute(context, (_) => const MainShell()), (route) => false);
   }
 
   @override

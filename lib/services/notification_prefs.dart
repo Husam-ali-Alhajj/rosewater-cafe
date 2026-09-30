@@ -1,8 +1,6 @@
 import 'supabase_client.dart';
 
-/// One notification preference. The first four are the "Communication
-/// Preferences" toggles on the Notifications settings screen, the last three
-/// the "Notification Types" toggles.
+/// One notification switch: four channels, then three notification types.
 enum NotificationSetting {
   push(column: 'push', defaultValue: true),
   email(column: 'email', defaultValue: true),
@@ -12,31 +10,26 @@ enum NotificationSetting {
   allowanceAlerts(column: 'allowance_alerts', defaultValue: true),
   promotions(column: 'promotions', defaultValue: true);
 
-  /// This toggle's column in `public.notification_preferences`.
+  /// This switch's column in `notification_preferences`.
   final String column;
 
-  /// What each toggle shows before the user has ever touched it -- the state
-  /// drawn in the Figma frame (node 1217:2539): SMS off, everything else on.
-  /// Must match the column defaults in migration 20260930100000.
+  /// The starting value (SMS off, the rest on). Must match the database column defaults.
   final bool defaultValue;
 
   const NotificationSetting({required this.column, required this.defaultValue});
 }
 
-/// A snapshot of every notification preference.
+/// All notification switches.
 class NotificationSettings {
   final Map<NotificationSetting, bool> _values;
 
   const NotificationSettings._(this._values);
 
-  /// Every toggle at its default (what the design shows).
-  factory NotificationSettings.defaults() => NotificationSettings._({
-    for (final s in NotificationSetting.values) s: s.defaultValue,
-  });
+  /// Every switch at its default.
+  factory NotificationSettings.defaults() =>
+      NotificationSettings._({for (final s in NotificationSetting.values) s: s.defaultValue});
 
-  /// From a `notification_preferences` row; null (the user has never
-  /// changed anything, so has no row yet) or a missing/null column means
-  /// that toggle's default.
+  /// From a database row. No row yet (never changed), or an empty column, means the default.
   factory NotificationSettings.fromRow(Map<String, dynamic>? row) => NotificationSettings._({
     for (final s in NotificationSetting.values) s: (row?[s.column] as bool?) ?? s.defaultValue,
   });
@@ -47,27 +40,20 @@ class NotificationSettings {
       NotificationSettings._({..._values, setting: value});
 }
 
-/// Where the Notification Settings screen reads and saves its toggles.
-/// Abstract so the screen can be tested without a backend.
+/// Loads and saves the switches. Abstract so the screen can be tested without a backend.
 abstract class NotificationPrefs {
   const NotificationPrefs();
 
-  /// The saved value of every toggle, falling back to its default for any the
-  /// user hasn't changed yet.
+  /// Every switch, using the default for any never changed.
   Future<NotificationSettings> load();
 
-  /// Saves one toggle. Returns once it has been saved.
+  /// Saves one switch.
   Future<void> set(NotificationSetting setting, bool value);
 }
 
-/// The signed-in user's preferences in `public.notification_preferences`
-/// (notifications roadmap step 1). Stored in the database, not on the
-/// device, because the channels these toggles control -- email, push,
-/// scheduled reminders -- are sent by the server, which can only respect a
-/// choice it can read. Following the user rather than the phone also means
-/// the same choices apply on every device they sign in on.
-///
-/// RLS limits every read and write to the caller's own row.
+/// The user's switches, stored in the database so the server can respect them (for example, when
+/// sending emails). They follow the user across devices. Users can only read and change their own
+/// row.
 class SupabaseNotificationPrefs extends NotificationPrefs {
   const SupabaseNotificationPrefs();
 
@@ -79,21 +65,16 @@ class SupabaseNotificationPrefs extends NotificationPrefs {
 
   @override
   Future<NotificationSettings> load() async {
-    final row = await supabase
-        .from('notification_preferences')
-        .select()
-        .eq('user_id', _userId)
-        .maybeSingle();
+    final row = await supabase.from('notification_preferences').select().eq('user_id', _userId).maybeSingle();
     return NotificationSettings.fromRow(row);
   }
 
-  /// An upsert of just this one column: creates the row on the first
-  /// change (every other column takes its database default, which is the
-  /// same as the app's), and updates only this column after that.
+  /// Saves just this column. Creates the row on first use; the other columns get their defaults.
   @override
   Future<void> set(NotificationSetting setting, bool value) async {
-    await supabase
-        .from('notification_preferences')
-        .upsert({'user_id': _userId, setting.column: value}, onConflict: 'user_id');
+    await supabase.from('notification_preferences').upsert({
+      'user_id': _userId,
+      setting.column: value,
+    }, onConflict: 'user_id');
   }
 }

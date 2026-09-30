@@ -35,7 +35,8 @@ const _profile = Profile(
 
 class _Calls {
   final List<String> log = [];
-  VoidCallback rec(String name) => () => log.add(name);
+  VoidCallback rec(String name) =>
+      () => log.add(name);
 }
 
 Future<_Calls> _pump(
@@ -59,7 +60,7 @@ Future<_Calls> _pump(
     MaterialApp(
       theme: theme,
       locale: Locale(locale),
-      // Sprint 8 Task 6: HomeContent reads AppLocalizations now.
+      // HomeContent uses translations.
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
@@ -80,9 +81,8 @@ Future<_Calls> _pump(
   return calls;
 }
 
-/// Loads Roboto from the Flutter SDK so text has real widths (the default
-/// test font makes every glyph a full-width square, so everything wraps).
-/// Returns false if the SDK's font files can't be found.
+/// Loads Roboto from the Flutter SDK so text has real widths (the test font draws every letter as a
+/// square). Returns false if the font files can't be found.
 Future<bool> _loadRoboto() async {
   final root = Platform.environment['FLUTTER_ROOT'];
   if (root == null) return false;
@@ -108,7 +108,7 @@ void main() {
     expect(find.text('Member ID: RC-000031'), findsOneWidget);
     expect(find.text('Logout'), findsOneWidget);
     expect(find.byIcon(Icons.notifications_none), findsOneWidget);
-    // No unread badge -- notifications aren't built yet (decision #32).
+    // No badge when nothing is unread.
     expect(find.text('2'), findsNothing);
   });
 
@@ -129,7 +129,13 @@ void main() {
   testWidgets('first name is the first word of the full name', (tester) async {
     await _pump(
       tester,
-      profile: const Profile(id: 'u', fullName: '  Mary   Jane Watson ', email: 'a@b.co', phone: null, memberId: 'RC-000001'),
+      profile: const Profile(
+        id: 'u',
+        fullName: '  Mary   Jane Watson ',
+        email: 'a@b.co',
+        phone: null,
+        memberId: 'RC-000001',
+      ),
     );
     expect(find.text('Welcome, Mary!'), findsOneWidget);
   });
@@ -231,14 +237,14 @@ void main() {
 
     expect(header.top, 32); // frame top padding
     expect(close(status.top - header.bottom), 32); // header -> status card
-    expect(close(status.height), 169.03); // Figma 342.98 x 169.03
+    expect(close(status.height), 169.03); // design size 342.98 x 169.03
     expect(close(status.width), 342.98);
     expect(close(quick0.top - status.bottom), 24);
     expect(quick0.height, 96);
     expect(close(quick1.top - quick0.bottom), 16); // gap between the two buttons
     expect(quick1.height, 96);
     expect(close(usage0.top - quick1.bottom), 24);
-    expect(close(usage0.height), 197.03); // Figma usage card
+    expect(close(usage0.height), 197.03); // design usage card
     expect(close(usage1.top - usage0.bottom), 24);
     expect(close(usage1.height), 197.03);
     expect(close(service.top - usage1.bottom), 24);
@@ -247,15 +253,15 @@ void main() {
     expect(close(benefits.height), 277.03);
   });
 
-  group('Sprint 8 Task 6 -- i18n + RTL (one of the three named acceptance screens)', () {
+  group('Arabic and right-to-left', () {
     testWidgets('shows every real string, translated in Arabic, with no English fallback text', (tester) async {
       await _pump(tester, locale: 'ar');
 
       for (final text in [
-        'أهلاً بك يا Layla!', // welcomeNamed -- real first name interpolated, not translated
-        'رقم العضوية: RC-000031', // memberIdLabel -- real member ID interpolated
+        'أهلاً بك يا Layla!', // welcomeNamed: the real first name
+        'رقم العضوية: RC-000031', // memberIdLabel: the real member ID
         'حالة العضوية',
-        'عضو Premium', // memberSuffix -- real plan name interpolated, not translated
+        'عضو Premium', // memberSuffix: the real plan name
         'نشط',
         'الدخول إلى المقهى',
         'حجز فعالية',
@@ -265,19 +271,19 @@ void main() {
         'ساعات الخدمة الكاملة',
         'ساعات الخدمة الذاتية',
         'مزايا العضوية',
-        '• أولوية في الجلوس', // localizedFeatureBullets -- the plan's own real "Priority seating" perk
-        '• خصومات للأعضاء', // localizedFeatureBullets -- "Member discounts"
+        '• أولوية في الجلوس', // the plan's "Priority seating" perk
+        '• خصومات للأعضاء', // "Member discounts"
       ]) {
         expect(find.text(text), findsWidgets, reason: text);
       }
 
-      // No missing-key fallback to the English original anywhere on screen.
+      // Nothing falls back to English.
       for (final english in [
         'Membership Status',
         'Access Café',
         'Reserve Event',
         'Service Hours',
-        '• Priority seating', // the plan's raw DB feature string -- must be translated, not leaked
+        '• Priority seating', // the raw database value must be translated
         '• Member discounts',
       ]) {
         expect(find.text(english), findsNothing, reason: english);
@@ -290,26 +296,22 @@ void main() {
       expect(Directionality.of(context), TextDirection.rtl);
     });
 
-    testWidgets(
-      'an icon-badge row (the usage card) actually mirrors under RTL, not just translates its text',
-      (tester) async {
-        // LTR baseline: the icon sits to the left of its label.
-        await _pump(tester, locale: 'en');
-        final iconCenterLtr = tester.getCenter(find.byIcon(Icons.local_fire_department)).dx;
-        final labelCenterLtr = tester.getCenter(find.text('Hookah Sessions')).dx;
-        expect(iconCenterLtr, lessThan(labelCenterLtr));
-      },
-    );
+    testWidgets('an icon-badge row (the usage card) actually mirrors under RTL, not just translates its text', (
+      tester,
+    ) async {
+      // LTR baseline: the icon sits to the left of its label.
+      await _pump(tester, locale: 'en');
+      final iconCenterLtr = tester.getCenter(find.byIcon(Icons.local_fire_department)).dx;
+      final labelCenterLtr = tester.getCenter(find.text('Hookah Sessions')).dx;
+      expect(iconCenterLtr, lessThan(labelCenterLtr));
+    });
 
-    testWidgets(
-      'the same icon-badge row mirrors: icon moves to the right of its label under RTL',
-      (tester) async {
-        await _pump(tester, locale: 'ar');
-        final iconCenterRtl = tester.getCenter(find.byIcon(Icons.local_fire_department)).dx;
-        final labelCenterRtl = tester.getCenter(find.text('جلسات الشيشة')).dx;
-        expect(iconCenterRtl, greaterThan(labelCenterRtl));
-      },
-    );
+    testWidgets('the same icon-badge row mirrors: icon moves to the right of its label under RTL', (tester) async {
+      await _pump(tester, locale: 'ar');
+      final iconCenterRtl = tester.getCenter(find.byIcon(Icons.local_fire_department)).dx;
+      final labelCenterRtl = tester.getCenter(find.text('جلسات الشيشة')).dx;
+      expect(iconCenterRtl, greaterThan(labelCenterRtl));
+    });
   });
 
   group('notification bell badge', () {

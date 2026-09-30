@@ -1,19 +1,10 @@
--- cancel_subscription: lets a user back out of a pending (unpaid)
--- subscription they started, so Choose Membership has a real way to let
--- them pick a different plan instead of being stuck resuming the same one
--- forever (see docs/decisions.md #19).
+-- cancel_subscription: lets a user back out of a pending (unpaid) subscription so they can pick
+-- another plan.
 --
--- Same security pattern as start_subscription/confirm_subscription_payment
--- (20260914090100_subscription_two_rpc_pattern.sql): SECURITY DEFINER with
--- search_path pinned, auth.uid() read internally rather than trusting a
--- caller-supplied user_id, and EXECUTE revoked from PUBLIC *and* explicitly
--- from anon (revoking from PUBLIC alone is not enough on Supabase -- see
--- decision #16 for why).
+-- Same security setup as start_subscription: SECURITY DEFINER, fixed search_path, auth.uid()
+-- instead of a user id, and EXECUTE revoked from PUBLIC and anon.
 --
--- Deliberately restricted to `status = 'pending'` only -- this must never
--- be usable to cancel an already-active paid subscription; that's a
--- separate feature (with separate implications, e.g. refunds) this project
--- hasn't built.
+-- Only works on pending subscriptions; it can never cancel a paid one.
 create or replace function public.cancel_subscription(p_subscription_id uuid)
 returns void
 language plpgsql

@@ -4,18 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../services/avatar_service.dart';
 
-/// The design's round profile avatar -- a purple gradient circle with a white
-/// user icon and two stacked drop shadows (Figma Profile node 1216:2175 at
-/// 80px, Edit Profile node 1217:2417 at 128px, identical styling) -- that
-/// shows the member's real photo once one exists.
+/// The round profile avatar: a purple gradient with a person icon, or the member's photo when there
+/// is one. The photo is private, so it's shown through a short-lived link; while loading or if it
+/// fails, the icon stays.
 ///
-/// The photo lives in the private `avatars` bucket, so it's shown through a
-/// short-lived signed URL fetched here. While that loads, or if it can't be
-/// loaded (missing file, offline), the gradient + icon stays -- never a
-/// broken image.
-///
-/// [previewBytes] takes priority over [avatarPath]: Edit Profile passes the
-/// photo the user just picked (not uploaded yet) so they see it immediately.
+/// [previewBytes] (a just-picked photo) takes priority over [avatarPath].
 class ProfileAvatar extends StatefulWidget {
   final double size;
   final String? avatarPath;
@@ -56,14 +49,16 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     final path = widget.avatarPath;
     if (path == null) return;
     final url = await widget.avatarService.signedUrl(path);
-    // Ignore a result that arrives after the path changed or the widget went away.
+    // Ignore a result that arrives after the photo changed or the widget was removed.
     if (!mounted || widget.avatarPath != path) return;
     setState(() => _signedUrl = url);
   }
 
   @override
   Widget build(BuildContext context) {
-    final icon = Center(child: Icon(Icons.person_outline, size: widget.size / 2, color: Colors.white));
+    final icon = Center(
+      child: Icon(Icons.person_outline, size: widget.size / 2, color: Colors.white),
+    );
     final preview = widget.previewBytes;
     final url = _signedUrl;
 

@@ -8,25 +8,11 @@ import '../../widgets/membership_plan_card.dart';
 import '../../widgets/screen_header.dart';
 import 'payment_screen.dart';
 
-/// Sprint 9 Task 4 -- Upgrade Membership: only ever reachable from
-/// Profile's own gate (a plan strictly more expensive than the current
-/// one must exist, checked there via [SubscriptionService.hasUpgradeOption]
-/// before the button even shows), so this screen doesn't re-check that
-/// and show its own empty state for the ordinary case -- a defensive
-/// message below covers the narrow window where it could still happen
-/// (prices changed server-side between Profile's check and this screen's
-/// own fetch).
+/// Shows only the plans that cost more than the current one. Profile hides the button when there
+/// are none (VIP).
 ///
-/// Deliberately fetches the FULL plan catalog itself, live, rather than
-/// taking a pre-filtered list -- [rank] (the tier icon/gradient) has to
-/// be each plan's position in the full price-sorted catalog, not this
-/// screen's own shorter one, or a Premium card shown here would render
-/// with the wrong tier's icon and colour.
-///
-/// Selecting a plan routes straight into the existing [PaymentScreen]
-/// (`.upgrade` constructor) -- no ID Upload step, unlike the
-/// Choose-Membership-on-signup flow: an upgrade doesn't need the member
-/// re-verified, they're already a verified, paying member.
+/// Loads the full plan list so each card keeps its real tier colour. Choosing a plan goes straight
+/// to payment; no new ID check is needed.
 class UpgradeMembershipScreen extends StatefulWidget {
   final MembershipPlan currentPlan;
 
@@ -52,8 +38,7 @@ class _UpgradeMembershipScreenState extends State<UpgradeMembershipScreen> {
 
   Future<void> _init() async {
     try {
-      // Cheapest first, same as Choose Membership -- so `rank` (this
-      // list's own index) always matches each plan's real tier.
+      // Cheapest first, so the index matches each plan's tier.
       final allPlans = await _subscriptionService.fetchPlans();
       if (!mounted) return;
       final plans = <MembershipPlan>[];
@@ -80,9 +65,7 @@ class _UpgradeMembershipScreenState extends State<UpgradeMembershipScreen> {
   }
 
   void _selectPlan(MembershipPlan plan) {
-    Navigator.of(context).push(
-      appRoute(context, (_) => PaymentScreen.upgrade(plan: plan)),
-    );
+    Navigator.of(context).push(appRoute(context, (_) => PaymentScreen.upgrade(plan: plan)));
   }
 
   @override
@@ -128,12 +111,8 @@ class _UpgradeMembershipScreenState extends State<UpgradeMembershipScreen> {
                                   ),
                                 )
                               else if (_eligiblePlans.isEmpty)
-                                // Defensive only -- Profile's own gate
-                                // (hasUpgradeOption) should mean this
-                                // screen is never reached with nothing
-                                // to show. Covers the narrow race where
-                                // plan prices changed between that check
-                                // and this screen's own fetch.
+                                // Shouldn't happen (Profile hides the button), but covers prices
+                                // changing in the meantime.
                                 Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 32),
                                   child: Text(

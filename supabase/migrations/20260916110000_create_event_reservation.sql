@@ -1,46 +1,14 @@
--- create_event_reservation: the only way a row gets written to
--- event_reservations from the client. `total_price` is computed
--- server-side and is NOT a function parameter -- there is no path for a
--- caller to supply their own price, by construction, not just by
--- convention.
+-- create_event_reservation: the only way to create a reservation. The price is calculated here;
+-- it's not a parameter, so a user can't set their own price.
 --
--- This also closes a gap the table's own RLS left open: event_reservations
--- already had an "insert own rows" policy for `authenticated` (unlike
--- subscriptions/usage_allowances/door_access_logs, which were RPC-only
--- from the start -- see decision #4/#16). That policy let a client insert
--- a row directly with whatever `total_price` it wanted, completely
--- bypassing server-side pricing. This migration drops that policy so
--- this function becomes the only INSERT path, the same way every other
--- money-shaped table in this project already works.
+-- It also removes the old "insert own rows" policy, which let the app insert a reservation with any
+-- price.
 --
--- Security model, same pattern as every prior RPC (start_subscription,
--- cancel_subscription, confirm_subscription_payment, expire_subscriptions,
--- log_door_access):
+-- Same security setup as the other functions: SECURITY DEFINER, fixed search_path, auth.uid()
+-- instead of a user id, and EXECUTE revoked from PUBLIC and anon.
 --
---  * SECURITY DEFINER with `search_path` pinned to `public`.
---  * Reads auth.uid() itself rather than accepting a user_id argument.
---  * EXECUTE is revoked from PUBLIC *and*, explicitly, from `anon`
---    (Supabase grants EXECUTE to `anon` per-function regardless of a
---    bare `revoke ... from public` -- decision #16).
---
--- Two checks this function does NOT trust the client for:
---
---  1. Guest count: the design's own stated range is 5-100 guests for a
---     private event booking (a wholly different field from the Door
---     Access screen's 0-2 "guests you're bringing in" -- decision #33
---     called this naming collision out explicitly so the two are never
---     conflated).
---  2. Event date: rejects anything before today. Not layered with any
---     availability/double-booking logic -- that's a separate feature this
---     project doesn't have, not attempted here.
---
--- Deliberately inserts with status = 'confirmed', not 'pending', even
--- though `reservation_status` has a 'pending' value: no screen in this
--- app has any approval/review workflow for event reservations, so a
--- 'pending' status would just be a permanent dead end with nothing to
--- ever move it to 'confirmed'. Logged as decision #36 rather than
--- building an approval flow nobody asked for and no screen would ever
--- act on.
+-- It checks that the guest count is 5-100 and the date isn't in the past. Reservations are created
+-- as 'confirmed', since there's no approval step in the app.
 create or replace function public.create_event_reservation(
   p_event_type text,
   p_event_date date,
@@ -55,10 +23,8 @@ set search_path = public
 as $$
 declare
   v_user_id uuid := auth.uid();
-  -- Placeholder flat pricing, pending real numbers from the company (see
-  -- docs/decisions.md #33/#36). One named constant here means plugging in
-  -- real pricing later is a one-line change in one place, not a hunt
-  -- through the codebase for every place a price was computed.
+  -- Placeholder price until the company gives real numbers. Change it here only (the app uses the
+  -- same value for its estimate).
   c_price_per_hour constant numeric := 150.00;
   v_total_price numeric;
   v_reservation_id uuid;
@@ -98,5 +64,5 @@ revoke execute on function public.create_event_reservation(text, date, time, num
 revoke execute on function public.create_event_reservation(text, date, time, numeric, integer) from anon;
 grant execute on function public.create_event_reservation(text, date, time, numeric, integer) to authenticated;
 
--- Close the direct-insert bypass described above.
+-- Remove the direct-insert policy described above.
 drop policy if exists "Users can create own reservations" on public.event_reservations;

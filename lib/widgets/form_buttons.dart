@@ -2,16 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_semantic_colors.dart';
 
-// Figma's fractional hairline stroke width.
+// Hairline border width from the design.
 const _hairline = 0.515;
 
-/// The "Cancel" button that sits beside [SaveButton] at the bottom of the
-/// Profile sub-screens' forms (Figma Edit Profile node 1217:2472): 49.03 tall,
-/// radius 8, hairline border, Inter Medium 14 -- white fill with a
-/// black-at-10% border and near-black text in light mode (the design's exact
-/// values), the theme's dark surface/border/text tokens in dark mode. The
-/// Notifications screen's full-width "Done" (node 1217:2641) is the same
-/// button with a different [label].
+/// The "Cancel" button next to [SaveButton] on the Profile forms. Also used for the full-width
+/// "Done" on Notifications.
 class CancelButton extends StatelessWidget {
   final VoidCallback? onTap;
   final String label;
@@ -53,9 +48,7 @@ class CancelButton extends StatelessWidget {
   }
 }
 
-/// The gradient primary button beside [CancelButton] (Figma Edit Profile node
-/// 1217:2474): 48 tall, radius 8, the app's primary gradient, Inter Medium 14
-/// in white. Shows [savingLabel] while [saving].
+/// The gradient save button next to [CancelButton]. Shows [savingLabel] while [saving].
 class SaveButton extends StatelessWidget {
   final String label;
   final String savingLabel;

@@ -1,54 +1,21 @@
--- ============================================================
--- Two-RPC subscription activation pattern
+-- Subscriptions are created and activated with two functions.
 --
--- Security model (read this before touching either function below):
---
---  * subscriptions and usage_allowances have no INSERT/UPDATE policy for
---    the `authenticated` role (see initial_schema.sql -- both tables only
---    have a SELECT policy). With RLS enabled, "no policy for this command"
---    means every direct write from the client is denied, full stop.
---
---  * These two functions are therefore the ONLY way rows get written to
---    either table. They are SECURITY DEFINER (run with the function
---    owner's privileges, bypassing RLS) with `search_path` pinned to
---    `public`, matching every other SECURITY DEFINER function in this
---    project (generate_member_id, handle_new_user,
---    enforce_single_default_payment_method). An unpinned search_path on
---    a SECURITY DEFINER function is a classic privilege-escalation bug:
---    a caller could get an object they control (e.g. in a schema earlier
---    in their own search_path) resolved and executed with the definer's
---    elevated privileges instead of the intended one.
---
---  * Both functions read `auth.uid()` themselves for whose row to touch --
---    neither accepts a user_id argument. If user_id were a parameter,
---    any authenticated caller could pass someone else's id and write to
---    a stranger's subscription.
---
---  * EXECUTE is revoked from PUBLIC *and*, explicitly, from `anon`. Just
---    revoking from PUBLIC is not enough on Supabase: its platform runs a
---    default-privileges trigger that grants EXECUTE on every new function
---    in `public` directly to `anon`/`authenticated`/`service_role` as
---    separate ACL entries the moment it's created -- REVOKE ... FROM
---    PUBLIC only removes the generic "everyone" grant, it does not touch
---    those already-existing per-role grants. Skipping the explicit
---    `revoke ... from anon` leaves signed-out callers able to execute the
---    function (verified: it let `anon` invoke start_subscription, which
---    then only failed because of the internal auth.uid() is null check --
---    that's defense-in-depth catching it, not the intended primary
---    defense).
--- ============================================================
+-- - Users can't write to subscriptions or usage_allowances directly (no INSERT/UPDATE policy), so
+-- these functions are the only way in.
+-- - They are SECURITY DEFINER with a fixed search_path, so they can't be tricked into running
+-- someone else's objects.
+-- - They use auth.uid() instead of taking a user id, so nobody can act on another user's
+-- subscription.
+-- - EXECUTE is revoked from PUBLIC and also from `anon`: Supabase grants every new function to
+-- `anon` directly, so revoking from PUBLIC alone isn't enough.
 
--- New subscriptions must start unpaid. (The old default of 'active'
--- predates this pending step and would let any future insert activate a
--- subscription without ever going through confirm_subscription_payment.)
+-- New subscriptions start unpaid, so they can only be activated through
+-- confirm_subscription_payment.
 alter table public.subscriptions
   alter column status set default 'pending';
 
--- Defense in depth against a race: two concurrent start_subscription calls
--- for the same user could both pass the "no existing pending row" check
--- below before either one commits its insert. This index makes the second
--- insert fail instead of silently creating two pending rows; the function
--- catches that failure and reports it the same way as the checked case.
+-- Stops two requests at the same moment from creating two pending subscriptions. The function
+-- catches the error and reports it normally.
 create unique index uq_subscriptions_one_pending_per_user
   on public.subscriptions (user_id)
   where (status = 'pending');
@@ -68,10 +35,7 @@ begin
     raise exception 'not_authenticated';
   end if;
 
-  -- Already active: don't silently start a second one. Plan upgrades /
-  -- switches are a separate feature for a later sprint -- for now the app
-  -- should catch this, show the existing plan + valid_until, and ask the
-  -- user what they want to do.
+  -- Already active: don't start a second one.
   select id, plan_id, valid_until into v_existing
   from public.subscriptions
   where user_id = v_user_id and status = 'active'
@@ -86,9 +50,7 @@ begin
       )::text;
   end if;
 
-  -- Already has an unpaid pending subscription: don't silently cancel it
-  -- and don't silently stack another one -- surface it so the app can ask
-  -- the user whether to resume checkout on the old one or cancel it first.
+  -- Already has an unpaid pending subscription: tell the app instead of creating another.
   select id, plan_id into v_existing
   from public.subscriptions
   where user_id = v_user_id and status = 'pending'
@@ -109,8 +71,7 @@ begin
   return v_subscription_id;
 exception
   when unique_violation then
-    -- Lost the race described above -- another request for this user
-    -- inserted its pending row first.
+    -- Another request created the pending row first.
     raise exception 'pending_subscription_exists';
 end;
 $$;
@@ -134,18 +95,12 @@ begin
     raise exception 'not_authenticated';
   end if;
 
-  -- TODO(payments): there is no real payment gateway wired up yet, so this
-  -- call just marks the subscription paid with no charge attached. Any
-  -- authenticated user can activate their own pending subscription for
-  -- free by calling this directly. Accepted as a known, temporary gap for
-  -- this sprint -- must be replaced with a server-verified charge (e.g. a
-  -- payment provider webhook) before this goes anywhere near production.
+  -- TODO(payments): there's no real payment gateway yet, so this just marks the subscription paid.
+  -- A signed-in user could activate their own pending subscription for free by calling this
+  -- directly. Must be replaced with a server-verified payment before going live.
   --
-  -- The `and status = 'pending'` guard below is still load-bearing even
-  -- with the mock payment: it makes the call idempotent (calling it again
-  -- on an already-active subscription does nothing) and, combined with
-  -- `user_id = v_user_id`, it stops a caller from activating someone
-  -- else's subscription by guessing/enumerating subscription ids.
+  -- The `status = 'pending'` check makes repeat calls do nothing, and together with `user_id =
+  -- v_user_id` stops anyone activating another user's subscription.
   update public.subscriptions
   set status = 'active',
       started_at = now(),

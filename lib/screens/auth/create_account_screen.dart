@@ -6,13 +6,13 @@ import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
 import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
-import '../../widgets/onboarding_icon_badge.dart';
+import '../../widgets/app_logo.dart';
 import '../membership/choose_membership_screen.dart';
 import 'confirm_email_pending_screen.dart';
 import 'sign_in_screen.dart';
 
-/// Real signup: creates the auth.users row (and, via the handle_new_user
-/// trigger, the matching profiles row) then routes to Choose Membership.
+/// Creates the account (a database trigger also creates the profile row), then goes to Choose
+/// Membership.
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
 
@@ -54,10 +54,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     return Validators.email(value);
   }
 
-  // Decision #10's rule, shared with Edit Profile via Validators.phone.
+  // Same rule as Edit Profile.
   String? _validatePhone(String? value) => Validators.phone(value);
 
-  // Decision #10's rule, shared with Change Password via Validators.password.
+  // Same rule as Change Password.
   String? _validatePassword(String? value) {
     if (_serverPasswordError != null) return _serverPasswordError;
     return Validators.password(value);
@@ -69,13 +69,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 
   Future<void> _submit() async {
-    // Re-entry guard: without this, a rapid double-tap can invoke _submit()
-    // twice before the button's onPressed is rebuilt to null on the next
-    // frame — the closure captured at the last build is still the old
-    // (enabled) one, so the second tap would fire a second, concurrent
-    // signUp() call with identical data. This check is synchronous and runs
-    // before any `await`, so the second call always sees the flag the first
-    // call already set.
+    // Stops a quick double-tap from signing up twice.
     if (_isSubmitting) return;
 
     final formOk = _formKey.currentState!.validate();
@@ -98,18 +92,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         password: _passwordController.text,
       );
       if (!mounted) return;
-      // If the project requires email confirmation, signUp() succeeds but
-      // returns no session yet — the account exists but isn't usable until
-      // the confirmation link is clicked. Routing to Choose Membership here
-      // would push an unauthenticated user into a screen that assumes
-      // they're logged in, so show a "check your email" state instead.
+      // Email confirmation is on: the account exists but has no session yet, so show "check your
+      // email" instead.
       Navigator.of(context).pushReplacement(
-        appRoute(
-          context,
-          (_) => hasSession
-              ? const ChooseMembershipScreen()
-              : ConfirmEmailPendingScreen(email: email),
-        ),
+        appRoute(context, (_) => hasSession ? const ChooseMembershipScreen() : ConfirmEmailPendingScreen(email: email)),
       );
     } on SignUpFailure catch (e) {
       if (!mounted) return;
@@ -121,20 +107,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       if (e.field == 'email' || e.field == 'password') {
         _formKey.currentState!.validate();
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (_) {
-      // Anything that isn't our own SignUpFailure — a dropped connection,
-      // a timeout, DNS failure, etc. Without this, an unhandled exception
-      // here just leaves the button stuck on "Creating account…" forever
-      // with no feedback, which reads as a hang/crash to the user.
+      // Network errors and the like; otherwise the button would stay on "Creating account..."
+      // forever.
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).genericConnectionError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).genericConnectionError)));
     }
   }
 
@@ -144,9 +126,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          gradient: colors.pageBackgroundGradient,
-        ),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -154,8 +134,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  // Sprint 8 Task 6: see sign_in_screen.dart for why this
-                  // needs an explicit RTL check.
+                  // The back arrow has to point the other way in right-to-left.
                   icon: Icon(
                     Directionality.of(context) == TextDirection.rtl ? Icons.arrow_forward : Icons.arrow_back,
                     color: colors.textPrimary,
@@ -168,9 +147,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   decoration: BoxDecoration(
                     color: colors.surface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(14),
-                    // Figma's fractional hairline stroke (same value as App
-                    // Settings' _hairline), confirmed in Sprint 6 Task 3 --
-                    // was missing entirely before this fidelity pass.
                     border: Border.all(color: colors.border, width: 0.515),
                     boxShadow: [
                       BoxShadow(
@@ -185,14 +161,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        const OnboardingIconBadge(icon: Icons.person),
+                        const AppLogo(height: 72),
                         const SizedBox(height: 24),
                         Text(l10n.createAccountHeading, style: AppTextStyles.heading1(context)),
                         const SizedBox(height: 8),
-                        Text(
-                          l10n.joinToday,
-                          style: AppTextStyles.bodyMuted(context),
-                        ),
+                        Text(l10n.joinToday, style: AppTextStyles.bodyMuted(context)),
                         const SizedBox(height: 24),
                         TextFormField(
                           controller: _fullNameController,
@@ -241,14 +214,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             helperText: l10n.passwordHelperText,
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                              ),
-                              onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword,
-                              ),
+                              icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                             ),
                           ),
                           validator: _validatePassword,
@@ -268,14 +235,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscureConfirmPassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                                _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                               ),
-                              onPressed: () => setState(
-                                () => _obscureConfirmPassword =
-                                    !_obscureConfirmPassword,
-                              ),
+                              onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                             ),
                           ),
                           validator: _validateConfirmPassword,
@@ -301,16 +263,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                       TextSpan(text: l10n.agreeToTermsPrefix),
                                       TextSpan(
                                         text: l10n.termsOfService,
-                                        style: TextStyle(
-                                          color: colors.accent,
-                                        ),
+                                        style: TextStyle(color: colors.accent),
                                       ),
                                       TextSpan(text: l10n.agreeToTermsAnd),
                                       TextSpan(
                                         text: l10n.privacyPolicy,
-                                        style: TextStyle(
-                                          color: colors.accent,
-                                        ),
+                                        style: TextStyle(color: colors.accent),
                                       ),
                                     ],
                                   ),
@@ -323,51 +281,30 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Align(
-                              // AlignmentDirectional.centerStart, not the
-                              // physical Alignment.centerLeft (Sprint 8
-                              // Task 6) -- same fix as Sign In's error text.
                               alignment: AlignmentDirectional.centerStart,
                               child: Text(
                                 l10n.mustAgreeToContinue,
-                                style: TextStyle(
-                                  color: colors.danger,
-                                  fontSize: 12,
-                                ),
+                                style: TextStyle(color: colors.danger, fontSize: 12),
                               ),
                             ),
                           ),
                         const SizedBox(height: 24),
                         GradientButton(
-                          label: _isSubmitting
-                              ? l10n.creatingAccount
-                              : l10n.createAccount,
+                          label: _isSubmitting ? l10n.creatingAccount : l10n.createAccount,
                           onPressed: _isSubmitting ? null : _submit,
                         ),
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              l10n.alreadyHaveAccount,
-                              style: AppTextStyles.bodyMuted(context),
-                            ),
-                            // A gap, not a trailing space baked into the
-                            // translated string (Sprint 8 Task 6).
+                            Text(l10n.alreadyHaveAccount, style: AppTextStyles.bodyMuted(context)),
                             const SizedBox(width: 4),
                             GestureDetector(
                               onTap: () =>
-                                  Navigator.of(context).pushReplacement(
-                                    appRoute(
-                                      context,
-                                      (_) => const SignInScreen(),
-                                    ),
-                                  ),
+                                  Navigator.of(context).pushReplacement(appRoute(context, (_) => const SignInScreen())),
                               child: Text(
                                 l10n.signInButton,
-                                style: TextStyle(
-                                  color: colors.accent,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: TextStyle(color: colors.accent, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],

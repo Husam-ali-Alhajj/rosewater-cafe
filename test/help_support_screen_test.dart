@@ -9,8 +9,7 @@ Future<void> _pump(WidgetTester tester) async {
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      // Sprint 8 Task 6: the Resources rows push ComingSoonScreen, which
-      // reads AppLocalizations now.
+      // The Resources links open ComingSoonScreen, which needs translations.
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: const HelpSupportScreen(),
@@ -36,8 +35,7 @@ void main() {
     testWidgets('the contact cards are not tappable (no InkWell/GestureDetector wrapping them)', (tester) async {
       await _pump(tester);
 
-      // Tapping where a card is shouldn't do anything observable -- no new
-      // route, no ComingSoonScreen, no crash.
+      // Tapping a contact card does nothing.
       await tester.tap(find.text('Live Chat'), warnIfMissed: false);
       await tester.pumpAndSettle();
       expect(find.text('Live Chat'), findsOneWidget); // still on this screen
@@ -68,56 +66,47 @@ void main() {
       );
     });
 
-    testWidgets(
-      'Sprint 9 Task 6: the other three answers are real (if draft) content, each flagged as unconfirmed',
-      (tester) async {
-        await _pump(tester);
+    testWidgets('the other three answers show draft content, each flagged as unconfirmed', (tester) async {
+      await _pump(tester);
 
-        const draftAnswers = {
-          'What happens when my monthly allowance runs out?':
-              "If you have Allowance Alerts turned on, we'll send you a low-allowance alert once you're "
-                  "down to 3 or fewer hookah sessions or drinks for the month, so you're not caught by "
-                  'surprise. Your allowance starts fresh with each new membership period — or right away if '
-                  'you upgrade to a higher plan from Profile for a bigger monthly allowance.',
-          'Can I bring guests to the café?':
-              'Yes — every plan includes a guest limit, shown as Max Guests in your Membership Details. '
-                  'When you open the door with your QR code, choose how many guests are with you, up to '
-                  'that limit. Your monthly allowance covers your own orders only; guest orders get member '
-                  'discounts but are paid separately.',
-          "What's the difference between full service and self-service hours?":
-              'Full Service Hours (9:00 AM – 11:00 PM) are staffed, with our team handling orders and hookah '
-                  'setup for you. Self-Service Hours (11:00 PM – 9:00 AM) let members access the space with '
-                  'their membership, but without staff on site, so it\'s a more limited, help-yourself '
-                  'experience.',
-        };
+      const draftAnswers = {
+        'What happens when my monthly allowance runs out?':
+            "If you have Allowance Alerts turned on, we'll send you a low-allowance alert once you're "
+            "down to 3 or fewer hookah sessions or drinks for the month, so you're not caught by "
+            'surprise. Your allowance starts fresh with each new membership period — or right away if '
+            'you upgrade to a higher plan from Profile for a bigger monthly allowance.',
+        'Can I bring guests to the café?':
+            'Yes — every plan includes a guest limit, shown as Max Guests in your Membership Details. '
+            'When you open the door with your QR code, choose how many guests are with you, up to '
+            'that limit. Your monthly allowance covers your own orders only; guest orders get member '
+            'discounts but are paid separately.',
+        "What's the difference between full service and self-service hours?":
+            'Full Service Hours (9:00 AM – 11:00 PM) are staffed, with our team handling orders and hookah '
+            'setup for you. Self-Service Hours (11:00 PM – 9:00 AM) let members access the space with '
+            'their membership, but without staff on site, so it\'s a more limited, help-yourself '
+            'experience.',
+      };
 
-        // Open each of the other three questions in turn (the accordion is
-        // exclusive, so only one is open at a time) -- each shows its own
-        // real draft answer, never a blank/placeholder body, and each is
-        // marked as not yet confirmed by the company (same disclosure as
-        // Task 5's legal screens).
-        for (final entry in draftAnswers.entries) {
-          await tester.tap(find.text(entry.key));
-          await tester.pumpAndSettle();
-          expect(find.text(entry.value), findsOneWidget, reason: entry.key);
-          expect(
-            find.text('Draft answer — pending confirmation from the company, not final copy.'),
-            findsOneWidget,
-            reason: entry.key,
-          );
-          expect(find.text('Answer not available yet.'), findsNothing, reason: entry.key);
-        }
-      },
-    );
+      // Open each of the other three questions: each shows its draft answer with the "not
+      // confirmed" note.
+      for (final entry in draftAnswers.entries) {
+        await tester.tap(find.text(entry.key));
+        await tester.pumpAndSettle();
+        expect(find.text(entry.value), findsOneWidget, reason: entry.key);
+        expect(
+          find.text('Draft answer — pending confirmation from the company, not final copy.'),
+          findsOneWidget,
+          reason: entry.key,
+        );
+        expect(find.text('Answer not available yet.'), findsNothing, reason: entry.key);
+      }
+    });
 
     testWidgets('the one real, design-exported answer carries no draft note', (tester) async {
       await _pump(tester);
 
-      // Item 0 starts open -- the real answer is already on screen.
-      expect(
-        find.text('Draft answer — pending confirmation from the company, not final copy.'),
-        findsNothing,
-      );
+      // The first question starts open.
+      expect(find.text('Draft answer — pending confirmation from the company, not final copy.'), findsNothing);
     });
 
     testWidgets('tapping a question expands it; tapping it again collapses it', (tester) async {
@@ -162,22 +151,22 @@ void main() {
       final questionsAndAnswers = {
         'How do I use my QR code to enter the café?':
             'Simply open the QR Code section from your dashboard, show it to the '
-                'scanner at the entrance, and specify how many guests are with you.',
+            'scanner at the entrance, and specify how many guests are with you.',
         'What happens when my monthly allowance runs out?':
             "If you have Allowance Alerts turned on, we'll send you a low-allowance alert once you're "
-                "down to 3 or fewer hookah sessions or drinks for the month, so you're not caught by "
-                'surprise. Your allowance starts fresh with each new membership period — or right away if '
-                'you upgrade to a higher plan from Profile for a bigger monthly allowance.',
+            "down to 3 or fewer hookah sessions or drinks for the month, so you're not caught by "
+            'surprise. Your allowance starts fresh with each new membership period — or right away if '
+            'you upgrade to a higher plan from Profile for a bigger monthly allowance.',
         'Can I bring guests to the café?':
             'Yes — every plan includes a guest limit, shown as Max Guests in your Membership Details. '
-                'When you open the door with your QR code, choose how many guests are with you, up to '
-                'that limit. Your monthly allowance covers your own orders only; guest orders get member '
-                'discounts but are paid separately.',
+            'When you open the door with your QR code, choose how many guests are with you, up to '
+            'that limit. Your monthly allowance covers your own orders only; guest orders get member '
+            'discounts but are paid separately.',
         "What's the difference between full service and self-service hours?":
             'Full Service Hours (9:00 AM – 11:00 PM) are staffed, with our team handling orders and hookah '
-                'setup for you. Self-Service Hours (11:00 PM – 9:00 AM) let members access the space with '
-                'their membership, but without staff on site, so it\'s a more limited, help-yourself '
-                'experience.',
+            'setup for you. Self-Service Hours (11:00 PM – 9:00 AM) let members access the space with '
+            'their membership, but without staff on site, so it\'s a more limited, help-yourself '
+            'experience.',
       };
       final questions = questionsAndAnswers.keys.toList();
       // Item 0 starts open; tapping it again would toggle it CLOSED, so only

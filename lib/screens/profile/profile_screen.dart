@@ -19,70 +19,30 @@ import 'notification_settings_screen.dart';
 import 'payment_methods_screen.dart';
 import 'privacy_security_screen.dart';
 
-// Exact values read from the Figma `ProfileScreen` frame (node 1216:2169) via
-// the REST API -- see docs/decisions.md. Kept private to this file rather
-// than added to AppColors, the same way the other exact-Figma screens keep
-// their one-off literals local (decision #20).
-//
-// Sprint 8 Task 2 (dark mode rebuild): the neutral greys/blacks this frame
-// exported (icon/label/value/border/fill) are now sourced from
-// `context.colors` instead, so they invert correctly. The v3 accent rebuild
-// went further and tokenized "Upgrade Membership"'s pink border/text too
-// (`colors.accent`), so it goes blue in dark mode with every other accent
-// use, instead of staying the design's fixed pink literal.
+// Sizes from the design; colours come from the theme so dark mode works.
 
-// Figma's own hairline stroke width on the cards / Upgrade button (a
-// fractional value from the design export, kept exactly).
+// Hairline border width from the design.
 const _hairline = 0.515;
 
-// Matches `version` in pubspec.yaml (1.0.0+1) -- the design's footer line.
+// Matches the app version in pubspec.yaml.
 const _appVersion = '1.0.0';
 
-/// Profile tab (Figma frame "ProfileScreen", node 1216:2169).
+/// The Profile tab. The membership and profile come from MainShell; this screen only reloads the
+/// profile when retrying a failed load. Empty fields (like a missing phone number) are hidden.
 ///
-/// `membership` comes from [MainShell]'s single shared fetch (same object
-/// Home and QR Code get -- decisions #27/#31/#35), so the plan, valid-until
-/// and max-guests shown here are never re-queried. The user's own profile
-/// (name / email / phone / member ID) is also fetched once by `MainShell`
-/// (via [ProfileService.fetchCurrentProfile], decision #18) and passed in as
-/// [profile]; this screen only calls the service itself to retry after a
-/// failed load.
-///
-/// Everything shown is real data. A field with no value (a profile with no
-/// phone number, say) hides its row instead of showing a placeholder.
-///
-/// Edit Profile opens the real [EditProfileScreen]; when it saves, the updated
-/// profile goes up through [onProfileChanged] to `MainShell`, which owns the
-/// profile, so the change shows here, on Home and on the QR tab at once.
-/// Payment Methods opens the real [PaymentMethodsScreen] (Sprint 5 Task 3) and
-/// Notifications the real, local-only [NotificationSettingsScreen] (Task 4),
-/// Privacy & Security the real [PrivacySecurityScreen] (Task 5), and Help &
-/// Support the real [HelpSupportScreen] (Task 6), and App Settings the
-/// real [AppSettingsScreen] (Task 7). Upgrade Membership opens the real
-/// [UpgradeMembershipScreen] (Sprint 9 Task 4) -- but only shows at all
-/// once [SubscriptionService.hasUpgradeOption] confirms a higher-priced
-/// plan actually exists; a VIP member (already the most expensive plan)
-/// never sees the button, rather than a tap leading into an empty screen.
-/// Sign Out is the real, permanent one (decisions #21/#26): it ends the
-/// session and clears the whole navigation stack so Back can't return to
-/// an authenticated screen.
+/// Every button opens its real screen. An edited profile is passed back to MainShell so every tab
+/// shows it. "Upgrade Membership" only appears when a more expensive plan exists (not for VIP).
+/// Sign Out clears navigation so Back can't return here.
 class ProfileScreen extends StatefulWidget {
   final ActiveMembership membership;
 
-  /// Null if `MainShell`'s profile fetch failed -- the header card then
-  /// shows a retry prompt (see [ProfileContent]).
+  /// Null if the profile failed to load; the header then shows a retry button.
   final Profile? profile;
 
-  /// Called with a newly loaded (retry) or newly saved (Edit Profile)
-  /// profile, so `MainShell` can update every tab that shows it.
+  /// Sends a reloaded or edited profile back to MainShell.
   final ValueChanged<Profile> onProfileChanged;
 
-  const ProfileScreen({
-    super.key,
-    required this.membership,
-    required this.profile,
-    required this.onProfileChanged,
-  });
+  const ProfileScreen({super.key, required this.membership, required this.profile, required this.onProfileChanged});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -95,10 +55,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = false;
   bool _isSigningOut = false;
 
-  /// Null while the check is still in flight -- treated the same as
-  /// `false` (hidden) rather than `true`, so the button never appears and
-  /// then vanishes a moment later; it can only pop in once genuinely
-  /// confirmed, never flash and disappear.
+  /// Null while checking. Treated as "no" so the button never appears and then disappears.
   bool? _hasUpgradeOption;
 
   @override
@@ -112,20 +69,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       has = await _subscriptionService.hasUpgradeOption(widget.membership.plan.priceCents);
     } catch (_) {
-      has = false; // fail closed -- hide rather than risk a button into a broken screen
+      has = false; // if the check fails, hide the button
     }
     if (!mounted) return;
     setState(() => _hasUpgradeOption = has);
   }
 
-  /// Retry after `MainShell`'s profile fetch failed.
+  /// Retry loading the profile.
   Future<void> _loadProfile() async {
     setState(() => _loading = true);
     Profile? profile;
     try {
       profile = await _profileService.fetchCurrentProfile();
     } catch (_) {
-      profile = null; // stays a retryable error below, not a crash
+      profile = null;
     }
     if (!mounted) return;
     setState(() => _loading = false);
@@ -141,9 +98,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openNotificationSettings() {
-    Navigator.of(context).push(
-      appRoute(context, (_) => const NotificationSettingsScreen(prefs: SupabaseNotificationPrefs())),
-    );
+    Navigator.of(
+      context,
+    ).push(appRoute(context, (_) => const NotificationSettingsScreen(prefs: SupabaseNotificationPrefs())));
   }
 
   void _openPrivacySecurity() {
@@ -157,23 +114,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _editProfile() async {
     final profile = widget.profile;
     if (profile == null) {
-      // Nothing to edit until the profile loads -- retry that instead.
+      // Nothing to edit until the profile loads, so retry instead.
       await _loadProfile();
       return;
     }
-    final updated = await Navigator.of(context).push<Profile>(
-      appRoute(
-        context,
-        (_) => EditProfileScreen(profile: profile, membership: widget.membership),
-      ),
-    );
+    final updated = await Navigator.of(
+      context,
+    ).push<Profile>(appRoute(context, (_) => EditProfileScreen(profile: profile, membership: widget.membership)));
     if (updated != null && mounted) widget.onProfileChanged(updated);
   }
 
   void _openUpgradeMembership() {
-    Navigator.of(context).push(
-      appRoute(context, (_) => UpgradeMembershipScreen(currentPlan: widget.membership.plan)),
-    );
+    Navigator.of(context).push(appRoute(context, (_) => UpgradeMembershipScreen(currentPlan: widget.membership.plan)));
   }
 
   Future<void> _signOut() async {
@@ -187,11 +139,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Container(
-      // The Figma frame's own fill: the same soft 3-stop page wash used on
-      // every other screen.
       decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
       child: SafeArea(
-        bottom: false, // the bottom nav in MainShell handles its own inset
+        bottom: false,
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : ProfileContent(
@@ -213,20 +163,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-/// The screen's content, separated from data loading so the data mapping
-/// (badge text, hidden rows, date format) can be widget-tested without a
-/// Supabase connection.
+/// The screen content, kept separate from data loading so it can be tested without Supabase.
 class ProfileContent extends StatelessWidget {
-  /// Null when the profile couldn't be loaded -- the header card then shows
-  /// a retry prompt, while the sections that don't depend on it (membership
-  /// details, settings, Sign Out) still work.
+  /// Null if the profile failed to load. The header shows a retry button; the rest of the screen
+  /// still works.
   final Profile? profile;
   final ActiveMembership membership;
 
-  /// Sprint 9 Task 4: whether a plan priced above [membership]'s exists at
-  /// all -- when false (VIP, already the most expensive plan), the
-  /// Upgrade Membership button is hidden entirely, not shown disabled or
-  /// leading into an empty screen.
+  /// Whether a more expensive plan exists. When false (VIP), the upgrade button is hidden.
   final bool hasUpgradeOption;
 
   final VoidCallback onRetry;
@@ -261,9 +205,6 @@ class ProfileContent extends StatelessWidget {
     final colors = context.colors;
     final l10n = AppLocalizations.of(context);
     return SingleChildScrollView(
-      // Figma's frame padding: 16 sides, 32 top. Bottom 16 is the gap the
-      // design leaves above the bottom nav (which sits outside this
-      // scroll view in MainShell).
       padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -329,8 +270,7 @@ class ProfileContent extends StatelessWidget {
   }
 }
 
-/// Themed card surface with the design's hairline border and 14px radius,
-/// shared by all three cards on this screen.
+/// Card style shared by the three cards on this screen.
 BoxDecoration _cardDecoration(AppSemanticColors colors, {List<BoxShadow>? shadows}) {
   return BoxDecoration(
     color: colors.surface,
@@ -406,19 +346,14 @@ class _ProfileCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 64),
-          for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0) const SizedBox(height: 12),
-            rows[i],
-          ],
+          for (var i = 0; i < rows.length; i++) ...[if (i > 0) const SizedBox(height: 12), rows[i]],
         ],
       ),
     );
   }
 }
 
-/// "PREMIUM Member"-style badge. The label is built from the member's real
-/// plan name, not hardcoded -- so Basic shows "BASIC Member", VIP shows
-/// "VIP Member".
+/// The "PREMIUM Member" badge, built from the real plan name.
 class _PlanBadge extends StatelessWidget {
   final String planName;
 
@@ -428,18 +363,10 @@ class _PlanBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        gradient: AppColors.membershipPremiumGradient,
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(gradient: AppColors.membershipPremiumGradient, borderRadius: BorderRadius.circular(8)),
       child: Text(
         AppLocalizations.of(context).planBadgeSuffix(planName.toUpperCase()),
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          height: 16 / 12,
-          color: Colors.white,
-        ),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 16 / 12, color: Colors.white),
       ),
     );
   }
@@ -461,12 +388,7 @@ class _InfoRow extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: TextStyle(
-              fontSize: 14,
-              height: 20 / 14,
-              letterSpacing: -0.15,
-              color: colors.textMuted,
-            ),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
         ),
       ],
@@ -474,10 +396,7 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-/// Stand-in for the header card when the profile fetch failed -- not part
-/// of the Figma design (which only shows the loaded state), kept minimal
-/// and in the same card style so the rest of the screen, including Sign
-/// Out, stays usable.
+/// Shown instead of the header card when the profile failed to load. Not in the design.
 class _ProfileLoadError extends StatelessWidget {
   final VoidCallback onRetry;
 
@@ -502,10 +421,7 @@ class _ProfileLoadError extends StatelessWidget {
   }
 }
 
-/// The two full-width outlined buttons (Edit Profile, Sign Out) -- same
-/// shape, differing only in icon/ink/border colour and the icon-to-label
-/// gap (Figma centres a 16px icon + label; the gap is 17 on one, 16 on
-/// the other, as exported).
+/// The two outlined buttons (Edit Profile and Sign Out).
 class _OutlinedActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -566,11 +482,7 @@ class _MembershipDetailsCard extends StatelessWidget {
   final bool hasUpgradeOption;
   final VoidCallback onUpgrade;
 
-  const _MembershipDetailsCard({
-    required this.membership,
-    required this.hasUpgradeOption,
-    required this.onUpgrade,
-  });
+  const _MembershipDetailsCard({required this.membership, required this.hasUpgradeOption, required this.onUpgrade});
 
   @override
   Widget build(BuildContext context) {
@@ -586,14 +498,11 @@ class _MembershipDetailsCard extends StatelessWidget {
           const SizedBox(height: 40),
           _DetailRow(label: l10n.planLabel, value: membership.planName),
           const SizedBox(height: 12),
-          // Same M/D/YYYY (no leading zeros) Home's status card uses, from
-          // the same DateTime, so the two screens always agree.
+          // Same date format as Home's membership card.
           _DetailRow(label: l10n.validUntilLabel, value: DateFormat('M/d/yyyy').format(membership.validUntil)),
           const SizedBox(height: 12),
           _DetailRow(label: l10n.maxGuestsLabel, value: '${membership.plan.maxGuests}'),
-          // Sprint 9 Task 4: hidden entirely (not disabled) when there's no
-          // higher-priced plan to upgrade to -- the task's own "disable/hide
-          // the entry point entirely... rather than showing an empty screen".
+          // Hidden when there's no higher plan to upgrade to.
           if (hasUpgradeOption) ...[
             const SizedBox(height: 40),
             SizedBox(
@@ -712,10 +621,7 @@ class _SettingsCard extends StatelessWidget {
         children: [
           _CardTitle(l10n.settingsTitle),
           const SizedBox(height: 36),
-          for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0) const SizedBox(height: 4),
-            rows[i],
-          ],
+          for (var i = 0; i < rows.length; i++) ...[if (i > 0) const SizedBox(height: 4), rows[i]],
         ],
       ),
     );
@@ -732,8 +638,7 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    // The chevron points "forward" (deeper into the app), not literally
-    // right -- same reasoning as the onboarding Next/Previous chevrons.
+    // The chevron points "forward", so it flips in right-to-left.
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     return InkWell(
       onTap: onTap,

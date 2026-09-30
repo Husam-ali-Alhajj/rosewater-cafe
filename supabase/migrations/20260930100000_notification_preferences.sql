@@ -1,19 +1,9 @@
--- Notifications roadmap, step 1: notification preferences move from the
--- device (shared_preferences, decision #44) into the database.
+-- Notification preferences, stored in the database so the server can respect them (for example, not
+-- sending emails to users who turned them off).
 --
--- Why now: every channel still to be built -- email, push, scheduled
--- event reminders, allowance alerts, promotions -- is sent by the SERVER,
--- and the server can't see a phone's local storage. A toggle that only
--- lives on the device could never stop an email from going out.
---
--- One row per user, one boolean column per toggle on the Notification
--- Settings screen. Column defaults are exactly the Figma frame's initial
--- state (SMS off, everything else on) and match
--- `NotificationSetting.defaultValue` in lib/services/notification_prefs.dart,
--- so a user with no row yet and a freshly inserted row mean the same
--- thing. No row is created up front: the app upserts one the first time a
--- toggle is flipped, and every reader (the app now, server-side senders
--- later) treats a missing row as "all defaults" via coalesce.
+-- One row per user, one column per switch. The defaults match the app (SMS off, the rest on). No
+-- row is created up front: the app creates it the first time a switch is changed, and a missing row
+-- means "all defaults".
 
 create table public.notification_preferences (
   user_id          uuid primary key references public.profiles (id) on delete cascade,
@@ -32,9 +22,8 @@ create trigger trg_notification_preferences_updated_at
 before update on public.notification_preferences
 for each row execute function public.set_updated_at();
 
--- Client access: a user reads, creates and changes only their own row.
--- No DELETE -- turning everything off is an UPDATE, and the row goes away
--- with the profile (on delete cascade).
+-- Users can read, create and change only their own row. No DELETE: the row is removed with the
+-- profile.
 alter table public.notification_preferences enable row level security;
 
 create policy "Users can view own notification preferences"
@@ -53,9 +42,8 @@ create policy "Users can update own notification preferences"
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
--- Table privileges to match the policies exactly, rather than relying on
--- the blanket grants Supabase gives every new table (decision #16: a
--- `revoke ... from public` alone doesn't undo those).
+-- Grant exactly what the policies allow. Supabase grants everything on new tables by default, so
+-- revoke that first.
 revoke all on public.notification_preferences from anon;
 revoke all on public.notification_preferences from authenticated;
 grant select, insert, update on public.notification_preferences to authenticated;

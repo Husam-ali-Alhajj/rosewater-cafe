@@ -3,26 +3,27 @@ import 'package:flutter/services.dart';
 
 import '../theme/app_semantic_colors.dart';
 
-/// Digits-only MM/YY formatter -- inserts the "/" automatically so typing
-/// stays natural, matching the design's placeholder. Shared by the Payment
-/// screen and Add Payment Method (moved here unchanged from Payment).
+/// MM/YY input: adds the "/" automatically. Used by the payment and add-card screens.
 class ExpiryInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '').substring(0, newValue.text.replaceAll(RegExp(r'\D'), '').length.clamp(0, 4));
+    final digits = newValue.text
+        .replaceAll(RegExp(r'\D'), '')
+        .substring(0, newValue.text.replaceAll(RegExp(r'\D'), '').length.clamp(0, 4));
     final buffer = StringBuffer();
     for (var i = 0; i < digits.length; i++) {
       buffer.write(digits[i]);
       if (i == 1 && digits.length > 2) buffer.write('/');
     }
     final text = buffer.toString();
-    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 }
 
-/// A labelled card field (Card Number / Expiry Date / CVV) styled like the
-/// Complete Payment screen's inputs (Figma node 1213:1281). Shared by the
-/// Payment screen and Add Payment Method (moved here unchanged from Payment).
+/// A labelled card field (card number, expiry, CVV). Used by the payment and add-card screens.
 class PaymentField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
@@ -63,9 +64,8 @@ class PaymentField extends StatelessWidget {
           inputFormatters: inputFormatters,
           obscureText: obscureText,
           validator: validator,
-          // Deliberately no autofillHints: there is no real payment processor
-          // behind these forms -- letting the OS/browser offer to save a real
-          // card here would be actively misleading.
+          // No autofill hints on purpose: there's no real payment processor, so the browser
+          // shouldn't offer to save a real card here.
           autofillHints: null,
           enableSuggestions: false,
           autocorrect: false,

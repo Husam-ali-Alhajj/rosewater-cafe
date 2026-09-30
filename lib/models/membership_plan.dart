@@ -1,8 +1,5 @@
-/// Mirrors a row of `public.membership_plans`. The numeric bullets
-/// (hookah/drinks/guests) are derived from real columns; `features` holds
-/// the rest of the design's perk list (seating tier, venue hours, etc.) as
-/// a real database column rather than hardcoded per-plan-name copy in the
-/// app — see docs/decisions.md.
+/// A row of `membership_plans`. [features] holds the extra perks (seating, hours...) from the
+/// database.
 class MembershipPlan {
   final String id;
   final String name;
@@ -39,11 +36,5 @@ class MembershipPlan {
 
   int get priceDollars => priceCents ~/ 100;
 
-  // The English-only bullet list this getter used to build (Unlimited
-  // Hookah/Drinks, "Bring N guest(s)", plus the raw `features` strings
-  // verbatim) is gone -- every caller needs real Arabic text now, and this
-  // is a plain data model with no BuildContext to translate through.
-  // See `utils/membership_localization.dart`'s `localizedFeatureBullets`,
-  // which both of this getter's two call sites (Choose Membership, Home's
-  // Benefits card) now use instead.
+  // Bullet text is built in utils/membership_localization.dart, since it needs translations.
 }

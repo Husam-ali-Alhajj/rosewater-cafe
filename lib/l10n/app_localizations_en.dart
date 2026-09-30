@@ -60,8 +60,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createAccount => 'Create Account';
 
   @override
-  String get signInGenericError =>
-      'Something went wrong. Check your connection and try again.';
+  String get signInGenericError => 'Something went wrong. Check your connection and try again.';
 
   @override
   String get welcomeGeneric => 'Welcome!';
@@ -151,15 +150,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get genericConnectionError =>
-      'Something went wrong. Check your connection and try again.';
+  String get genericConnectionError => 'Something went wrong. Check your connection and try again.';
 
   @override
   String get passwordsDoNotMatch => 'Passwords do not match';
 
   @override
-  String get passwordHelperText =>
-      '8+ characters, with uppercase, lowercase & a number';
+  String get passwordHelperText => '8+ characters, with uppercase, lowercase & a number';
 
   @override
   String get authLandingTagline => 'VIP Membership & Lounge';
@@ -243,8 +240,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get setNewPasswordHeading => 'Set New Password';
 
   @override
-  String get chooseNewPasswordSubtitle =>
-      'Choose a new password for your account.';
+  String get chooseNewPasswordSubtitle => 'Choose a new password for your account.';
 
   @override
   String get newPasswordLabel => 'New Password';
@@ -262,15 +258,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get passwordUpdatedHeading => 'Password Updated';
 
   @override
-  String get passwordUpdatedBody =>
-      'Your password has been changed. Please sign in with your new password.';
+  String get passwordUpdatedBody => 'Your password has been changed. Please sign in with your new password.';
 
   @override
   String get continueToSignIn => 'Continue to Sign In';
 
   @override
-  String get couldNotUpdatePasswordError =>
-      'Couldn\'t update your password. Check your connection and try again.';
+  String get couldNotUpdatePasswordError => 'Couldn\'t update your password. Check your connection and try again.';
 
   @override
   String get confirmYourEmailHeading => 'Confirm Your Email';
@@ -287,12 +281,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectPlanSubtitle => 'Select the plan that fits your lifestyle';
 
   @override
-  String get couldNotLoadPlansError =>
-      'Could not load membership plans. Check your connection and try again.';
+  String get couldNotLoadPlansError => 'Could not load membership plans. Check your connection and try again.';
 
   @override
-  String get allPlansFooter =>
-      'All plans include member discounts. Guest orders not included in allowance.';
+  String get allPlansFooter => 'All plans include member discounts. Guest orders not included in allowance.';
 
   @override
   String get mostPopularBadge => 'Most Popular';
@@ -357,8 +349,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get planFeatureExclusiveMenu => 'Exclusive menu';
 
   @override
-  String get couldNotLoadDetailsError =>
-      'Could not load your details. Check your connection and try again.';
+  String get couldNotLoadDetailsError => 'Could not load your details. Check your connection and try again.';
 
   @override
   String get takePhoto => 'Take Photo';
@@ -370,8 +361,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chooseFileHint => 'Choose File (PNG, JPG, PDF)';
 
   @override
-  String get cameraGalleryAccessError =>
-      'Could not access the camera/gallery. Check app permissions and try again.';
+  String get cameraGalleryAccessError => 'Could not access the camera/gallery. Check app permissions and try again.';
 
   @override
   String get filePickerError => 'Could not open the file picker. Try again.';
@@ -385,8 +375,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get uploadFailedError =>
-      'Upload failed. Check your connection and try again.';
+  String get uploadFailedError => 'Upload failed. Check your connection and try again.';
 
   @override
   String get cancellingEllipsis => 'Cancelling…';
@@ -404,8 +393,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get uploadIdDocumentLabel => 'Upload ID Document';
 
   @override
-  String get requiredForVerification =>
-      'Required for membership verification and security';
+  String get requiredForVerification => 'Required for membership verification and security';
 
   @override
   String get uploadingEllipsis => 'Uploading…';
@@ -420,8 +408,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get idFileTypesHint => 'PNG, JPG, PDF (max 10MB)';
 
   @override
-  String get couldNotGoBackToPlansError =>
-      'Could not go back to plans. Check your connection and try again.';
+  String get couldNotGoBackToPlansError => 'Could not go back to plans. Check your connection and try again.';
 
   @override
   String get completePayment => 'Complete Payment';
@@ -447,8 +434,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cvvLabel => 'CVV';
 
   @override
-  String get paymentFailedError =>
-      'Payment failed. Check your connection and try again.';
+  String get paymentFailedError => 'Payment failed. Check your connection and try again.';
 
   @override
   String get backButton => 'Back';
@@ -488,8 +474,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get durationRequired => 'Duration is required';
 
   @override
-  String get enterValidNumberDecimal =>
-      'Enter a valid number (up to 2 decimal places)';
+  String get enterValidNumberDecimal => 'Enter a valid number (up to 2 decimal places)';
 
   @override
   String get durationMustBeGreaterThanZero => 'Duration must be greater than 0';
@@ -535,8 +520,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get eventDateRequired => 'Event date is required';
 
   @override
-  String get datePassedError =>
-      'That date has already passed -- please choose another.';
+  String get datePassedError => 'That date has already passed -- please choose another.';
 
   @override
   String get startTimeLabel => 'Start Time';
@@ -601,8 +585,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reservationConfirmedHeading => 'Reservation Confirmed!';
 
   @override
-  String get reservationConfirmedSubtitle =>
-      'Your event has been successfully reserved';
+  String get reservationConfirmedSubtitle => 'Your event has been successfully reserved';
 
   @override
   String get dateColonLabel => 'Date:';
@@ -635,8 +618,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unableToLoadMemberId => 'Unable to load your member ID';
 
   @override
-  String get scanQrInstruction =>
-      'Scan this QR code at the entrance to unlock the door';
+  String get scanQrInstruction => 'Scan this QR code at the entrance to unlock the door';
 
   @override
   String get howManyPeopleQuestion => 'How many people are with you?';
@@ -740,8 +722,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get upgradeMembershipButton => 'Upgrade Membership';
 
   @override
-  String get upgradeMembershipSubtitle =>
-      'Choose a higher-tier plan to unlock more benefits';
+  String get upgradeMembershipSubtitle => 'Choose a higher-tier plan to unlock more benefits';
 
   @override
   String get upgradingEllipsis => 'Upgrading…';
@@ -752,8 +733,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get noUpgradeAvailable =>
-      'No higher-tier plan is available right now.';
+  String get noUpgradeAvailable => 'No higher-tier plan is available right now.';
 
   @override
   String get settingsTitle => 'Settings';
@@ -808,8 +788,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get personalInformationTitle => 'Personal Information';
 
   @override
-  String get emailCantBeChangedNote =>
-      'Your email can\'t be changed in the app.';
+  String get emailCantBeChangedNote => 'Your email can\'t be changed in the app.';
 
   @override
   String get membershipInformationTitle => 'Membership Information';
@@ -830,15 +809,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tapCameraIconHint => 'Tap camera icon to change photo';
 
   @override
-  String get couldntSaveChangesError =>
-      'Couldn\'t save your changes. Check your connection and try again.';
+  String get couldntSaveChangesError => 'Couldn\'t save your changes. Check your connection and try again.';
 
   @override
   String get addNewPaymentMethodButton => 'Add New Payment Method';
 
   @override
-  String get couldntLoadPaymentMethods =>
-      'Couldn\'t load your payment methods.';
+  String get couldntLoadPaymentMethods => 'Couldn\'t load your payment methods.';
 
   @override
   String get noPaymentMethodsYet => 'You haven\'t added a payment method yet.';
@@ -874,8 +851,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'For your security, only the card type, last 4 digits and expiry date are saved — never your full card number or CVV.';
 
   @override
-  String get couldntSaveCardError =>
-      'Couldn\'t save your card. Check your connection and try again.';
+  String get couldntSaveCardError => 'Couldn\'t save your card. Check your connection and try again.';
 
   @override
   String get saveCardButton => 'Save Card';
@@ -884,15 +860,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get doneButton => 'Done';
 
   @override
-  String get couldntSaveSettingError =>
-      'Couldn\'t save that setting. Please try again.';
+  String get couldntSaveSettingError => 'Couldn\'t save that setting. Please try again.';
 
   @override
   String get communicationPreferencesTitle => 'Communication Preferences';
 
   @override
-  String get communicationPreferencesSubtitle =>
-      'Choose how you want to be notified';
+  String get communicationPreferencesSubtitle => 'Choose how you want to be notified';
 
   @override
   String get notificationTypesTitle => 'Notification Types';
@@ -901,8 +875,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pushNotificationsLabel => 'Push Notifications';
 
   @override
-  String get pushNotificationsDescription =>
-      'Receive notifications on your device';
+  String get pushNotificationsDescription => 'Receive notifications on your device';
 
   @override
   String get emailNotificationsLabel => 'Email Notifications';
@@ -914,36 +887,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get smsNotificationsLabel => 'SMS Notifications';
 
   @override
-  String get smsNotificationsDescription =>
-      'Receive text messages for important updates';
+  String get smsNotificationsDescription => 'Receive text messages for important updates';
 
   @override
   String get soundVibrationLabel => 'Sound & Vibration';
 
   @override
-  String get soundVibrationDescription =>
-      'Play sound when notifications arrive';
+  String get soundVibrationDescription => 'Play sound when notifications arrive';
 
   @override
   String get eventRemindersLabel => 'Event Reminders';
 
   @override
-  String get eventRemindersDescription =>
-      'Get reminded about your upcoming reservations';
+  String get eventRemindersDescription => 'Get reminded about your upcoming reservations';
 
   @override
   String get allowanceAlertsLabel => 'Allowance Alerts';
 
   @override
-  String get allowanceAlertsDescription =>
-      'Notify when allowances are running low';
+  String get allowanceAlertsDescription => 'Notify when allowances are running low';
 
   @override
   String get promotionsOffersLabel => 'Promotions & Offers';
 
   @override
-  String get promotionsOffersDescription =>
-      'Receive special deals and member benefits';
+  String get promotionsOffersDescription => 'Receive special deals and member benefits';
 
   @override
   String get cacheClearedMessage => 'Cache cleared.';
@@ -971,8 +939,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animationsLabel => 'Animations';
 
   @override
-  String get animationsDescription =>
-      'Enable smooth animations throughout the app';
+  String get animationsDescription => 'Enable smooth animations throughout the app';
 
   @override
   String get languageSectionLabel => 'Language';
@@ -984,15 +951,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get soundEffectsLabel => 'Sound Effects';
 
   @override
-  String get soundEffectsDescription =>
-      'Play sounds for actions and notifications';
+  String get soundEffectsDescription => 'Play sounds for actions and notifications';
 
   @override
   String get hapticFeedbackLabel => 'Haptic Feedback';
 
   @override
-  String get hapticFeedbackDescription =>
-      'Vibrate on button presses and interactions';
+  String get hapticFeedbackDescription => 'Vibrate on button presses and interactions';
 
   @override
   String get dataStorageCardTitle => 'Data & Storage';
@@ -1032,8 +997,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get biometricAuthLabel => 'Biometric Authentication';
 
   @override
-  String get biometricAuthDescription =>
-      'Use fingerprint or face ID to sign in';
+  String get biometricAuthDescription => 'Use fingerprint or face ID to sign in';
 
   @override
   String get twoFactorAuthLabel => 'Two-Factor Authentication';
@@ -1055,8 +1019,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'No biometrics available on this device. Set up a fingerprint or face unlock first.';
 
   @override
-  String get strongPasswordPrompt =>
-      'Keep your account secure by using a strong password';
+  String get strongPasswordPrompt => 'Keep your account secure by using a strong password';
 
   @override
   String get changePasswordButton => 'Change Password';
@@ -1080,12 +1043,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get enterCurrentPasswordError => 'Enter your current password';
 
   @override
-  String get passwordMustDifferError =>
-      'Choose a password different from your current one.';
+  String get passwordMustDifferError => 'Choose a password different from your current one.';
 
   @override
-  String get couldntUpdatePasswordError =>
-      'Couldn\'t update your password. Check your connection and try again.';
+  String get couldntUpdatePasswordError => 'Couldn\'t update your password. Check your connection and try again.';
 
   @override
   String get passwordUpdatedMessage => 'Password updated.';
@@ -1104,8 +1065,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deletingEllipsis => 'Deleting…';
 
   @override
-  String get couldntDeleteAccountError =>
-      'Couldn\'t delete your account. Please try again.';
+  String get couldntDeleteAccountError => 'Couldn\'t delete your account. Please try again.';
 
   @override
   String get changeEmailButton => 'Change Email';
@@ -1126,8 +1086,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendConfirmationButton => 'Send Confirmation';
 
   @override
-  String get couldntUpdateEmailError =>
-      'Couldn\'t update your email. Check your connection and try again.';
+  String get couldntUpdateEmailError => 'Couldn\'t update your email. Check your connection and try again.';
 
   @override
   String get viewPrivacyPolicyLabel => 'View Privacy Policy';
@@ -1185,16 +1144,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Yes — every plan includes a guest limit, shown as Max Guests in your Membership Details. When you open the door with your QR code, choose how many guests are with you, up to that limit. Your monthly allowance covers your own orders only; guest orders get member discounts but are paid separately.';
 
   @override
-  String get faqQuestion4 =>
-      'What\'s the difference between full service and self-service hours?';
+  String get faqQuestion4 => 'What\'s the difference between full service and self-service hours?';
 
   @override
   String get faqAnswer4 =>
       'Full Service Hours (9:00 AM – 11:00 PM) are staffed, with our team handling orders and hookah setup for you. Self-Service Hours (11:00 PM – 9:00 AM) let members access the space with their membership, but without staff on site, so it\'s a more limited, help-yourself experience.';
 
   @override
-  String get faqDraftAnswerNote =>
-      'Draft answer — pending confirmation from the company, not final copy.';
+  String get faqDraftAnswerNote => 'Draft answer — pending confirmation from the company, not final copy.';
 
   @override
   String get resourcesCardTitle => 'Resources';
@@ -1212,8 +1169,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appLockedTitle => 'App Locked';
 
   @override
-  String get unlockWithBiometricPrompt =>
-      'Unlock with your fingerprint or face to continue.';
+  String get unlockWithBiometricPrompt => 'Unlock with your fingerprint or face to continue.';
 
   @override
   String get unlockWithPasswordPrompt => 'Enter your password to continue.';
@@ -1243,8 +1199,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get enterYourPasswordError => 'Enter your password';
 
   @override
-  String get couldntVerifyPasswordError =>
-      'Couldn\'t verify your password. Check your connection and try again.';
+  String get couldntVerifyPasswordError => 'Couldn\'t verify your password. Check your connection and try again.';
 
   @override
   String get unlockReasonPrompt => 'Unlock Rosewater Café';
@@ -1261,22 +1216,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get notifEventReservationConfirmedTitle =>
-      'Event Reservation Confirmed';
+  String get notifEventReservationConfirmedTitle => 'Event Reservation Confirmed';
 
   @override
-  String notifEventReservationConfirmedBody(
-    String eventType,
-    String date,
-    String time,
-    int guestCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      guestCount,
-      locale: localeName,
-      other: '$guestCount guests',
-      one: '1 guest',
-    );
+  String notifEventReservationConfirmedBody(String eventType, String date, String time, int guestCount) {
+    String _temp0 = intl.Intl.pluralLogic(guestCount, locale: localeName, other: '$guestCount guests', one: '1 guest');
     return 'Your $eventType reservation on $date at $time for $_temp0 is confirmed.';
   }
 
@@ -1313,16 +1257,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noNotificationsTitle => 'No notifications yet';
 
   @override
-  String get noNotificationsBody =>
-      'Payment and event reservation updates will show up here.';
+  String get noNotificationsBody => 'Payment and event reservation updates will show up here.';
 
   @override
-  String get couldntLoadNotificationsError =>
-      'Couldn\'t load your notifications.';
+  String get couldntLoadNotificationsError => 'Couldn\'t load your notifications.';
 
   @override
-  String get couldntUpdateNotificationError =>
-      'Couldn\'t update that notification. Please try again.';
+  String get couldntUpdateNotificationError => 'Couldn\'t update that notification. Please try again.';
 
   @override
   String get timeJustNow => 'Just now';
@@ -1346,18 +1287,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifEventReminderTitle => 'Event Reminder';
 
   @override
-  String notifEventReminderBody(
-    String eventType,
-    String date,
-    String time,
-    int guestCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      guestCount,
-      locale: localeName,
-      other: '$guestCount guests',
-      one: '1 guest',
-    );
+  String notifEventReminderBody(String eventType, String date, String time, int guestCount) {
+    String _temp0 = intl.Intl.pluralLogic(guestCount, locale: localeName, other: '$guestCount guests', one: '1 guest');
     return 'Your $eventType reservation is coming up on $date at $time for $_temp0.';
   }
 
@@ -1430,11 +1361,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifSubscriptionUpgradedTitle => 'Membership Upgraded';
 
   @override
-  String notifSubscriptionUpgradedBody(
-    String oldPlan,
-    String newPlan,
-    String date,
-  ) {
+  String notifSubscriptionUpgradedBody(String oldPlan, String newPlan, String date) {
     return 'You\'ve upgraded from $oldPlan to $newPlan. Your new membership is active until $date.';
   }
 }

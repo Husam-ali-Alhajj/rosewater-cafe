@@ -62,8 +62,7 @@ import 'app_localizations_en.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -71,8 +70,7 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations)!;
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate =
-      _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -84,19 +82,15 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
-      <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
-  static const List<Locale> supportedLocales = <Locale>[
-    Locale('ar'),
-    Locale('en'),
-  ];
+  static const List<Locale> supportedLocales = <Locale>[Locale('ar'), Locale('en')];
 
   /// Bottom nav tab label
   ///
@@ -680,7 +674,7 @@ abstract class AppLocalizations {
   /// **'Bring {max} guests'**
   String bringGuestBulletPlural(int max);
 
-  /// membership_plans.features -- real DB content from a small fixed catalog (see the Task 2 migration); translated by exact-string lookup in utils/membership_localization.dart, unrecognized strings fall back to the raw DB value
+  /// A plan perk from the database, translated in utils/membership_localization.dart; unknown values are shown as stored
   ///
   /// In en, this message translates to:
   /// **'Standard seating'**
@@ -2376,14 +2370,9 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Your {eventType} reservation on {date} at {time} for {guestCount, plural, =1{1 guest} other{{guestCount} guests}} is confirmed.'**
-  String notifEventReservationConfirmedBody(
-    String eventType,
-    String date,
-    String time,
-    int guestCount,
-  );
+  String notifEventReservationConfirmedBody(String eventType, String date, String time, int guestCount);
 
-  /// Notifications feed subtitle (Figma App-23: "2 unread notifications")
+  /// Notifications screen subtitle, e.g. "2 unread notifications"
   ///
   /// In en, this message translates to:
   /// **'{count, plural, =0{No unread notifications} =1{1 unread notification} other{{count} unread notifications}}'**
@@ -2437,19 +2426,19 @@ abstract class AppLocalizations {
   /// **'Just now'**
   String get timeJustNow;
 
-  /// Figma App-23 style: "5m ago"
+  /// e.g. "5m ago"
   ///
   /// In en, this message translates to:
   /// **'{n}m ago'**
   String timeMinutesAgo(int n);
 
-  /// Figma App-23: "2h ago"
+  /// e.g. "2h ago"
   ///
   /// In en, this message translates to:
   /// **'{n}h ago'**
   String timeHoursAgo(int n);
 
-  /// Figma App-23: "1d ago" (under a week; older shows a date)
+  /// e.g. "1d ago" (under a week; older shows a date)
   ///
   /// In en, this message translates to:
   /// **'{n}d ago'**
@@ -2461,16 +2450,11 @@ abstract class AppLocalizations {
   /// **'Event Reminder'**
   String get notifEventReminderTitle;
 
-  /// Sent ~24h before a reservation (Figma App-23 "Event Reminder" card). {eventType} is the localized event type; {date}/{time} already formatted for the locale
+  /// Sent about 24 hours before a reservation. {eventType} is translated; {date} and {time} are already formatted
   ///
   /// In en, this message translates to:
   /// **'Your {eventType} reservation is coming up on {date} at {time} for {guestCount, plural, =1{1 guest} other{{guestCount} guests}}.'**
-  String notifEventReminderBody(
-    String eventType,
-    String date,
-    String time,
-    int guestCount,
-  );
+  String notifEventReminderBody(String eventType, String date, String time, int guestCount);
 
   /// No description provided for @notifLowAllowanceTitle.
   ///
@@ -2478,7 +2462,7 @@ abstract class AppLocalizations {
   /// **'Low Allowance Alert'**
   String get notifLowAllowanceTitle;
 
-  /// Figma App-23 "Low Allowance Alert" card, hookah
+  /// Low allowance alert, hookah
   ///
   /// In en, this message translates to:
   /// **'{remaining, plural, =0{You have used all your hookah sessions this month.} =1{You have only 1 hookah session remaining this month.} other{You have only {remaining} hookah sessions remaining this month.}}'**
@@ -2572,15 +2556,10 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'You\'ve upgraded from {oldPlan} to {newPlan}. Your new membership is active until {date}.'**
-  String notifSubscriptionUpgradedBody(
-    String oldPlan,
-    String newPlan,
-    String date,
-  );
+  String notifSubscriptionUpgradedBody(String oldPlan, String newPlan, String date);
 }
 
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -2589,8 +2568,7 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) =>
-      <String>['ar', 'en'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>['ar', 'en'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;

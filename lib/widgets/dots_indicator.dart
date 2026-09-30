@@ -6,18 +6,10 @@ class DotsIndicator extends StatelessWidget {
   final int itemCount;
   final int currentIndex;
 
-  /// Null uses this theme's own accent gradient (via `context.colors`).
-  /// Onboarding always passes its own per-slide gradient explicitly instead
-  /// (unaffected by theme), so this default currently has no live caller,
-  /// but stays theme-aware rather than a stale light-only fallback.
+  /// Null uses the theme's accent gradient. Onboarding passes its own per-slide gradient.
   final Gradient? activeGradient;
 
-  /// Null picks a brightness-appropriate grey instead of the design's fixed
-  /// light-mode one -- no token in [AppSemanticColors] fits a small solid
-  /// control sitting directly on the page wash (`border` is a translucent
-  /// hairline, `surfaceElevated` is a card fill and, in light mode, pure
-  /// white -- both wrong here), so this picks its own pair the same way
-  /// e.g. the QR note / purple info box do for one-off decorative colors.
+  /// Null uses a grey suited to the current theme.
   final Color? inactiveColor;
 
   const DotsIndicator({

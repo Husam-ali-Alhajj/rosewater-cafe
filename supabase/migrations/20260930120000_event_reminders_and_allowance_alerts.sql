@@ -1,29 +1,18 @@
--- Notifications roadmap, step 3: the "Event Reminders" and "Allowance
--- Alerts" toggles on Notification Settings now control real in-app
--- notifications (decision #70). Both are created server-side, like every
--- other notification, and both skip users who switched that toggle off
--- (`notification_preferences`, decision #67 -- no row means defaults, on).
+-- Event reminders and low-allowance alerts, as in-app notifications. Both skip users who turned
+-- that switch off (no preferences row means on).
 --
---  * Event reminders: a pg_cron job every 15 minutes sends ONE reminder
---    per confirmed reservation once it starts within the next 24 hours
---    (the design's example reads "coming up tomorrow at 7:00 PM").
---  * Allowance alerts: a trigger on usage_allowances sends ONE alert per
---    billing period per kind (hookah / drinks) the moment what's left
---    drops to 3 or fewer (the design's example: "only 3 hookah sessions
---    remaining"). Unlimited plans (NULL limit) never get one.
---    NOTE: nothing in the app records usage yet (no staff / point-of-sale
---    tool increments hookah_used/drinks_used), so this can only fire when
---    usage is updated some other way -- it's ready for when that exists.
+-- - Event reminders: a job every 15 minutes sends one reminder per confirmed reservation once it's
+-- within the next 24 hours.
+-- - Allowance alerts: a trigger on usage_allowances sends one alert per period (hookah and drinks
+-- separately) when 3 or fewer are left. Unlimited plans never get one.
+--
+-- Note: the app doesn't record usage yet (there's no staff tool), so alerts only fire if usage is
+-- updated some other way.
 
--- ------------------------------------------------------------
--- The café's timezone, in one place
--- ------------------------------------------------------------
+-- The cafe's timezone
 
--- Reservations store a local date + time with no timezone ("Oct 4,
--- 7:30 PM"), while now() is an absolute instant, so the reminder job must
--- know which timezone that local time is in. IANA name, so daylight-saving
--- changes are handled by Postgres. Change here at handoff if the café
--- isn't in New York.
+-- Reservations store a local date and time, so the reminder job needs the cafe's timezone. Change
+-- this if the cafe isn't in New York (daylight saving is handled automatically).
 create or replace function public.cafe_timezone()
 returns text
 language sql
@@ -33,13 +22,9 @@ as $$ select 'America/New_York' $$;
 comment on function public.cafe_timezone() is
   'The café''s IANA timezone. Event reservation dates/times are local to it.';
 
--- ------------------------------------------------------------
 -- Event reminders
--- ------------------------------------------------------------
 
--- Set when a reminder is sent. A column on the reservation rather than
--- "does a reminder notification exist" -- the user can delete that
--- notification, which must not cause a second reminder.
+-- Set when the reminder is sent, so deleting the reminder notification doesn't cause a second one.
 alter table public.event_reservations
   add column reminder_sent_at timestamptz;
 
@@ -58,14 +43,14 @@ begin
     from public.event_reservations er
     where er.status = 'confirmed'
       and er.reminder_sent_at is null
-      -- the local date + time, read as café time -> an absolute instant
+      -- Local date + time, read in the cafe's timezone
       and (er.event_date + er.start_time) at time zone public.cafe_timezone()
           between now() and now() + interval '24 hours'
       and coalesce(
         (select np.event_reminders from public.notification_preferences np where np.user_id = er.user_id),
         true
       )
-    for update of er skip locked -- never two overlapping runs on one row
+    for update of er skip locked  -- never process the same row twice at once
   loop
     insert into public.notifications (user_id, type, title, body, related_id, data)
     values (
@@ -89,8 +74,7 @@ begin
 end;
 $$;
 
--- A batch job over every user's rows -- no client role may call it (same
--- as expire_subscriptions); only the pg_cron schedule below runs it.
+-- Runs over every user, so no app role may call it; only the scheduled job below does.
 revoke execute on function public.send_event_reminders() from public;
 revoke execute on function public.send_event_reminders() from anon;
 revoke execute on function public.send_event_reminders() from authenticated;
@@ -109,12 +93,9 @@ select cron.schedule(
   $$select public.send_event_reminders()$$
 );
 
--- ------------------------------------------------------------
 -- Allowance alerts
--- ------------------------------------------------------------
 
--- Once per billing period per kind: a new period is a new usage_allowances
--- row, so these start false again automatically.
+-- One alert per period for each kind. A new period is a new row, so these start as false again.
 alter table public.usage_allowances
   add column hookah_alert_sent boolean not null default false,
   add column drinks_alert_sent boolean not null default false;
@@ -126,7 +107,7 @@ security definer
 set search_path = public
 as $$
 declare
-  c_threshold constant integer := 3; -- "3 or fewer left" (decision #70)
+  c_threshold constant integer := 3;  -- alert at 3 or fewer left
   v_hookah_limit integer;
   v_drinks_limit integer;
   v_remaining integer;
@@ -140,14 +121,14 @@ begin
   limit 1;
 
   if not found then
-    return new; -- no active plan, nothing to measure against
+    return new;  -- no active plan, nothing to compare
   end if;
 
   if not coalesce(
     (select np.allowance_alerts from public.notification_preferences np where np.user_id = new.user_id),
     true
   ) then
-    return new; -- switched off: send nothing, and leave the flags unset
+    return new;  -- turned off: send nothing and leave the flags unset
   end if;
 
   if v_hookah_limit is not null and not new.hookah_alert_sent then
@@ -196,8 +177,7 @@ revoke execute on function public.check_low_allowance() from public;
 revoke execute on function public.check_low_allowance() from anon;
 revoke execute on function public.check_low_allowance() from authenticated;
 
--- BEFORE, so the "already sent" flag is set on the same row write that
--- triggered the alert (an AFTER trigger would need a second UPDATE).
+-- BEFORE, so the "already sent" flag is saved in the same update.
 create trigger trg_usage_allowances_low_alert
 before update of hookah_used, drinks_used on public.usage_allowances
 for each row execute function public.check_low_allowance();

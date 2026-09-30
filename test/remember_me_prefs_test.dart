@@ -2,16 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/services/remember_me_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Simulates the app being closed and reopened: the in-memory
-/// SharedPreferences singleton is thrown away, so the next read has to come
-/// from what was actually written to the (fake) device storage.
+/// Simulates closing and reopening the app: the next read comes from what was actually saved.
 void _restartApp() => SharedPreferences.resetStatic();
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('RememberMePrefs', () {
-    test('a fresh install defaults to remembered -- matches decision #15\'s original behavior', () async {
+    test('a fresh install defaults to remembered', () async {
       expect(await const RememberMePrefs().isRemembered(), isTrue);
     });
 

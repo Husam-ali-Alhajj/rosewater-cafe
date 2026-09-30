@@ -1,34 +1,14 @@
--- Sprint 5 Task 2 (Edit Profile): profile photos, and locking profiles.email.
+-- Profile photos, and protecting profiles.email.
 --
--- 1. `avatars` storage bucket -- same pattern as `id-documents` (see
---    initial_schema.sql, decision #18): PRIVATE, and every object path must
---    be "<user_id>/<filename>". The four policies below check that first
---    path segment against auth.uid(), so a signed-in user can only read,
---    write, replace or delete files inside their own folder -- never
---    another user's, and `anon` gets nothing at all. The bucket itself also
---    caps uploads at 5MB and to PNG/JPEG/WebP, so those limits hold even if
---    someone calls the storage API directly and skips the Flutter checks.
+-- 1. A private `avatars` bucket. Files live at "<user_id>/<filename>", and the policies only let
+-- users reach their own folder; `anon` gets nothing. The bucket itself limits uploads to 5MB and
+-- PNG/JPEG/WebP. The app shows photos through short-lived signed links.
 --
---    The photo's storage path is saved in the existing profiles.avatar_url
---    column (via the normal `auth.uid() = id` UPDATE policy -- no RPC needed,
---    this is the kind of self-owned write decision #3 always allowed). The
---    bucket is private, so the app displays it through short-lived signed
---    URLs, never a public link.
---
--- 2. profiles.email is now unchangeable from a client request. Editing an
---    auth email needs its own re-verification flow (a confirmation link to
---    the new address), which this app doesn't have yet -- and the existing
---    profiles UPDATE policy lets a client PATCH any column of its own row,
---    which would let profiles.email drift away from the login email in
---    auth.users. Same idea as generate_member_id()'s member_id lock: the
---    trigger quietly keeps the old value when the request comes from a
---    signed-in user (auth.uid() is set). A server-side process with no user
---    session -- e.g. a future trigger that syncs the email after a verified
---    change -- is not affected.
+-- 2. Users can't change profiles.email directly (it must match the login email). A trigger keeps
+-- the old value when a signed-in user tries; server processes without a user session aren't
+-- affected.
 
--- ------------------------------------------------------------
 -- 1. avatars bucket
--- ------------------------------------------------------------
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('avatars', 'avatars', false, 5242880, array['image/png', 'image/jpeg', 'image/webp'])
 on conflict (id) do nothing;
@@ -69,9 +49,7 @@ using (
   and (storage.foldername(name))[1] = auth.uid()::text
 );
 
--- ------------------------------------------------------------
--- 2. lock profiles.email against client edits
--- ------------------------------------------------------------
+-- 2. Protect profiles.email from edits by users
 create or replace function public.lock_profile_email()
 returns trigger
 language plpgsql

@@ -48,12 +48,14 @@ void main() {
   });
 
   test("the app's defaults match the database column defaults exactly", () {
-    // A user with no row (app defaults) and a freshly inserted row (column
-    // defaults) must mean the same thing -- otherwise the first toggle flip
-    // would silently change the other six.
+    // No row (app defaults) and a new row (database defaults) must mean the same thing, or the
+    // first switch flip would change the others.
     final sql = File('supabase/migrations/20260930100000_notification_preferences.sql').readAsStringSync();
     for (final s in NotificationSetting.values) {
-      final match = RegExp(r'^\s+' + s.column + r'\s+boolean not null default (true|false),', multiLine: true).firstMatch(sql);
+      final match = RegExp(
+        r'^\s+' + s.column + r'\s+boolean not null default (true|false),',
+        multiLine: true,
+      ).firstMatch(sql);
       expect(match, isNotNull, reason: 'column ${s.column} not found in the migration');
       expect(match!.group(1), '${s.defaultValue}', reason: s.column);
     }

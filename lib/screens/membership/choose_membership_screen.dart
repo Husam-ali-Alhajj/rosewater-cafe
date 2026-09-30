@@ -7,11 +7,8 @@ import '../../widgets/app_page_route.dart';
 import '../../widgets/membership_plan_card.dart';
 import 'id_upload_screen.dart';
 
-/// Real "Choose Your Membership" screen (Figma page 8): fetches
-/// membership_plans live from Supabase (no hardcoded plans, no hardcoded
-/// "Most Popular" index) and, on selection, calls the start_subscription
-/// RPC (see docs/decisions.md #4 and the Task 1 migration) to create a
-/// real pending subscription row before moving on to ID Upload.
+/// Lists the plans from the database. Choosing one creates a pending subscription
+/// (start_subscription) and moves on to ID upload.
 class ChooseMembershipScreen extends StatefulWidget {
   const ChooseMembershipScreen({super.key});
 
@@ -33,16 +30,8 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
     _init();
   }
 
-  /// Always shows the plan cards — deliberately does NOT check for an
-  /// existing pending subscription and auto-skip to ID Upload the way an
-  /// earlier version did. That auto-resume behavior was explicitly reversed
-  /// by the user after live testing: signing in should show Choose
-  /// Membership first, full stop. Actual duplicate-prevention still lives
-  /// where it belongs regardless — start_subscription's own
-  /// `pending_subscription_exists` check (Task 1) — so re-selecting a plan
-  /// while one is already pending surfaces a clear inline message instead
-  /// of silently creating a second row; it just no longer happens via a
-  /// surprise redirect before the user ever sees the cards.
+  /// Always shows the plans. If a pending subscription already exists, the server rejects a second
+  /// one and we show that message.
   Future<void> _init() async {
     try {
       final plans = await _subscriptionService.fetchPlans();
@@ -60,33 +49,20 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
     }
   }
 
-  /// Pushed (not replaced) deliberately: Choose Membership must still be
-  /// reachable by backing out of ID Upload. Regardless of *how* the ID
-  /// Upload route ends up popped — hardware back, "Back to Plans" (which
-  /// already cancelled the pending subscription itself), or the whole
-  /// stack being cleared by a successful Payment further up — the cards
-  /// are already loaded and remain valid, so there's nothing to redo here
-  /// beyond clearing the "Selecting…" state so the buttons are usable
-  /// again.
+  /// Pushed (not replaced) so the user can come back here from ID upload. The plans are still
+  /// loaded, so we only reset the "Selecting..." state.
   void _goToIdUpload(String subscriptionId) {
-    Navigator.of(context)
-        .push(
-          appRoute(
-            context,
-            (_) => IdUploadScreen(subscriptionId: subscriptionId),
-          ),
-        )
-        .then((_) {
-          if (!mounted) return;
-          setState(() {
-            _selectingPlanId = null;
-            _errorMessage = null;
-          });
-        });
+    Navigator.of(context).push(appRoute(context, (_) => IdUploadScreen(subscriptionId: subscriptionId))).then((_) {
+      if (!mounted) return;
+      setState(() {
+        _selectingPlanId = null;
+        _errorMessage = null;
+      });
+    });
   }
 
   Future<void> _selectPlan(MembershipPlan plan) async {
-    if (_selectingPlanId != null) return; // same re-entry guard used on Sign In / Create Account
+    if (_selectingPlanId != null) return;
     setState(() {
       _selectingPlanId = plan.id;
       _errorMessage = null;
@@ -121,68 +97,68 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              l10n.chooseYourMembership,
-                              style: TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.37,
-                                color: colors.textPrimary,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              l10n.selectPlanSubtitle,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: -0.31,
-                                color: colors.textMuted,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
-                            if (_errorMessage != null)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: Text(
-                                  _errorMessage!,
-                                  style: TextStyle(color: colors.danger),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            for (final entry in _plans.asMap().entries) ...[
-                              MembershipPlanCard(
-                                plan: entry.value,
-                                rank: entry.key,
-                                isSubmitting: _selectingPlanId == entry.value.id,
-                                onSelect: _selectingPlanId == null ? () => _selectPlan(entry.value) : null,
-                                actionLabel: l10n.selectPlanButton(entry.value.name),
-                                submittingLabel: l10n.selectingEllipsis,
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text(
-                                l10n.allPlansFooter,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  letterSpacing: -0.15,
-                                  color: colors.textMuted,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        l10n.chooseYourMembership,
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.37,
+                          color: colors.textPrimary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.selectPlanSubtitle,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: -0.31,
+                          color: colors.textMuted,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      if (_errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            _errorMessage!,
+                            style: TextStyle(color: colors.danger),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      for (final entry in _plans.asMap().entries) ...[
+                        MembershipPlanCard(
+                          plan: entry.value,
+                          rank: entry.key,
+                          isSubmitting: _selectingPlanId == entry.value.id,
+                          onSelect: _selectingPlanId == null ? () => _selectPlan(entry.value) : null,
+                          actionLabel: l10n.selectPlanButton(entry.value.name),
+                          submittingLabel: l10n.selectingEllipsis,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          l10n.allPlansFooter,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: -0.15,
+                            color: colors.textMuted,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
+                    ],
+                  ),
+                ),
         ),
       ),
     );

@@ -14,38 +14,15 @@ import '../../widgets/form_buttons.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/screen_header.dart';
 
-// Exact values read from the Figma `EditProfileScreen` frame (node 1217:2403)
-// via the REST API -- same method as decisions #20/#40/#41. Sprint 8 Task 2
-// (dark mode rebuild): all of these were fixed light-mode neutrals; they now
-// come from `context.colors` instead, so this screen inverts correctly.
+// Sizes from the design; colours come from the theme so dark mode works.
 
-const _hairline = 0.515; // Figma's fractional hairline stroke width
+const _hairline = 0.515;
 
-/// Edit Profile (Figma frame "EditProfileScreen", node 1217:2403).
+/// Edit Profile. Name, phone and photo can be changed; email, member ID and plan are read-only
+/// (email is changed from Privacy & Security).
 ///
-/// **Editable:** full name, phone number, profile photo. **Not editable:**
-/// email -- changing a Supabase Auth email needs its own re-verification flow
-/// (a confirmation link to the new address), out of scope this sprint. It is
-/// shown as plain read-only text (not a text field at all, so it can't be
-/// focused or edited) with a short note, rather than an input that looks
-/// editable but wouldn't take effect. Member ID and plan are read-only too, as
-/// in the design.
-///
-/// **Validation:** name required; phone uses [Validators.phone], decision
-/// #10's exact rule (leading `+`, E.164 digit range), shared with Create
-/// Account. Both run before any network call -- an invalid form never
-/// reaches the server.
-///
-/// **Photo:** picked with `image_picker` (camera/gallery), validated by
-/// [AvatarService] (type + size), shown as a local preview, and uploaded only
-/// on Save into the private `avatars` bucket under the user's own folder.
-/// Cancel discards it, so nothing is uploaded for a photo that's never saved.
-///
-/// **Save:** upload the photo (if any) -> a plain `profiles` UPDATE scoped by
-/// the existing `auth.uid() = id` policy (no RPC; decision #3 always allowed
-/// self-owned writes like this) -> delete the replaced photo. Pops with the
-/// saved [Profile] so the caller shows it immediately; pops with null when
-/// cancelled or nothing changed.
+/// The form is checked before anything is sent. A new photo is uploaded only when Save is pressed,
+/// then the old one is deleted. Returns the saved profile, or null if cancelled or unchanged.
 class EditProfileScreen extends StatefulWidget {
   final Profile profile;
   final ActiveMembership membership;
@@ -116,14 +93,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       file = await ImagePicker().pickImage(
         source: source == _PhotoSource.camera ? ImageSource.camera : ImageSource.gallery,
         imageQuality: 90,
-        maxWidth: 1024, // an avatar never needs more; keeps uploads small
+        maxWidth: 1024, // big enough for an avatar, keeps uploads small
       );
     } catch (_) {
       if (!mounted) return;
       setState(() => _photoError = l10n.cameraGalleryAccessError);
       return;
     }
-    if (file == null) return; // user cancelled
+    if (file == null) return;
     final bytes = await file.readAsBytes();
     if (!mounted) return;
     try {
@@ -148,9 +125,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _save() async {
     if (_saving) return;
-    // Client-side validation first -- an invalid form never reaches the
-    // network (the server-side rules are the real enforcement, this saves
-    // the round trip and gives inline errors).
+    // Check the form first so invalid input never reaches the server.
     if (!_formKey.currentState!.validate()) return;
     if (!_hasChanges) {
       Navigator.of(context).pop();
@@ -184,7 +159,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
       Navigator.of(context).pop(updated);
     } on ProfileUpdateFailure catch (e) {
-      // The photo may have uploaded before the save failed -- don't leave it orphaned.
+      // The photo may have uploaded before the save failed; delete it so it isn't left behind.
       if (newAvatarPath != null) await widget.avatarService.deleteQuietly(newAvatarPath);
       if (!mounted) return;
       setState(() {
@@ -208,20 +183,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
-        // The Figma frame's own fill: the same soft 3-stop page wash.
         decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
-            // Figma's frame padding: 16 sides, 32 top, and 32 below the
-            // buttons where the design's frame ends.
             padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ScreenHeader(
-                  title: l10n.editProfileButton,
-                  onBack: _saving ? null : () => Navigator.of(context).pop(),
-                ),
+                ScreenHeader(title: l10n.editProfileButton, onBack: _saving ? null : () => Navigator.of(context).pop()),
                 const SizedBox(height: 24),
                 _PhotoCard(
                   avatarPath: widget.profile.avatarUrl,
@@ -333,9 +302,7 @@ BoxDecoration _cardDecoration(AppSemanticColors colors) {
   );
 }
 
-/// The avatar with its camera button, and the hint under it (Figma nodes
-/// 1217:2413-2424): a 128px avatar with a 40px white camera button in its
-/// bottom-right corner, 16px above the caption.
+/// The avatar with its camera button and the hint below it.
 class _PhotoCard extends StatelessWidget {
   final String? avatarPath;
   final Uint8List? previewBytes;
@@ -435,26 +402,14 @@ class _CardTitle extends StatelessWidget {
   }
 }
 
-TextStyle _labelStyle(AppSemanticColors colors) => TextStyle(
-  fontSize: 14,
-  fontWeight: FontWeight.w500,
-  height: 1, // the design's 14px line height
-  letterSpacing: -0.15,
-  color: colors.textMuted,
-);
+TextStyle _labelStyle(AppSemanticColors colors) =>
+    TextStyle(fontSize: 14, fontWeight: FontWeight.w500, height: 1, letterSpacing: -0.15, color: colors.textMuted);
 
-// The design shows editable-field text in a muted foreground, distinct from
-// the near-black used for read-only summary values in _InfoRow below.
-TextStyle _valueStyle(AppSemanticColors colors) => TextStyle(
-  fontSize: 16,
-  height: 19 / 16, // the design's text box is 19 tall, at y=8.5 in a 36 input
-  letterSpacing: -0.31,
-  color: colors.textMuted,
-);
+// Editable text is slightly muted, unlike the read-only values below.
+TextStyle _valueStyle(AppSemanticColors colors) =>
+    TextStyle(fontSize: 16, height: 19 / 16, letterSpacing: -0.31, color: colors.textMuted);
 
-/// One editable field: a 14px label, 8px gap, then a 36px input with a 20px
-/// icon at x=12 and text starting at x=44 (Figma "Primitive.label" +
-/// "Input", e.g. nodes 1217:2429-2437).
+/// One editable field: label, then an input with an icon.
 class _EditField extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -500,11 +455,7 @@ class _EditField extends StatelessWidget {
                 isDense: true,
                 filled: true,
                 fillColor: colors.inputFill,
-                // Sprint 8 Task 6: this custom icon overlay isn't
-                // InputDecoration.prefixIcon (which auto-mirrors), so the
-                // padding/position have to be made directional by hand --
-                // exactly the "form field icons" RTL trap the task's
-                // acceptance criteria calls out.
+                // The icon is drawn by hand, so its position has to flip for right-to-left.
                 contentPadding: const EdgeInsetsDirectional.fromSTEB(44, 8.5, 12, 8.5),
                 border: border(),
                 enabledBorder: border(),
@@ -527,9 +478,7 @@ class _EditField extends StatelessWidget {
   }
 }
 
-/// The email, shown exactly like an input (same fill/icon/text) but as plain
-/// text -- deliberately not a `TextField`, so it cannot be focused or edited
-/// -- with a short note saying why.
+/// The email, styled like an input but read-only text so it can't be edited.
 class _ReadOnlyEmailField extends StatelessWidget {
   final String email;
 
@@ -560,7 +509,6 @@ class _ReadOnlyEmailField extends StatelessWidget {
                     child: Icon(Icons.mail_outline, size: 20, color: colors.textMuted),
                   ),
                   Padding(
-                    // Text starts at x=44, same as the editable inputs.
                     padding: const EdgeInsetsDirectional.only(start: 44, end: 12),
                     child: Align(
                       alignment: AlignmentDirectional.centerStart,

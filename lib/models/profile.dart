@@ -1,7 +1,4 @@
-/// Mirrors a row of `public.profiles`. Used to show the user's already
-/// collected name/email/phone as read-only on screens that would otherwise
-/// re-ask for them (see docs/decisions.md #18), and as the editable record
-/// on Edit Profile.
+/// A row of `profiles`.
 class Profile {
   final String id;
   final String fullName;
@@ -9,10 +6,8 @@ class Profile {
   final String? phone;
   final String? memberId;
 
-  /// Storage path (`<user_id>/<file>`) of the profile photo in the private
-  /// `avatars` bucket -- NOT a URL. The bucket is private, so a display URL
-  /// has to be a short-lived signed one (see `AvatarService.signedUrl`).
-  /// Null when the user hasn't uploaded a photo.
+  /// Path of the profile photo in the private `avatars` bucket (not a URL; see
+  /// AvatarService.signedUrl). Null if there's no photo.
   final String? avatarUrl;
 
   const Profile({

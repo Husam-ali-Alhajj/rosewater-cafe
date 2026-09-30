@@ -1,64 +1,15 @@
--- Sprint 9 Task 1 -- answers the open question decision #33/#41 left
--- standing ("Notifications feed and its backing schema... all
--- undecided"): a notification is a payment activation or an event
--- reservation confirmation, in-app only, read/unread tracked by a real
--- `is_read` flag. The `notifications` table itself already existed
--- (initial_schema.sql) but was never actually written to by anything --
--- this migration is what makes it real, and locks it down properly now
--- that it's about to hold real content.
+-- Notifications: a notification is created for a membership payment or an event reservation, and
+-- has a read/unread flag.
 --
--- Three things happen here, in one migration because they're one
--- feature, not three independent changes:
---
---  1. `related_id` -- a nullable pointer at whatever server-side row
---     caused a notification (a subscription or an event reservation).
---     Not a foreign key: a single column can only reference one table,
---     and this one needs to point at either depending on `type`, so
---     referential integrity here is enforced by the inserting function
---     below (it always sets this to a row id it just wrote or updated
---     itself in the same transaction), not by the schema.
---
---  2. Locking down client access, tighter than the table's original
---     "fully user-managed except DELETE" policies:
---
---     * INSERT: dropped entirely, no replacement. Same pattern as
---       `subscriptions`/`usage_allowances`/`door_access_logs` -- with
---       RLS already enabled and zero INSERT policies left, Postgres
---       denies every client INSERT by default. This is proven for this
---       exact shape already, not just assumed: decision #16 impersonated
---       `authenticated` against `subscriptions` (RLS on, no INSERT
---       policy) and got a real `42501 row violates row-level security
---       policy`, not a silent pass.
---
---     * UPDATE: the existing "own row" USING/WITH CHECK policy already
---       correctly restricts WHICH ROWS a client can touch, so it's left
---       alone -- but RLS row policies can't restrict WHICH COLUMNS an
---       UPDATE touches, and this table's only legitimately
---       client-editable field is `is_read`. Left as RLS-only, a client
---       could legally UPDATE `title`/`body`/`type` on a row it owns --
---       rewriting "Your payment failed" into "Your payment succeeded",
---       say. The real fix is a column-level GRANT: revoke the blanket
---       UPDATE Supabase grants `authenticated` by default on every new
---       table, then grant UPDATE back on `is_read` alone, so Postgres
---       itself rejects the statement with a real permission error the
---       instant any other column appears in a client's SET list --
---       before RLS is even consulted (verified: `permission denied for
---       table notifications`, not a silent success or a row-filtered
---       no-op).
---
---  3. `confirm_subscription_payment` and `create_event_reservation`
---     (both already SECURITY DEFINER, both already the only path that
---     can write their respective real-content tables) each get one more
---     `insert` into `notifications`, inside the same function, same
---     transaction -- no new trigger mechanism, no separate job. Content
---     comes from what each function itself just validated/computed
---     (the real plan name, the real valid_until it set; the real event
---     type/date/guest count it already range-checked), never anything
---     else client-supplied.
+-- 1. `related_id` points at the subscription or reservation it's about. Not a foreign key, since it
+-- can point at either table; the functions below always set it correctly.
+-- 2. Users can't create notifications (no INSERT policy), and can only change `is_read`. RLS alone
+-- can't limit which columns are updated, so UPDATE is revoked and granted back on `is_read` only;
+-- otherwise a user could rewrite a notification's text.
+-- 3. confirm_subscription_payment and create_event_reservation each add a notification in the same
+-- transaction, using only values they checked themselves.
 
--- ------------------------------------------------------------
 -- 1. Schema
--- ------------------------------------------------------------
 
 alter table public.notifications
   add column related_id uuid;
@@ -66,9 +17,7 @@ alter table public.notifications
 comment on column public.notifications.related_id is
   'Points at the subscriptions.id or event_reservations.id that triggered this notification, depending on `type`. Not a foreign key (see this migration''s own header comment) -- always set by the SECURITY DEFINER function that inserts the row, never client-supplied.';
 
--- ------------------------------------------------------------
--- 2. Locking down client access
--- ------------------------------------------------------------
+-- 2. Limit what users can do
 
 drop policy "Users can create own notifications" on public.notifications;
 
@@ -76,10 +25,7 @@ revoke update on public.notifications from authenticated;
 revoke update on public.notifications from anon;
 grant update (is_read) on public.notifications to authenticated;
 
--- ------------------------------------------------------------
--- 3. Real notifications, written by the functions that already know
---    a real payment/reservation just happened
--- ------------------------------------------------------------
+-- 3. Create notifications from the payment and reservation functions
 
 create or replace function public.confirm_subscription_payment(p_subscription_id uuid)
 returns timestamptz
@@ -98,18 +44,12 @@ begin
     raise exception 'not_authenticated';
   end if;
 
-  -- TODO(payments): there is no real payment gateway wired up yet, so this
-  -- call just marks the subscription paid with no charge attached. Any
-  -- authenticated user can activate their own pending subscription for
-  -- free by calling this directly. Accepted as a known, temporary gap for
-  -- this sprint -- must be replaced with a server-verified charge (e.g. a
-  -- payment provider webhook) before this goes anywhere near production.
+  -- TODO(payments): there's no real payment gateway yet, so this just marks the subscription paid.
+  -- A signed-in user could activate their own pending subscription for free by calling this
+  -- directly. Must be replaced with a server-verified payment before going live.
   --
-  -- The `and status = 'pending'` guard below is still load-bearing even
-  -- with the mock payment: it makes the call idempotent (calling it again
-  -- on an already-active subscription does nothing) and, combined with
-  -- `user_id = v_user_id`, it stops a caller from activating someone
-  -- else's subscription by guessing/enumerating subscription ids.
+  -- The `status = 'pending'` check makes repeat calls do nothing, and together with `user_id =
+  -- v_user_id` stops anyone activating another user's subscription.
   update public.subscriptions
   set status = 'active',
       started_at = now(),
@@ -126,10 +66,7 @@ begin
   insert into public.usage_allowances (user_id, period_start, period_end)
   values (v_user_id, current_date, v_valid_until::date);
 
-  -- Sprint 9 Task 1: a real notification for the payment that just
-  -- happened -- the plan name and valid_until are read back from what
-  -- this function itself just resolved/computed above, not re-derived
-  -- from anything the client could influence.
+  -- Notify the user about the payment, using the plan name and date this function just set.
   select name into v_plan_name from public.membership_plans where id = v_plan_id;
 
   insert into public.notifications (user_id, type, title, body, related_id)
@@ -163,10 +100,8 @@ set search_path = public
 as $$
 declare
   v_user_id uuid := auth.uid();
-  -- Placeholder flat pricing, pending real numbers from the company (see
-  -- docs/decisions.md #33/#36). One named constant here means plugging in
-  -- real pricing later is a one-line change in one place, not a hunt
-  -- through the codebase for every place a price was computed.
+  -- Placeholder price until the company gives real numbers. Change it here only (the app uses the
+  -- same value for its estimate).
   c_price_per_hour constant numeric := 150.00;
   v_total_price numeric;
   v_reservation_id uuid;
@@ -198,14 +133,8 @@ begin
   )
   returning id into v_reservation_id;
 
-  -- Sprint 9 Task 1: same pattern as confirm_subscription_payment above
-  -- -- a real notification from what this call already validated
-  -- (event type/date/guest count), inside the same transaction as the
-  -- reservation it's reporting.
-  -- `to_char` has no overload for a bare `time` (no implicit cast to
-  -- anything it accepts) -- (p_event_date + p_start_time) combines them
-  -- into a real `timestamp` first, the standard Postgres `date + time`
-  -- operator, so the time-of-day formats correctly.
+  -- Notify the user about the reservation. to_char can't format a plain `time`, so the date and
+  -- time are combined into a timestamp first.
   insert into public.notifications (user_id, type, title, body, related_id)
   values (
     v_user_id,

@@ -1,21 +1,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_client.dart';
 
-/// Which of log_door_access's checked failure cases this is -- lets the
-/// UI react differently without string-matching `message` outside this
-/// service.
-enum LogDoorAccessErrorCode {
-  notAuthenticated,
-  noActiveSubscription,
-  guestCountExceedsPlanLimit,
-  unknown,
-}
+/// Which door-access error this is.
+enum LogDoorAccessErrorCode { notAuthenticated, noActiveSubscription, guestCountExceedsPlanLimit, unknown }
 
-/// Thrown by [DoorAccessService.logDoorAccess] with a message that's
-/// already safe to show the user directly -- never the raw Postgres
-/// exception (see docs/decisions.md #35: an expired membership or an
-/// out-of-range guest count must surface as a friendly sentence here, not
-/// a stack trace).
+/// A door-access error with a friendly message (for example, an expired membership).
 class LogDoorAccessFailure implements Exception {
   final LogDoorAccessErrorCode code;
   final String message;
@@ -25,12 +14,8 @@ class LogDoorAccessFailure implements Exception {
 class DoorAccessService {
   const DoorAccessService();
 
-  /// Calls the log_door_access RPC (see supabase/migrations/
-  /// 20260916100000_log_door_access.sql) and returns the new
-  /// door_access_logs row's id. All the real validation -- active
-  /// membership, guest count within the caller's own plan's max_guests --
-  /// happens server-side; this call never trusts the client's own guest
-  /// stepper limit.
+  /// Calls log_door_access and returns the new log id. The server checks the membership and the
+  /// guest limit.
   Future<String> logDoorAccess(int guestCount) async {
     try {
       final result = await supabase.rpc('log_door_access', params: {'p_guest_count': guestCount});

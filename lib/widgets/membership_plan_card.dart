@@ -7,12 +7,8 @@ import '../utils/membership_localization.dart';
 import 'gradient_button.dart';
 import 'onboarding_icon_badge.dart';
 
-/// A plan's true tier icon (Figma node 1213:1030, "Choose Your
-/// Membership") -- [rank] is the plan's position in the FULL price-sorted
-/// catalog (0 = cheapest), never a filtered subset's local index: Upgrade
-/// Membership only shows plans above the current one, but a Premium card
-/// shown there must still look like Premium (rank 1's purple/sparkle),
-/// not whatever position it happens to be at in that shorter list.
+/// The plan's tier icon. [rank] is the plan's position among ALL plans (0 = cheapest), so Premium
+/// looks like Premium even on the upgrade screen, where the list is shorter.
 IconData iconForPlanRank(int rank) => switch (rank) {
   0 => Icons.star,
   1 => Icons.auto_awesome,
@@ -25,12 +21,8 @@ Gradient gradientForPlanRank(int rank) => switch (rank) {
   _ => AppColors.membershipVipGradient,
 };
 
-/// One plan card, shared by Choose Membership and Upgrade Membership
-/// (Sprint 9 Task 4) so the two can't drift apart the same way
-/// [localizedFeatureBullets] already keeps Choose Membership and Home's
-/// Benefits card in sync. [actionLabel]/[submittingLabel] are the only
-/// things that differ between the two callers ("Select {plan}" vs.
-/// "Upgrade to {plan}"), so they're passed in rather than hardcoded here.
+/// One plan card, shared by Choose Membership and Upgrade Membership. Only the button labels
+/// differ, so they're passed in.
 class MembershipPlanCard extends StatelessWidget {
   final MembershipPlan plan;
   final int rank;
@@ -63,9 +55,8 @@ class MembershipPlanCard extends StatelessWidget {
         color: colors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          // The highlighted card's border stays the brand's premium-lilac
-          // accent in both modes; the plain cards' border is a theme-aware
-          // hairline so it doesn't vanish against a dark card.
+          // The highlighted card keeps its purple border in both themes; the others use a theme
+          // border so they stay visible in dark mode.
           color: highlighted ? AppColors.membershipPremiumBorder : colors.border,
           width: highlighted ? 1.5 : 1,
         ),

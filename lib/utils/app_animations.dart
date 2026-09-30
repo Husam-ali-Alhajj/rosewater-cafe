@@ -3,26 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../services/settings_provider.dart';
 
-/// Sprint 8 Task 3: the near-zero duration `Animations` off collapses every
-/// explicit animation duration to. Not literally [Duration.zero] -- some
-/// widgets (implicit `Animated*` ones especially) assume a transition
-/// actually completes, and a zero-length one can leave things stuck
-/// mid-animation instead of settling cleanly on their end state. 1ms reads
-/// as instant while still completing.
+/// Used when animations are off. 1ms instead of zero, because some widgets expect an animation to
+/// actually finish.
 const instantAnimationDuration = Duration(milliseconds: 1);
 
-/// `normal` if `SettingsProvider.animationsEnabled` is true,
-/// [instantAnimationDuration] if not. The one place every explicit
-/// `Animated*` widget duration in the app should read the Animations
-/// toggle through -- route transitions go through `AppPageRoute`/`appRoute`
-/// instead (a route's own `transitionDuration` isn't rebuilt by
-/// `notifyListeners()` the way a widget's `build()` is, so it reads the
-/// setting once, at push time, rather than watching it).
+/// [normal] when animations are on, almost instant when off. Use this for every animation duration
+/// (page transitions use AppPageRoute).
 ///
-/// Falls back to `normal` (animations on) when no [SettingsProvider] is in
-/// the tree -- same reasoning as `AppPageRoute`'s own fallback: most of
-/// this app's existing widget tests pump a screen/widget directly without
-/// registering one.
+/// Counts as "on" when there's no SettingsProvider (for example, in tests).
 extension AnimationDurationX on BuildContext {
   Duration animDuration(Duration normal) {
     try {

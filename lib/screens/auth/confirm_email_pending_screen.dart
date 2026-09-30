@@ -6,11 +6,8 @@ import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import 'sign_in_screen.dart';
 
-/// Shown after a successful signUp() that returned no session — meaning
-/// the project requires email confirmation and the account isn't usable
-/// yet. There's no Figma design for this state (the export assumed
-/// confirmation was off), so this reuses the same card layout as the other
-/// auth screens for visual consistency.
+/// Shown after sign-up when the project requires email confirmation, so the account can't be used
+/// yet. Not in the design; uses the same card layout as the other auth screens.
 class ConfirmEmailPendingScreen extends StatelessWidget {
   final String email;
 
@@ -56,7 +53,11 @@ class ConfirmEmailPendingScreen extends StatelessWidget {
                         child: Icon(Icons.mark_email_read_outlined, color: colors.success, size: 44),
                       ),
                       const SizedBox(height: 24),
-                      Text(l10n.confirmYourEmailHeading, style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
+                      Text(
+                        l10n.confirmYourEmailHeading,
+                        style: AppTextStyles.heading1(context),
+                        textAlign: TextAlign.center,
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         l10n.confirmEmailBody(email),
@@ -66,9 +67,8 @@ class ConfirmEmailPendingScreen extends StatelessWidget {
                       const SizedBox(height: 24),
                       GradientButton(
                         label: l10n.backToSignIn,
-                        onPressed: () => Navigator.of(context).pushReplacement(
-                          appRoute(context, (_) => const SignInScreen()),
-                        ),
+                        onPressed: () =>
+                            Navigator.of(context).pushReplacement(appRoute(context, (_) => const SignInScreen())),
                       ),
                     ],
                   ),

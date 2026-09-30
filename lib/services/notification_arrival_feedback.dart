@@ -3,22 +3,14 @@ import 'package:flutter/services.dart';
 
 import 'notification_prefs.dart';
 
-/// What happens the moment a new notification arrives while the app is
-/// open (notifications roadmap step 4, decision #71): a short chime and a
-/// vibration -- the "Sound & Vibration" toggle's real job ("Play sound
-/// when notifications arrive").
+/// Plays a chime and vibrates when a notification arrives while the app is open.
 ///
-/// Both switches must allow it (user's decision): the notification's own
-/// "Sound & Vibration" toggle AND the app-wide App Settings switch --
-/// "Sound" for the chime, "Haptic Feedback" for the vibration. Turning app
-/// sound off always means silence.
+/// Both switches must be on: Notifications > "Sound & Vibration", and App Settings > "Sound" (for
+/// the chime) or "Haptic Feedback" (for vibration). The notification switch is read fresh each
+/// time; if it can't be read, it counts as on.
 ///
-/// The toggle is re-read from the database on every arrival rather than
-/// cached, so flipping it takes effect immediately. If it can't be read,
-/// the toggle's default (on) applies -- the app switches still gate it.
-///
-/// Every dependency is a parameter so the rule is unit-testable;
-/// [NotificationArrivalFeedback.live] wires up the real ones.
+/// Everything is passed in so this can be tested; [NotificationArrivalFeedback.live] uses the real
+/// ones.
 class NotificationArrivalFeedback {
   final Future<bool> Function() loadSoundPref;
   final Future<void> Function() playChime;
@@ -29,16 +21,15 @@ class NotificationArrivalFeedback {
   factory NotificationArrivalFeedback.live() {
     final player = AudioPlayer();
     return NotificationArrivalFeedback(
-      loadSoundPref: () async =>
-          (await const SupabaseNotificationPrefs().load()).isOn(NotificationSetting.sound),
-      // Generated for this app (assets/sounds/), no third-party audio.
+      loadSoundPref: () async => (await const SupabaseNotificationPrefs().load()).isOn(NotificationSetting.sound),
+      // Made for this app (assets/sounds/).
       playChime: () => player.play(AssetSource('sounds/notification_chime.wav')),
       vibrate: HapticFeedback.vibrate,
     );
   }
 
   Future<void> onArrived({required bool appSoundOn, required bool appHapticsOn}) async {
-    if (!appSoundOn && !appHapticsOn) return; // nothing could happen -- skip the query
+    if (!appSoundOn && !appHapticsOn) return; // nothing would play, so skip the check
     bool notificationSoundOn;
     try {
       notificationSoundOn = await loadSoundPref();
@@ -46,8 +37,7 @@ class NotificationArrivalFeedback {
       notificationSoundOn = NotificationSetting.sound.defaultValue;
     }
     if (!notificationSoundOn) return;
-    // Independent of each other: a failed chime (e.g. the browser refusing
-    // to play audio) must not also cancel the vibration.
+    // Handled separately, so a blocked sound doesn't stop the vibration.
     if (appSoundOn) {
       try {
         await playChime();

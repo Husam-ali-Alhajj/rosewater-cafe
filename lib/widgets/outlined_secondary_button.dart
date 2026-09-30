@@ -7,20 +7,15 @@ class OutlinedSecondaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final IconData? leadingIcon;
 
-  /// Null uses this theme's own hairline border / primary text (via
-  /// `context.colors`) instead of a fixed light-mode value -- a caller only
-  /// needs to pass these when it wants a specific BRAND accent instead (e.g.
-  /// Auth Landing's pink "Create Account" outline), not for an ordinary
-  /// secondary button like Payment's "Back".
+  /// Null uses the theme's border and text colours. Pass colours only for a brand accent, like the
+  /// landing screen's pink "Create Account".
   final Color? borderColor;
   final Color? textColor;
   final double fontSize;
   final double height;
   final double letterSpacing;
 
-  /// The button's own box height — distinct from [height] above, which is
-  /// actually the text line-height ratio (a pre-existing naming collision
-  /// this doesn't attempt to fix, to avoid touching other call sites).
+  /// The button's height ([height] above is the text line-height).
   final double buttonHeight;
   final double borderWidth;
 
@@ -49,17 +44,12 @@ class OutlinedSecondaryButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: border, width: borderWidth),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (leadingIcon != null) ...[
-              Icon(leadingIcon, size: 18, color: ink),
-              const SizedBox(width: 15),
-            ],
+            if (leadingIcon != null) ...[Icon(leadingIcon, size: 18, color: ink), const SizedBox(width: 15)],
             Text(
               label,
               style: TextStyle(

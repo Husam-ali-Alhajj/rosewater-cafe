@@ -14,35 +14,14 @@ import 'home_screen.dart';
 const _homeTab = 0;
 const _qrCodeTab = 1;
 const _eventsTab = 2;
-const _profileTab = 3; // a membership notification's "View Details" goes here
-// (Its real screen is `ProfileScreen`, Sprint 5 Task 1.)
+const _profileTab = 3;
 
-/// The authenticated app's real entry point once a member has an active
-/// subscription: a persistent 4-tab bottom nav (Home / QR Code / Events /
-/// Profile) matching the Figma `BottomNav` component.
+/// The signed-in app: four tabs (Home, QR Code, Events, Profile). IndexedStack keeps each tab's
+/// state when switching.
 ///
-/// All four tabs are built out. `IndexedStack` (not swapping the child
-/// widget per tap) keeps each tab's state alive across switches, matching
-/// how a real tabbed app behaves.
-///
-/// `ActiveMembership` and the user's `Profile` are each fetched exactly once,
-/// here, and handed down to `HomeScreen`, `QrAccessScreen` and
-/// `ProfileScreen` -- Sprint 4 Task 2 explicitly asked for the QR screen's
-/// guest-count cap to reuse Home's already-fetched plan data rather than
-/// re-querying it, and the profile (Home's greeting/member ID, QR's member
-/// ID, Profile's details) is shared the same way instead of three screens
-/// each querying the same row. So the fetch (and the "no active membership
-/// -- bounce to Choose Membership" defensive check from decision #27) lives
-/// here, the one place every tab can share it.
-///
-/// A failed profile fetch does not block the app: it becomes `null`, and
-/// each tab degrades on its own (Home's plain "Welcome!", QR's "Unable to
-/// load your member ID", Profile's retry prompt). The shell also owns the
-/// profile afterwards: Edit Profile and the Profile tab's retry hand a new
-/// one back here, and every tab is rebuilt with it.
-///
-/// Sign Out lives on the Profile tab (and Logout in Home's header, as the
-/// design has both) -- see docs/decisions.md #21/#26/#41.
+/// The membership and profile are loaded once here and shared with the tabs. If there's no active
+/// membership, the user is sent to Choose Membership. A failed profile load doesn't block the app;
+/// each tab handles the missing profile itself.
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -58,8 +37,7 @@ class _MainShellState extends State<MainShell> {
   bool _loading = true;
   late final ActiveMembership _membership;
 
-  /// Owned here (not by the tabs) so a change made on one tab -- Edit Profile
-  /// saving a new name or photo -- shows on all of them at once.
+  /// Kept here so a profile change (new name or photo) shows on every tab at once.
   Profile? _profile;
 
   @override
@@ -77,17 +55,16 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _load() async {
-    // Started together so the two queries run in parallel.
+    // Started together so both queries run in parallel.
     final membershipFuture = _subscriptionService.fetchActiveMembership();
     final profileFuture = _fetchProfileOrNull();
     final membership = await membershipFuture;
     final profile = await profileFuture;
     if (!mounted) return;
     if (membership == null) {
-      Navigator.of(context).pushAndRemoveUntil(
-        appRoute(context, (_) => const ChooseMembershipScreen()),
-        (route) => false,
-      );
+      Navigator.of(
+        context,
+      ).pushAndRemoveUntil(appRoute(context, (_) => const ChooseMembershipScreen()), (route) => false);
       return;
     }
     _membership = membership;
@@ -101,10 +78,7 @@ class _MainShellState extends State<MainShell> {
 
   void _onProfileChanged(Profile profile) => setState(() => _profile = profile);
 
-  /// Built on every build (not once): the tabs are cheap widgets, and
-  /// rebuilding them is what hands a changed profile to each one. Flutter
-  /// keeps every tab's State across these rebuilds because each keeps its
-  /// position and type in the `IndexedStack`.
+  /// Rebuilt every time so each tab gets the latest profile. IndexedStack keeps their state.
   List<Widget> _buildTabs() => [
     HomeScreen(
       membership: _membership,
@@ -113,17 +87,9 @@ class _MainShellState extends State<MainShell> {
       onGoToEvents: () => _goToTab(_eventsTab),
       onGoToProfile: () => _goToTab(_profileTab),
     ),
-    QrAccessScreen(
-      membership: _membership,
-      profile: _profile,
-      onBackToDashboard: () => _goToTab(_homeTab),
-    ),
+    QrAccessScreen(membership: _membership, profile: _profile, onBackToDashboard: () => _goToTab(_homeTab)),
     EventsTab(onGoToHome: () => _goToTab(_homeTab)),
-    ProfileScreen(
-      membership: _membership,
-      profile: _profile,
-      onProfileChanged: _onProfileChanged,
-    ),
+    ProfileScreen(membership: _membership, profile: _profile, onProfileChanged: _onProfileChanged),
   ];
 
   @override

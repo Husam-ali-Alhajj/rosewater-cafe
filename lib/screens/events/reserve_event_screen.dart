@@ -11,19 +11,9 @@ import '../../utils/app_feedback.dart';
 import '../../utils/event_type_localization.dart';
 import '../../widgets/gradient_button.dart';
 
-/// Reserve an Event screen (Figma node App-12). `eventType`'s four options
-/// are a placeholder, same open-question bucket as the Help & Support FAQ
-/// gap (docs/decisions.md) -- the design never confirmed a real list, and
-/// no backing table exists for event types to be looked up from.
+/// Book an event. The event types are placeholders until the company confirms the real list.
 ///
-/// The "Estimated Total" shown here is purely a client-side display,
-/// computed with the exact same [EventReservationService.pricePerHour]
-/// constant the server uses in `create_event_reservation` -- never sent to
-/// the server itself. The real `total_price` is always computed by the RPC
-/// server-side; a mismatch between this display and that value would be a
-/// cosmetic bug at worst, never a security issue, since there's no
-/// parameter here for a client-computed price to reach the database
-/// through (see docs/decisions.md #36).
+/// The estimated total here is display only; the server calculates the real price.
 class ReserveEventScreen extends StatefulWidget {
   final VoidCallback onBackToDashboard;
   final ValueChanged<ReservationSummary> onConfirmed;
@@ -83,11 +73,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
     if (picked != null) setState(() => _startTime = picked);
   }
 
-  // At most 2 integer digits and 2 decimal digits, matching the
-  // event_reservations.duration_hours column's own numeric(4,2) precision
-  // -- rejecting anything finer client-side means the value this screen
-  // multiplies by $150 for display is exactly the value that ends up
-  // stored, with nothing for Postgres to silently round on insert.
+  // Up to 2 digits and 2 decimals, matching the database column so nothing gets rounded.
   static final _durationPattern = RegExp(r'^\d{1,2}(\.\d{1,2})?$');
 
   String? _validateDuration(String? value) {
@@ -113,9 +99,11 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
   Future<void> _confirm() async {
     if (_isSubmitting) return;
     final formValid = _formKey.currentState!.validate();
-    final dateValid = _eventDate != null && !_eventDate!.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
+    final dateValid =
+        _eventDate != null &&
+        !_eventDate!.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
     final timeValid = _startTime != null;
-    setState(() => _formSubmitted = true); // surfaces the date/time error text below, if any
+    setState(() => _formSubmitted = true);
     if (!formValid || !dateValid || !timeValid) return;
 
     setState(() {
@@ -125,7 +113,8 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
     final startTime = _startTime!;
     final guestCount = int.parse(_guestCountController.text.trim());
     final durationHours = _durationHours;
-    final startTimeText = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00';
+    final startTimeText =
+        '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00';
     try {
       await _reservationService.createEventReservation(
         eventType: _eventType!,
@@ -135,18 +124,16 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
         guestCount: guestCount,
       );
       if (!mounted) return;
-      context.triggerSuccess(); // Sprint 8 Task 4: reservation confirmed
-      // Handing off to onConfirmed swaps this whole screen out for
-      // ReservationConfirmedScreen (see EventsTab) -- this State gets
-      // discarded, not reused, so there's nothing to reset here. The next
-      // time a fresh ReserveEventScreen is built, its fields start blank
-      // by construction, not because anything here cleared them.
-      widget.onConfirmed(ReservationSummary(
-        eventDate: _eventDate!,
-        startTime: startTime,
-        durationHours: durationHours,
-        guestCount: guestCount,
-      ));
+      context.triggerSuccess();
+      // This screen is replaced by the confirmation screen, so there's nothing to reset.
+      widget.onConfirmed(
+        ReservationSummary(
+          eventDate: _eventDate!,
+          startTime: startTime,
+          durationHours: durationHours,
+          guestCount: guestCount,
+        ),
+      );
     } on CreateEventReservationFailure catch (e) {
       if (!mounted) return;
       setState(() {
@@ -199,11 +186,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
                 children: [
                   Text(
                     l10n.reserveAnEvent,
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w700,
-                      color: colors.textPrimary,
-                    ),
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: colors.textPrimary),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -234,11 +217,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
                   const SizedBox(height: 20),
                   _FieldLabel(l10n.startTimeLabel, icon: Icons.access_time, required: true),
                   const SizedBox(height: 4),
-                  _PickerField(
-                    text: _startTime?.format(context),
-                    hint: l10n.selectTimeHint,
-                    onTap: _pickStartTime,
-                  ),
+                  _PickerField(text: _startTime?.format(context), hint: l10n.selectTimeHint, onTap: _pickStartTime),
                   if (_timeError != null) _ErrorText(_timeError!),
                   const SizedBox(height: 20),
                   _FieldLabel(l10n.durationHoursLabel),
@@ -269,10 +248,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
                   _buildPackageCard(context, l10n),
                   const SizedBox(height: 24),
                   _buildPriceCard(colors, l10n),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 16),
-                    _ErrorText(_errorMessage!),
-                  ],
+                  if (_errorMessage != null) ...[const SizedBox(height: 16), _ErrorText(_errorMessage!)],
                   const SizedBox(height: 32),
                   GradientButton(
                     label: _isSubmitting ? l10n.confirmingEllipsis : l10n.confirmReservation,
@@ -319,11 +295,7 @@ class _ReserveEventScreenState extends State<ReserveEventScreen> {
     );
   }
 
-  // A purple-accented INFO box, not a neutral surface -- keeps its own
-  // brightness-picked tint (light lavender-on-white in light mode; a dark
-  // purple-tinted surface with light lavender text in dark mode) rather than
-  // becoming an undifferentiated `colors.surface` card, so it still reads as
-  // "the package included with every event" highlight in both modes.
+  // A tinted info box, so it stands out in both light and dark mode.
   Widget _buildPackageCard(BuildContext context, AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bullets = [
@@ -420,17 +392,10 @@ class _FieldLabel extends StatelessWidget {
     final colors = context.colors;
     return Row(
       children: [
-        if (icon != null) ...[
-          Icon(icon, size: 16, color: colors.textMuted),
-          const SizedBox(width: 6),
-        ],
+        if (icon != null) ...[Icon(icon, size: 16, color: colors.textMuted), const SizedBox(width: 6)],
         Text(
           required ? '$label *' : label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: colors.textPrimary,
-          ),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colors.textPrimary),
         ),
       ],
     );

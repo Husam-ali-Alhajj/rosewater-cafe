@@ -17,7 +17,7 @@ Future<void> _pump(WidgetTester tester, Widget child, {String locale = 'en'}) as
 }
 
 void main() {
-  group('Sprint 9 Task 5: Privacy Policy / Terms of Service are real screens', () {
+  group('Privacy Policy and Terms of Service', () {
     testWidgets('Privacy Policy renders real section content, not a blank/coming-soon stub', (tester) async {
       await _pump(tester, const PrivacyPolicyScreen());
 
@@ -25,10 +25,9 @@ void main() {
       expect(find.textContaining('Coming soon'), findsNothing);
       expect(find.text('1. Introduction'), findsOneWidget);
       expect(find.textContaining('delete_own_account', findRichText: true), findsNothing);
-      // Names a real table-backed data category, not generic filler.
+      // Mentions a real kind of data the app stores.
       expect(find.textContaining('Identity Verification Documents'), findsOneWidget);
-      // The account-deletion section accurately reflects decision #52: immediate,
-      // self-service, no request queue -- not the old queued-request behavior.
+      // Describes the real account deletion: immediate and self-service.
       expect(find.textContaining('no staff-processed request queue'), findsOneWidget);
     });
 
@@ -45,8 +44,7 @@ void main() {
       expect(find.text('Terms of Service'), findsOneWidget);
       expect(find.textContaining('Coming soon'), findsNothing);
       expect(find.text('1. Acceptance of Terms'), findsOneWidget);
-      // States this app's actual upgrade-only rule (decision #75), not a generic
-      // "you may change plans" line that wouldn't be true here.
+      // States the real upgrade-only rule.
       expect(find.textContaining('does not currently support self-service'), findsOneWidget);
     });
 
@@ -65,9 +63,8 @@ void main() {
             builder: (context) => Scaffold(
               body: Center(
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
+                  onPressed: () =>
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
                   child: const Text('open'),
                 ),
               ),

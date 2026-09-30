@@ -16,33 +16,15 @@ import '../../widgets/outlined_secondary_button.dart';
 import 'payment_success_screen.dart';
 import '../../widgets/payment_fields.dart';
 
-/// Real "Complete Payment" screen (Figma node 1213:1281). Card fields are
-/// validated client-side purely for realistic UX (this is a training
-/// project with no real payment processor — see docs/decisions.md #4) and
-/// are never sent anywhere: not to Supabase, not logged, not persisted.
-/// `confirm_subscription_payment` takes only the subscription id.
+/// Complete Payment. There's no real payment processor yet: card details are only checked on the
+/// device, never sent or stored.
 ///
-/// Plan comes in via constructor from IdUploadScreen's own already-fetched
-/// state, not re-fetched here — this screen makes zero database reads.
+/// Also used for upgrades ([PaymentScreen.upgrade]), which call upgrade_subscription instead of
+/// confirm_subscription_payment.
 ///
-/// Sprint 9 Task 4: reused as-is for Upgrade Membership too, via the
-/// [PaymentScreen.upgrade] constructor -- same card form, same "Pay"
-/// button, same success screen; only [_pay] branches on [isUpgrade] to
-/// call `upgrade_subscription(plan.id)` instead of
-/// `confirm_subscription_payment(subscriptionId)`. [subscriptionId] is
-/// null in that mode: an upgrade has no separate pending row to confirm,
-/// unlike a brand-new signup.
-///
-/// **Saved cards (decision #77):** the user's saved payment methods are
-/// listed under "Pay with", default (non-expired) card preselected, so
-/// paying is one tap; "Use a new card" shows the card form, with a "Save
-/// this card for next time" checkbox. Payment is still simulated, so
-/// "paying with" a saved card means choosing it instead of typing -- no
-/// card data goes to the payment RPCs either way. A new card is saved
-/// (brand/last 4/expiry only, same as Payment Methods) only AFTER the
-/// payment succeeds, and a failure to save it never undoes the payment.
-/// With no saved cards (e.g. a brand-new signup) the screen is exactly the
-/// plain form it always was.
+/// Saved cards are listed under "Pay with" with the default one selected. "Use a new card" shows
+/// the form, with an option to save the card (brand, last 4 and expiry only), which is saved only
+/// after the payment succeeds.
 class PaymentScreen extends StatefulWidget {
   final String? subscriptionId;
   final MembershipPlan plan;
@@ -80,11 +62,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isPaying = false;
   String? _errorMessage;
 
-  /// Null while loading; empty if the user has none (or they couldn't be
-  /// loaded -- then the plain form is shown, as before).
+  /// Null while loading. Empty if there are none or they failed to load; then the plain form is
+  /// shown.
   List<PaymentMethod>? _savedCards;
 
-  /// The saved card being paid with, or null for "Use a new card".
+  /// The selected saved card, or null for "Use a new card".
   String? _selectedCardId;
   bool _saveNewCard = false;
 
@@ -106,21 +88,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
     try {
       cards = await widget.paymentMethodService.list();
     } catch (_) {
-      cards = const []; // fall back to the plain form rather than an error
+      cards = const [];
     }
     if (!mounted) return;
     final usable = cards.where((c) => !_isExpired(c)).toList();
     setState(() {
       _savedCards = cards;
-      // Default card first (list() orders it first), else the newest usable one.
-      _selectedCardId = usable.isEmpty
-          ? null
-          : (usable.firstWhere((c) => c.isDefault, orElse: () => usable.first)).id;
+      // The default card if it's usable, otherwise the newest one.
+      _selectedCardId = usable.isEmpty ? null : (usable.firstWhere((c) => c.isDefault, orElse: () => usable.first)).id;
     });
   }
 
-  /// Best-effort: the payment already succeeded, so a failure here is
-  /// swallowed rather than shown as if the payment had failed.
+  /// The payment already went through, so a failed save is ignored.
   Future<void> _saveEnteredCard() async {
     final number = _cardNumberController.text;
     final expiry = _expiryController.text;
@@ -136,9 +115,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   void dispose() {
-    // Card fields never leave this screen — clearing on the way out is
-    // belt-and-suspenders on top of the controllers being destroyed here;
-    // neither ever wrote these values to a variable outside this State.
+    // Clear the card fields when leaving.
     _cardNumberController.dispose();
     _expiryController.dispose();
     _cvvController.dispose();
@@ -147,7 +124,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _pay() async {
     if (_isPaying) return;
-    // A saved card has nothing to type, so nothing to validate.
+    // Nothing to check when paying with a saved card.
     if (_usingNewCard && !_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -162,19 +139,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
       if (_usingNewCard && _saveNewCard) await _saveEnteredCard();
       if (!mounted) return;
-      context.triggerSuccess(); // Sprint 8 Task 4: payment confirmed
-      // Card fields are discarded here, never read again after validation —
-      // clearing explicitly before navigating away, on top of dispose().
+      context.triggerSuccess();
+      // Clear the card fields before leaving.
       _cardNumberController.clear();
       _expiryController.clear();
       _cvvController.clear();
-      Navigator.of(context).pushAndRemoveUntil(
-        appRoute(context, (_) => PaymentSuccessScreen(plan: widget.plan)),
-        (route) => false,
-      );
+      Navigator.of(
+        context,
+      ).pushAndRemoveUntil(appRoute(context, (_) => PaymentSuccessScreen(plan: widget.plan)), (route) => false);
     } on ConfirmPaymentFailure catch (e) {
       if (!mounted) return;
-      context.triggerError(); // Sprint 8 Task 4: failed payment
+      context.triggerError();
       setState(() {
         _isPaying = false;
         _errorMessage = e.message;
@@ -234,21 +209,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       Text(
                         l10n.completePayment,
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 0.07, color: colors.textPrimary),
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.07,
+                          color: colors.textPrimary,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         l10n.planSuffix(plan.name),
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textMuted),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: -0.31,
+                          color: colors.textMuted,
+                        ),
                       ),
                       const SizedBox(height: 48),
                       Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colors.inputFill,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                        decoration: BoxDecoration(color: colors.inputFill, borderRadius: BorderRadius.circular(10)),
                         child: Column(
                           children: [
                             Row(
@@ -256,11 +238,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               children: [
                                 Text(
                                   l10n.monthlySubscription,
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textMuted),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w400,
+                                    letterSpacing: -0.31,
+                                    color: colors.textMuted,
+                                  ),
                                 ),
                                 Text(
                                   '\$${plan.priceDollars}',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textPrimary),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w400,
+                                    letterSpacing: -0.31,
+                                    color: colors.textPrimary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -272,11 +264,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               children: [
                                 Text(
                                   l10n.totalLabel,
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: -0.31, color: colors.textPrimary),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w400,
+                                    letterSpacing: -0.31,
+                                    color: colors.textPrimary,
+                                  ),
                                 ),
                                 Text(
                                   '\$${plan.priceDollars}',
-                                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 0.07, color: colors.textPrimary),
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.07,
+                                    color: colors.textPrimary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -326,7 +328,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             hint: '1234 5678 9012 3456',
                             validator: PaymentValidators.cardNumber,
                             keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(16)],
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(16),
+                            ],
                           ),
                           const SizedBox(height: 16),
                           Row(
@@ -351,14 +356,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   validator: PaymentValidators.cvv,
                                   keyboardType: TextInputType.number,
                                   obscureText: true,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(3),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          // A plain Checkbox + label rather than CheckboxListTile:
-                          // a ListTile can't paint on this screen's coloured card.
+                          // A plain checkbox and label; a CheckboxListTile can't draw on this
+                          // coloured card.
                           InkWell(
                             key: const ValueKey('save-card-checkbox'),
                             onTap: _isPaying ? null : () => setState(() => _saveNewCard = !_saveNewCard),
@@ -383,7 +391,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ],
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 16),
-                        Text(_errorMessage!, style: TextStyle(color: colors.danger, fontSize: 12), textAlign: TextAlign.center),
+                        Text(
+                          _errorMessage!,
+                          style: TextStyle(color: colors.danger, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
                       ],
                       const SizedBox(height: 48),
                       Row(
@@ -419,7 +431,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 }
 
-/// One "Pay with" choice: a saved card, or "Use a new card".
+/// One "Pay with" option: a saved card or "Use a new card".
 class _PayOption extends StatelessWidget {
   final bool selected;
   final bool enabled;
@@ -475,10 +487,7 @@ class _PayOption extends StatelessWidget {
                       ),
                     ),
                     if (subtitle != null)
-                      Text(
-                        subtitle!,
-                        style: TextStyle(fontSize: 12, color: muted ? colors.danger : colors.textMuted),
-                      ),
+                      Text(subtitle!, style: TextStyle(fontSize: 12, color: muted ? colors.danger : colors.textMuted)),
                   ],
                 ),
               ),

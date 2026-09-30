@@ -4,33 +4,27 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_client.dart';
 
-/// Thrown by [AvatarService.validate] when a photo is over the size limit.
-/// Carries the limit so the UI can phrase the message without hardcoding
-/// the number twice.
+/// The photo is bigger than the size limit.
 class AvatarTooLarge implements Exception {
   final int maxBytes;
   const AvatarTooLarge(this.maxBytes);
 }
 
-/// Thrown by [AvatarService.validate] for any extension other than
-/// PNG/JPG/WebP.
+/// The photo isn't PNG, JPG or WebP.
 class AvatarInvalidType implements Exception {
   const AvatarInvalidType();
 }
 
-/// Profile-photo storage, the same pattern as [IdDocumentService] (decision
-/// #18): a private bucket -- `avatars` -- where each user's files live in a
-/// folder named for their own user id, enforced by storage RLS
-/// (`(storage.foldername(name))[1] = auth.uid()::text`). Nobody can read,
-/// write, or delete another user's folder.
+/// Profile photos, stored in the private `avatars` bucket in a folder named after each user's id.
+/// Storage rules stop anyone reaching another user's folder.
 class AvatarService {
   const AvatarService();
 
   static const bucket = 'avatars';
-  static const maxBytes = 5 * 1024 * 1024; // 5MB (also the bucket's own limit)
+  static const maxBytes = 5 * 1024 * 1024; // 5MB, same as the bucket's limit
   static const allowedExtensions = {'png', 'jpg', 'jpeg', 'webp'};
 
-  /// How long a signed display URL stays valid.
+  /// How long a display link stays valid.
   static const signedUrlLifetime = Duration(hours: 1);
 
   static String _extensionOf(String fileName) {
@@ -38,8 +32,7 @@ class AvatarService {
     return dot == -1 ? '' : fileName.substring(dot + 1).toLowerCase();
   }
 
-  /// Checked against just the file's name/size -- never its bytes -- so this
-  /// can run (and reject) immediately after picking, before any upload.
+  /// Only checks the name and size, so a bad photo is rejected right after picking.
   void validate({required String fileName, required int sizeBytes}) {
     if (!allowedExtensions.contains(_extensionOf(fileName))) {
       throw const AvatarInvalidType();
@@ -58,11 +51,8 @@ class AvatarService {
     };
   }
 
-  /// Uploads to `avatars/<user_id>/<timestamp>.<ext>` and returns that
-  /// storage path (what gets saved in `profiles.avatar_url`). The path must
-  /// start with the caller's own user id or storage RLS rejects it. A fresh
-  /// name each time (rather than overwriting one fixed file) means a new
-  /// photo is never masked by a cached copy of the old one.
+  /// Uploads to `avatars/<user_id>/<timestamp>.<ext>` and returns that path (saved in
+  /// `profiles.avatar_url`). A new name each time avoids showing a cached old photo.
   Future<String> upload({required Uint8List bytes, required String fileName}) async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) throw StateError('Not authenticated');
@@ -76,9 +66,7 @@ class AvatarService {
     return path;
   }
 
-  /// A short-lived signed URL for displaying [path], or null if it can't be
-  /// made (missing file, or a path outside the caller's own folder, which
-  /// storage RLS refuses).
+  /// A short-lived link for showing the photo, or null if it can't be made.
   Future<String?> signedUrl(String path) async {
     try {
       return await supabase.storage.from(bucket).createSignedUrl(path, signedUrlLifetime.inSeconds);
@@ -87,9 +75,7 @@ class AvatarService {
     }
   }
 
-  /// Best-effort removal of a replaced photo so old files don't pile up. A
-  /// failure is ignored on purpose: the new photo is already saved, and a
-  /// leftover file is harmless.
+  /// Deletes a replaced photo. Failures are ignored; the new photo is already saved.
   Future<void> deleteQuietly(String path) async {
     try {
       await supabase.storage.from(bucket).remove([path]);

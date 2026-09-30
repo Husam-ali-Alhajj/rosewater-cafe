@@ -7,15 +7,14 @@ import '../../widgets/form_buttons.dart';
 import '../../widgets/screen_header.dart';
 import '../../widgets/setting_toggle_row.dart';
 
-const _hairline = 0.515; // Figma's fractional hairline stroke width
+const _hairline = 0.515;
 
 /// What one toggle row shows.
 class _ToggleSpec {
   final NotificationSetting setting;
   final IconData icon;
 
-  /// The design's icon frames are different sizes (15.31 to 20); kept as
-  /// exported. The text always starts 12px after the icon's right edge.
+  /// Icon sizes vary as in the design.
   final double iconSize;
   final String label;
   final String description;
@@ -24,41 +23,68 @@ class _ToggleSpec {
 }
 
 List<_ToggleSpec> _communicationToggles(AppLocalizations l10n) => [
-      _ToggleSpec(NotificationSetting.push, Icons.notifications_none, 20, l10n.pushNotificationsLabel,
-          l10n.pushNotificationsDescription),
-      _ToggleSpec(
-          NotificationSetting.email, Icons.mail_outline, 20, l10n.emailNotificationsLabel, l10n.emailNotificationsDescription),
-      _ToggleSpec(NotificationSetting.sms, Icons.chat_bubble_outline, 16.29, l10n.smsNotificationsLabel,
-          l10n.smsNotificationsDescription),
-      _ToggleSpec(NotificationSetting.sound, Icons.volume_up_outlined, 20, l10n.soundVibrationLabel,
-          l10n.soundVibrationDescription),
-    ];
+  _ToggleSpec(
+    NotificationSetting.push,
+    Icons.notifications_none,
+    20,
+    l10n.pushNotificationsLabel,
+    l10n.pushNotificationsDescription,
+  ),
+  _ToggleSpec(
+    NotificationSetting.email,
+    Icons.mail_outline,
+    20,
+    l10n.emailNotificationsLabel,
+    l10n.emailNotificationsDescription,
+  ),
+  _ToggleSpec(
+    NotificationSetting.sms,
+    Icons.chat_bubble_outline,
+    16.29,
+    l10n.smsNotificationsLabel,
+    l10n.smsNotificationsDescription,
+  ),
+  _ToggleSpec(
+    NotificationSetting.sound,
+    Icons.volume_up_outlined,
+    20,
+    l10n.soundVibrationLabel,
+    l10n.soundVibrationDescription,
+  ),
+];
 
 List<_ToggleSpec> _typeToggles(AppLocalizations l10n) => [
-      _ToggleSpec(NotificationSetting.eventReminders, Icons.calendar_today_outlined, 15.31, l10n.eventRemindersLabel,
-          l10n.eventRemindersDescription),
-      _ToggleSpec(NotificationSetting.allowanceAlerts, Icons.warning_amber_outlined, 18.49, l10n.allowanceAlertsLabel,
-          l10n.allowanceAlertsDescription),
-      _ToggleSpec(NotificationSetting.promotions, Icons.card_giftcard_outlined, 16.99, l10n.promotionsOffersLabel,
-          l10n.promotionsOffersDescription),
-    ];
+  _ToggleSpec(
+    NotificationSetting.eventReminders,
+    Icons.calendar_today_outlined,
+    15.31,
+    l10n.eventRemindersLabel,
+    l10n.eventRemindersDescription,
+  ),
+  _ToggleSpec(
+    NotificationSetting.allowanceAlerts,
+    Icons.warning_amber_outlined,
+    18.49,
+    l10n.allowanceAlertsLabel,
+    l10n.allowanceAlertsDescription,
+  ),
+  _ToggleSpec(
+    NotificationSetting.promotions,
+    Icons.card_giftcard_outlined,
+    16.99,
+    l10n.promotionsOffersLabel,
+    l10n.promotionsOffersDescription,
+  ),
+];
 
-/// Notification settings (Figma frame "NotificationsScreen", node
-/// 1217:2539): four "Communication Preferences" toggles (Push, Email, SMS,
-/// Sound & Vibration) and three "Notification Types" toggles (Event
-/// Reminders, Allowance Alerts, Promotions & Offers), with a "Done" button.
+/// Notification settings: four channel switches and three notification-type switches.
 ///
-/// Every toggle is saved the moment it's flipped (there is no Save button in
-/// the design) to the user's row in `public.notification_preferences`, via
-/// [NotificationPrefs] -- in the database rather than on the device
-/// (notifications roadmap step 1, reversing decision #44), because the
-/// channels these control are sent by the server, which can only respect a
-/// choice it can read. If a save fails the switch flips back and a snackbar
-/// says so, so it never shows a value that wasn't stored.
+/// Each switch is saved to the database as soon as it's flipped, because the server needs to read
+/// them (for example, to skip emails). If saving fails, the switch flips back and a message is
+/// shown.
 ///
-/// What each toggle actually controls is being built step by step (see
-/// docs/decisions.md); until a channel exists, its toggle is stored but
-/// nothing reads it yet.
+/// Email, Sound & Vibration, Event Reminders and Allowance Alerts work. Push, SMS and Promotions
+/// are saved but nothing uses them yet.
 class NotificationSettingsScreen extends StatefulWidget {
   final NotificationPrefs prefs;
 
@@ -69,7 +95,7 @@ class NotificationSettingsScreen extends StatefulWidget {
 }
 
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
-  NotificationSettings? _settings; // null until the saved values are read
+  NotificationSettings? _settings;
 
   @override
   void initState() {
@@ -82,7 +108,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     try {
       settings = await widget.prefs.load();
     } catch (_) {
-      settings = NotificationSettings.defaults(); // unreadable storage: show defaults, not a crash
+      settings = NotificationSettings.defaults();
     }
     if (!mounted) return;
     setState(() => _settings = settings);
@@ -92,17 +118,16 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     final current = _settings;
     if (current == null) return;
     final next = !current.isOn(setting);
-    setState(() => _settings = current.copyWith(setting, next)); // shown immediately
+    setState(() => _settings = current.copyWith(setting, next));
     try {
       await widget.prefs.set(setting, next);
     } catch (_) {
-      // The write failed, so don't leave the switch showing something that
-      // won't be there next time.
+      // Saving failed, so put the switch back.
       if (!mounted) return;
       setState(() => _settings = _settings?.copyWith(setting, !next));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).couldntSaveSettingError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).couldntSaveSettingError)));
     }
   }
 
@@ -115,7 +140,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
-            // Figma's frame padding: 16 sides, 32 top; 32 below the last button.
             padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -162,8 +186,7 @@ Widget _row(
   );
 }
 
-/// Themed card surface, 14px radius, hairline border; clips its children so
-/// the gradient band's top corners follow the card's.
+/// Card with rounded corners; clips so the gradient header follows the corners.
 BoxDecoration _cardDecoration(AppSemanticColors colors) {
   return BoxDecoration(
     color: colors.surface,
@@ -172,8 +195,7 @@ BoxDecoration _cardDecoration(AppSemanticColors colors) {
   );
 }
 
-/// "Communication Preferences": a gradient title band, then four toggles 24px
-/// apart (Figma node 1217:2548).
+/// "Communication Preferences": gradient title, then four switches.
 class _CommunicationCard extends StatelessWidget {
   final NotificationSettings settings;
   final ValueChanged<NotificationSetting> onToggle;
@@ -230,8 +252,7 @@ class _CommunicationCard extends StatelessWidget {
   }
 }
 
-/// "Notification Types": a title strip, then three toggles 24px apart (Figma
-/// node 1217:2602). The strip's light-grey fill is as exported.
+/// "Notification Types": title strip, then three switches.
 class _TypesCard extends StatelessWidget {
   final NotificationSettings settings;
   final ValueChanged<NotificationSetting> onToggle;
@@ -254,8 +275,6 @@ class _TypesCard extends StatelessWidget {
             child: Container(
               height: 28,
               color: colors.inputFill,
-              // Sprint 8 Task 6: was Alignment.centerLeft -- a physical
-              // alignment that wouldn't flip to the trailing edge in RTL.
               alignment: AlignmentDirectional.centerStart,
               child: Text(
                 l10n.notificationTypesTitle,

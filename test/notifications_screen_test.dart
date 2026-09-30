@@ -22,17 +22,16 @@ AppNotification _payment({String id = 'pay', bool read = false, Duration age = c
       createdAt: _now.subtract(age),
     );
 
-AppNotification _event({String id = 'ev', bool read = true, Duration age = const Duration(days: 1)}) =>
-    AppNotification(
-      id: id,
-      type: 'event_reservation_confirmed',
-      title: 'Event Reservation Confirmed',
-      body: 'Your Birthday reservation ...',
-      isRead: read,
-      relatedId: 'res-1',
-      data: const {'event_type': 'Birthday', 'event_date': '2026-10-04', 'start_time': '19:30', 'guest_count': 12},
-      createdAt: _now.subtract(age),
-    );
+AppNotification _event({String id = 'ev', bool read = true, Duration age = const Duration(days: 1)}) => AppNotification(
+  id: id,
+  type: 'event_reservation_confirmed',
+  title: 'Event Reservation Confirmed',
+  body: 'Your Birthday reservation ...',
+  isRead: read,
+  relatedId: 'res-1',
+  data: const {'event_type': 'Birthday', 'event_date': '2026-10-04', 'start_time': '19:30', 'guest_count': 12},
+  createdAt: _now.subtract(age),
+);
 
 /// Stands in for the database; records what the screen asked it to do.
 class _FakeService extends NotificationService {
@@ -77,11 +76,8 @@ Future<List<String>> _pump(WidgetTester tester, _FakeService service, {String lo
           body: TextButton(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => NotificationsScreen(
-                  service: service,
-                  now: _now,
-                  onViewMembership: () => nav.add('membership'),
-                ),
+                builder: (_) =>
+                    NotificationsScreen(service: service, now: _now, onViewMembership: () => nav.add('membership')),
               ),
             ),
             child: const Text('home'),

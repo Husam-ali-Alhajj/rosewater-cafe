@@ -3,34 +3,23 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/payment_method.dart';
 import 'supabase_client.dart';
 
-/// Thrown by [PaymentMethodService] with a message that's already safe to show
-/// the user directly -- never the raw Postgres exception.
+/// A card error with a message safe to show.
 class PaymentMethodFailure implements Exception {
   final String message;
   const PaymentMethodFailure(this.message);
 }
 
-/// A user's saved payment methods -- brand, last 4, expiry, default flag.
+/// The user's saved cards: brand, last 4, expiry and default flag.
 ///
-/// **Plain table access, no RPC:** `payment_methods` is fully self-owned (RLS
-/// select/insert/update/delete `auth.uid() = user_id`), exactly the kind of
-/// write decision #3 always allowed. What RLS can't express is the rule
-/// *between* rows -- a user has at most one default -- and that lives in the
-/// database, not here: a partial unique index is the hard guarantee, and
-/// triggers make "set default" one atomic step, make a user's first card the
-/// default, and promote another card when the default is deleted (see
-/// supabase/migrations/20260923100000_payment_methods_default_enforcement.sql).
-/// So this class never unchecks an old default itself.
+/// Users can read and change only their own rows. The "one default card" rule lives in the database
+/// (an index plus triggers that set the first card as default and pick a new one when the default
+/// is deleted), so this class never unsets an old default itself.
 ///
-/// **Never the full number or CVV:** [add] takes only brand/last4/expiry --
-/// there is no parameter for anything more, so the number can't be passed by
-/// accident. (Brand and last4 are derived from the typed number by the caller;
-/// see `CardBrand`.)
+/// [add] has no parameter for the full number or CVV, so they can't be saved by mistake.
 class PaymentMethodService {
   const PaymentMethodService();
 
-  /// The caller's cards, default first, then newest first. (RLS already limits
-  /// this to the caller's own rows.)
+  /// The user's cards, default first, then newest.
   Future<List<PaymentMethod>> list() async {
     final rows = await supabase
         .from('payment_methods')
@@ -40,9 +29,7 @@ class PaymentMethodService {
     return rows.map(PaymentMethod.fromJson).toList();
   }
 
-  /// Saves a card's metadata. [makeDefault] asks for it to become the default;
-  /// the database decides the rest -- a user's first card is the default
-  /// whatever is passed.
+  /// Saves a card. The first card always becomes the default, whatever [makeDefault] says.
   Future<PaymentMethod> add({
     required String brand,
     required String last4,
@@ -73,8 +60,7 @@ class PaymentMethodService {
     }
   }
 
-  /// Makes [id] the default with a single UPDATE; the database clears the old
-  /// default in the same step.
+  /// Makes [id] the default; the database unsets the old one in the same step.
   Future<void> setDefault(String id) async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
@@ -95,8 +81,7 @@ class PaymentMethodService {
     }
   }
 
-  /// Deletes [id]. If it was the default, the database promotes the newest
-  /// remaining card.
+  /// Deletes [id]. If it was the default, the database picks the newest remaining card.
   Future<void> delete(String id) async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
@@ -114,9 +99,9 @@ class PaymentMethodService {
       return const PaymentMethodFailure('That card has expired.');
     }
     switch (e.code) {
-      case '23505': // the one-default-per-user index lost a race
+      case '23505': // another request set a default at the same moment
         return const PaymentMethodFailure("That didn't go through. Please try again.");
-      case '23514': // a CHECK constraint (bad last 4 / month / year)
+      case '23514': // invalid last 4, month or year
       case '22001': // a value too long for its column
         return const PaymentMethodFailure("Those card details aren't valid.");
     }

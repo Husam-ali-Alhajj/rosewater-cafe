@@ -6,8 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/services/app_settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// A trivial, real [ImageProvider] so a real entry can be put in Flutter's
-/// image cache without touching the network or the file system.
+/// A tiny real image, so the image cache can be filled without network or files.
 class _SolidColorImage extends ImageProvider<_SolidColorImage> {
   const _SolidColorImage(this.id);
   final String id;

@@ -150,15 +150,13 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get genericConnectionError =>
-      'حدث خطأ ما. تحقق من اتصالك وحاول مرة أخرى.';
+  String get genericConnectionError => 'حدث خطأ ما. تحقق من اتصالك وحاول مرة أخرى.';
 
   @override
   String get passwordsDoNotMatch => 'كلمتا المرور غير متطابقتين';
 
   @override
-  String get passwordHelperText =>
-      '٨ أحرف أو أكثر، تتضمن حرفًا كبيرًا وصغيرًا ورقمًا';
+  String get passwordHelperText => '٨ أحرف أو أكثر، تتضمن حرفًا كبيرًا وصغيرًا ورقمًا';
 
   @override
   String get authLandingTagline => 'عضوية VIP وصالة استرخاء';
@@ -260,15 +258,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get passwordUpdatedHeading => 'تم تحديث كلمة المرور';
 
   @override
-  String get passwordUpdatedBody =>
-      'تم تغيير كلمة المرور الخاصة بك. يرجى تسجيل الدخول بكلمة المرور الجديدة.';
+  String get passwordUpdatedBody => 'تم تغيير كلمة المرور الخاصة بك. يرجى تسجيل الدخول بكلمة المرور الجديدة.';
 
   @override
   String get continueToSignIn => 'المتابعة لتسجيل الدخول';
 
   @override
-  String get couldNotUpdatePasswordError =>
-      'تعذر تحديث كلمة المرور. تحقق من اتصالك وحاول مرة أخرى.';
+  String get couldNotUpdatePasswordError => 'تعذر تحديث كلمة المرور. تحقق من اتصالك وحاول مرة أخرى.';
 
   @override
   String get confirmYourEmailHeading => 'تأكيد بريدك الإلكتروني';
@@ -285,12 +281,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get selectPlanSubtitle => 'اختر الخطة التي تناسب أسلوب حياتك';
 
   @override
-  String get couldNotLoadPlansError =>
-      'تعذر تحميل خطط العضوية. تحقق من اتصالك وحاول مرة أخرى.';
+  String get couldNotLoadPlansError => 'تعذر تحميل خطط العضوية. تحقق من اتصالك وحاول مرة أخرى.';
 
   @override
-  String get allPlansFooter =>
-      'تشمل جميع الخطط خصومات الأعضاء. طلبات الضيوف غير مشمولة في المخصصات.';
+  String get allPlansFooter => 'تشمل جميع الخطط خصومات الأعضاء. طلبات الضيوف غير مشمولة في المخصصات.';
 
   @override
   String get mostPopularBadge => 'الأكثر شيوعًا';
@@ -355,8 +349,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get planFeatureExclusiveMenu => 'قائمة حصرية';
 
   @override
-  String get couldNotLoadDetailsError =>
-      'تعذر تحميل بياناتك. تحقق من اتصالك وحاول مرة أخرى.';
+  String get couldNotLoadDetailsError => 'تعذر تحميل بياناتك. تحقق من اتصالك وحاول مرة أخرى.';
 
   @override
   String get takePhoto => 'التقاط صورة';
@@ -368,8 +361,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get chooseFileHint => 'اختيار ملف (PNG، JPG، PDF)';
 
   @override
-  String get cameraGalleryAccessError =>
-      'تعذر الوصول إلى الكاميرا/المعرض. تحقق من أذونات التطبيق وحاول مرة أخرى.';
+  String get cameraGalleryAccessError => 'تعذر الوصول إلى الكاميرا/المعرض. تحقق من أذونات التطبيق وحاول مرة أخرى.';
 
   @override
   String get filePickerError => 'تعذر فتح منتقي الملفات. حاول مرة أخرى.';
@@ -416,8 +408,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get idFileTypesHint => 'PNG، JPG، PDF (بحد أقصى 10 ميغابايت)';
 
   @override
-  String get couldNotGoBackToPlansError =>
-      'تعذرت العودة إلى الخطط. تحقق من اتصالك وحاول مرة أخرى.';
+  String get couldNotGoBackToPlansError => 'تعذرت العودة إلى الخطط. تحقق من اتصالك وحاول مرة أخرى.';
 
   @override
   String get completePayment => 'إتمام الدفع';
@@ -483,8 +474,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get durationRequired => 'المدة مطلوبة';
 
   @override
-  String get enterValidNumberDecimal =>
-      'أدخل رقمًا صحيحًا (حتى منزلتين عشريتين)';
+  String get enterValidNumberDecimal => 'أدخل رقمًا صحيحًا (حتى منزلتين عشريتين)';
 
   @override
   String get durationMustBeGreaterThanZero => 'يجب أن تكون المدة أكبر من 0';
@@ -508,8 +498,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get reserveAnEvent => 'حجز فعالية';
 
   @override
-  String get reserveEventSubtitle =>
-      'احجز المقهى لفعاليتك الخاصة. مثالي للحفلات والاجتماعات والمناسبات الخاصة.';
+  String get reserveEventSubtitle => 'احجز المقهى لفعاليتك الخاصة. مثالي للحفلات والاجتماعات والمناسبات الخاصة.';
 
   @override
   String get eventTypeLabel => 'نوع الفعالية';
@@ -530,8 +519,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get eventDateRequired => 'تاريخ الفعالية مطلوب';
 
   @override
-  String get datePassedError =>
-      'لقد مضى هذا التاريخ بالفعل — يرجى اختيار تاريخ آخر.';
+  String get datePassedError => 'لقد مضى هذا التاريخ بالفعل — يرجى اختيار تاريخ آخر.';
 
   @override
   String get startTimeLabel => 'وقت البدء';
@@ -629,8 +617,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get unableToLoadMemberId => 'تعذر تحميل رقم عضويتك';
 
   @override
-  String get scanQrInstruction =>
-      'امسح رمز الاستجابة السريعة هذا عند المدخل لفتح الباب';
+  String get scanQrInstruction => 'امسح رمز الاستجابة السريعة هذا عند المدخل لفتح الباب';
 
   @override
   String get howManyPeopleQuestion => 'كم عدد الأشخاص المرافقين لك؟';
@@ -677,15 +664,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get onboardingWelcomeHeading => 'مرحبًا بك في Rosewater Café';
 
   @override
-  String get onboardingWelcomeBody =>
-      'استمتع بأرقى صالة شيشة مع عضويات VIP حصرية، وخدمات مميزة، وأجواء فاخرة.';
+  String get onboardingWelcomeBody => 'استمتع بأرقى صالة شيشة مع عضويات VIP حصرية، وخدمات مميزة، وأجواء فاخرة.';
 
   @override
   String get onboardingQrHeading => 'الدخول عبر رمز الاستجابة السريعة';
 
   @override
-  String get onboardingQrBody =>
-      'افتح باب المقهى برمز الاستجابة السريعة الخاص بك. أحضر ضيوفك وتابع زياراتك بسهولة.';
+  String get onboardingQrBody => 'افتح باب المقهى برمز الاستجابة السريعة الخاص بك. أحضر ضيوفك وتابع زياراتك بسهولة.';
 
   @override
   String get onboardingAllowancesHeading => 'الرصيد الشهري';
@@ -734,8 +719,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get upgradeMembershipButton => 'ترقية العضوية';
 
   @override
-  String get upgradeMembershipSubtitle =>
-      'اختر خطة أعلى فئة لفتح المزيد من المزايا';
+  String get upgradeMembershipSubtitle => 'اختر خطة أعلى فئة لفتح المزيد من المزايا';
 
   @override
   String get upgradingEllipsis => 'جارٍ الترقية…';
@@ -801,8 +785,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get personalInformationTitle => 'المعلومات الشخصية';
 
   @override
-  String get emailCantBeChangedNote =>
-      'لا يمكن تغيير بريدك الإلكتروني داخل التطبيق.';
+  String get emailCantBeChangedNote => 'لا يمكن تغيير بريدك الإلكتروني داخل التطبيق.';
 
   @override
   String get membershipInformationTitle => 'معلومات العضوية';
@@ -823,8 +806,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get tapCameraIconHint => 'اضغط على أيقونة الكاميرا لتغيير الصورة';
 
   @override
-  String get couldntSaveChangesError =>
-      'تعذر حفظ تغييراتك. تحقق من اتصالك وحاول مرة أخرى.';
+  String get couldntSaveChangesError => 'تعذر حفظ تغييراتك. تحقق من اتصالك وحاول مرة أخرى.';
 
   @override
   String get addNewPaymentMethodButton => 'إضافة طريقة دفع جديدة';
@@ -866,8 +848,7 @@ class AppLocalizationsAr extends AppLocalizations {
       'لأمانك، يتم حفظ نوع البطاقة وآخر 4 أرقام وتاريخ الانتهاء فقط — لا يُحفظ رقم بطاقتك الكامل أو رمز التحقق (CVV) أبدًا.';
 
   @override
-  String get couldntSaveCardError =>
-      'تعذر حفظ بطاقتك. تحقق من اتصالك وحاول مرة أخرى.';
+  String get couldntSaveCardError => 'تعذر حفظ بطاقتك. تحقق من اتصالك وحاول مرة أخرى.';
 
   @override
   String get saveCardButton => 'حفظ البطاقة';
@@ -876,8 +857,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get doneButton => 'تم';
 
   @override
-  String get couldntSaveSettingError =>
-      'تعذر حفظ هذا الإعداد. يرجى المحاولة مرة أخرى.';
+  String get couldntSaveSettingError => 'تعذر حفظ هذا الإعداد. يرجى المحاولة مرة أخرى.';
 
   @override
   String get communicationPreferencesTitle => 'تفضيلات التواصل';
@@ -898,15 +878,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get emailNotificationsLabel => 'إشعارات البريد الإلكتروني';
 
   @override
-  String get emailNotificationsDescription =>
-      'احصل على التحديثات عبر البريد الإلكتروني';
+  String get emailNotificationsDescription => 'احصل على التحديثات عبر البريد الإلكتروني';
 
   @override
   String get smsNotificationsLabel => 'الرسائل النصية القصيرة';
 
   @override
-  String get smsNotificationsDescription =>
-      'استلام رسائل نصية للتحديثات المهمة';
+  String get smsNotificationsDescription => 'استلام رسائل نصية للتحديثات المهمة';
 
   @override
   String get soundVibrationLabel => 'الصوت والاهتزاز';
@@ -958,8 +936,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get animationsLabel => 'الحركات';
 
   @override
-  String get animationsDescription =>
-      'تفعيل الحركات السلسة في جميع أنحاء التطبيق';
+  String get animationsDescription => 'تفعيل الحركات السلسة في جميع أنحاء التطبيق';
 
   @override
   String get languageSectionLabel => 'اللغة';
@@ -971,15 +948,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get soundEffectsLabel => 'المؤثرات الصوتية';
 
   @override
-  String get soundEffectsDescription =>
-      'تشغيل الأصوات عند الإجراءات والإشعارات';
+  String get soundEffectsDescription => 'تشغيل الأصوات عند الإجراءات والإشعارات';
 
   @override
   String get hapticFeedbackLabel => 'الاستجابة اللمسية';
 
   @override
-  String get hapticFeedbackDescription =>
-      'الاهتزاز عند الضغط على الأزرار والتفاعلات';
+  String get hapticFeedbackDescription => 'الاهتزاز عند الضغط على الأزرار والتفاعلات';
 
   @override
   String get dataStorageCardTitle => 'البيانات والتخزين';
@@ -1019,8 +994,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get biometricAuthLabel => 'المصادقة البيومترية';
 
   @override
-  String get biometricAuthDescription =>
-      'استخدام بصمة الإصبع أو التعرف على الوجه لتسجيل الدخول';
+  String get biometricAuthDescription => 'استخدام بصمة الإصبع أو التعرف على الوجه لتسجيل الدخول';
 
   @override
   String get twoFactorAuthLabel => 'المصادقة الثنائية';
@@ -1042,8 +1016,7 @@ class AppLocalizationsAr extends AppLocalizations {
       'لا تتوفر ميزة القياسات الحيوية على هذا الجهاز. يرجى إعداد بصمة الإصبع أو ميزة التعرف على الوجه أولاً.';
 
   @override
-  String get strongPasswordPrompt =>
-      'حافظ على أمان حسابك باستخدام كلمة مرور قوية';
+  String get strongPasswordPrompt => 'حافظ على أمان حسابك باستخدام كلمة مرور قوية';
 
   @override
   String get changePasswordButton => 'تغيير كلمة المرور';
@@ -1067,12 +1040,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get enterCurrentPasswordError => 'أدخل كلمة المرور الحالية';
 
   @override
-  String get passwordMustDifferError =>
-      'اختر كلمة مرور مختلفة عن كلمة مرورك الحالية.';
+  String get passwordMustDifferError => 'اختر كلمة مرور مختلفة عن كلمة مرورك الحالية.';
 
   @override
-  String get couldntUpdatePasswordError =>
-      'تعذر تحديث كلمة مرورك. تحقق من اتصالك وحاول مرة أخرى.';
+  String get couldntUpdatePasswordError => 'تعذر تحديث كلمة مرورك. تحقق من اتصالك وحاول مرة أخرى.';
 
   @override
   String get passwordUpdatedMessage => 'تم تحديث كلمة المرور.';
@@ -1091,8 +1062,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deletingEllipsis => 'جارٍ الحذف…';
 
   @override
-  String get couldntDeleteAccountError =>
-      'تعذر حذف حسابك. يرجى المحاولة مرة أخرى.';
+  String get couldntDeleteAccountError => 'تعذر حذف حسابك. يرجى المحاولة مرة أخرى.';
 
   @override
   String get changeEmailButton => 'تغيير البريد الإلكتروني';
@@ -1113,8 +1083,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get sendConfirmationButton => 'إرسال التأكيد';
 
   @override
-  String get couldntUpdateEmailError =>
-      'تعذر تحديث بريدك الإلكتروني. تحقق من اتصالك وحاول مرة أخرى.';
+  String get couldntUpdateEmailError => 'تعذر تحديث بريدك الإلكتروني. تحقق من اتصالك وحاول مرة أخرى.';
 
   @override
   String get viewPrivacyPolicyLabel => 'عرض سياسة الخصوصية';
@@ -1151,8 +1120,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get faqCardTitle => 'الأسئلة الشائعة';
 
   @override
-  String get faqQuestion1 =>
-      'كيف أستخدم رمز الاستجابة السريعة الخاص بي للدخول إلى المقهى؟';
+  String get faqQuestion1 => 'كيف أستخدم رمز الاستجابة السريعة الخاص بي للدخول إلى المقهى؟';
 
   @override
   String get faqAnswer1 =>
@@ -1173,16 +1141,14 @@ class AppLocalizationsAr extends AppLocalizations {
       'نعم — تتضمن كل باقة حدًا أقصى للضيوف، يظهر كـ«الحد الأقصى للضيوف» في تفاصيل العضوية. عند فتح الباب برمز الاستجابة السريعة، اختر عدد الضيوف المرافقين لك بما لا يتجاوز هذا الحد. يغطي رصيدك الشهري طلباتك أنت فقط؛ أما طلبات الضيوف فتحصل على خصومات الأعضاء لكنها تُدفع بشكل منفصل.';
 
   @override
-  String get faqQuestion4 =>
-      'ما الفرق بين ساعات الخدمة الكاملة والخدمة الذاتية؟';
+  String get faqQuestion4 => 'ما الفرق بين ساعات الخدمة الكاملة والخدمة الذاتية؟';
 
   @override
   String get faqAnswer4 =>
       'ساعات الخدمة الكاملة (٩:٠٠ ص – ١١:٠٠ م) مزوّدة بطاقم عمل يتولى الطلبات وتجهيز الشيشة نيابة عنك. أما ساعات الخدمة الذاتية (١١:٠٠ م – ٩:٠٠ ص) فتتيح للأعضاء الدخول إلى المكان بعضويتهم، لكن دون طاقم عمل حاضر، فتكون تجربة أكثر محدودية وتعتمد على خدمة النفس.';
 
   @override
-  String get faqDraftAnswerNote =>
-      'إجابة مسودة — بانتظار التأكيد من الشركة، وليست نصاً نهائياً.';
+  String get faqDraftAnswerNote => 'إجابة مسودة — بانتظار التأكيد من الشركة، وليست نصاً نهائياً.';
 
   @override
   String get resourcesCardTitle => 'الموارد';
@@ -1200,8 +1166,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get appLockedTitle => 'التطبيق مقفل';
 
   @override
-  String get unlockWithBiometricPrompt =>
-      'افتح القفل ببصمة إصبعك أو وجهك للمتابعة.';
+  String get unlockWithBiometricPrompt => 'افتح القفل ببصمة إصبعك أو وجهك للمتابعة.';
 
   @override
   String get unlockWithPasswordPrompt => 'أدخل كلمة مرورك للمتابعة.';
@@ -1225,22 +1190,19 @@ class AppLocalizationsAr extends AppLocalizations {
   String get unlockButton => 'فتح القفل';
 
   @override
-  String get useBiometricInsteadButton =>
-      'استخدم المصادقة البيومترية بدلاً من ذلك';
+  String get useBiometricInsteadButton => 'استخدم المصادقة البيومترية بدلاً من ذلك';
 
   @override
   String get enterYourPasswordError => 'أدخل كلمة مرورك';
 
   @override
-  String get couldntVerifyPasswordError =>
-      'تعذر التحقق من كلمة مرورك. تحقق من اتصالك وحاول مرة أخرى.';
+  String get couldntVerifyPasswordError => 'تعذر التحقق من كلمة مرورك. تحقق من اتصالك وحاول مرة أخرى.';
 
   @override
   String get unlockReasonPrompt => 'افتح قفل Rosewater Café';
 
   @override
-  String get couldntSignOutError =>
-      'تعذر تسجيل الخروج. يرجى المحاولة مرة أخرى.';
+  String get couldntSignOutError => 'تعذر تسجيل الخروج. يرجى المحاولة مرة أخرى.';
 
   @override
   String get notifSubscriptionActivatedTitle => 'تم تفعيل العضوية';
@@ -1254,12 +1216,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get notifEventReservationConfirmedTitle => 'تم تأكيد حجز الفعالية';
 
   @override
-  String notifEventReservationConfirmedBody(
-    String eventType,
-    String date,
-    String time,
-    int guestCount,
-  ) {
+  String notifEventReservationConfirmedBody(String eventType, String date, String time, int guestCount) {
     String _temp0 = intl.Intl.pluralLogic(
       guestCount,
       locale: localeName,
@@ -1311,15 +1268,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noNotificationsTitle => 'لا توجد إشعارات بعد';
 
   @override
-  String get noNotificationsBody =>
-      'ستظهر هنا تحديثات الدفع وحجوزات الفعاليات.';
+  String get noNotificationsBody => 'ستظهر هنا تحديثات الدفع وحجوزات الفعاليات.';
 
   @override
   String get couldntLoadNotificationsError => 'تعذر تحميل إشعاراتك.';
 
   @override
-  String get couldntUpdateNotificationError =>
-      'تعذر تحديث هذا الإشعار. يرجى المحاولة مرة أخرى.';
+  String get couldntUpdateNotificationError => 'تعذر تحديث هذا الإشعار. يرجى المحاولة مرة أخرى.';
 
   @override
   String get timeJustNow => 'الآن';
@@ -1367,12 +1322,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get notifEventReminderTitle => 'تذكير بالفعالية';
 
   @override
-  String notifEventReminderBody(
-    String eventType,
-    String date,
-    String time,
-    int guestCount,
-  ) {
+  String notifEventReminderBody(String eventType, String date, String time, int guestCount) {
     String _temp0 = intl.Intl.pluralLogic(
       guestCount,
       locale: localeName,
@@ -1458,11 +1408,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get notifSubscriptionUpgradedTitle => 'تمت ترقية العضوية';
 
   @override
-  String notifSubscriptionUpgradedBody(
-    String oldPlan,
-    String newPlan,
-    String date,
-  ) {
+  String notifSubscriptionUpgradedBody(String oldPlan, String newPlan, String date) {
     return 'تمت ترقيتك من $oldPlan إلى $newPlan. عضويتك الجديدة مفعّلة حتى $date.';
   }
 }

@@ -6,13 +6,8 @@ import 'package:rosewater_cafe/services/settings_provider.dart';
 import 'package:rosewater_cafe/widgets/app_lock_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Sprint 8 Task 5 -- Auto-Lock's actual triggering logic: does resuming
-/// from background show the lock screen or not, for every combination the
-/// acceptance criteria and the task's own scoping decisions call for. The
-/// unlock interaction itself (biometric attempt, password fallback) is
-/// AppLockScreen's own responsibility, tested separately in
-/// app_lock_screen_test.dart -- this file only covers whether/when
-/// AppLockGate decides to show it.
+/// Whether AppLockGate shows the lock screen when the app resumes. Unlocking itself is tested in
+/// app_lock_screen_test.dart.
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -26,8 +21,7 @@ void main() {
       ChangeNotifierProvider<SettingsProvider>.value(
         value: settings,
         child: MaterialApp(
-          // Sprint 8 Task 6 Phase 2: the lock screen AppLockGate can show
-          // now reads AppLocalizations.
+          // The lock screen uses translations.
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: AppLockGate(

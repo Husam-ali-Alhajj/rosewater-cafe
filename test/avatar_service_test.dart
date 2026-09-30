@@ -1,8 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/services/avatar_service.dart';
 
-/// Same shape as id_document_service_test.dart: the file-picking checks run on
-/// just a name and a size, before any upload is attempted.
+/// Like id_document_service_test.dart: the checks only need a name and a size.
 void main() {
   const service = AvatarService();
 
@@ -14,10 +13,7 @@ void main() {
     });
 
     test('accepts a file exactly at the 5MB limit', () {
-      expect(
-        () => service.validate(fileName: 'a.png', sizeBytes: AvatarService.maxBytes),
-        returnsNormally,
-      );
+      expect(() => service.validate(fileName: 'a.png', sizeBytes: AvatarService.maxBytes), returnsNormally);
     });
 
     test('rejects a file one byte over the limit', () {

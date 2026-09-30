@@ -10,38 +10,20 @@ import '../../theme/app_semantic_colors.dart';
 import '../../utils/app_feedback.dart';
 import '../../widgets/gradient_button.dart';
 
-/// Door Access / QR Code screen (Figma node 1215:1616). `membership` comes
-/// from [MainShell]'s single shared fetch (see its own doc comment) --
-/// this screen's guest-count cap reuses the exact same `max_guests` Home
-/// already has, rather than re-querying `SubscriptionService` a second
-/// time for the same subscription.
+/// Door Access: shows the member's QR code and a guest counter limited by the plan (from
+/// MainShell).
 ///
-/// **Training-project simplification, deliberately not fixed here:** the
-/// QR code's payload is just the member's plain `member_id` string. A
-/// real production version of this screen should use a short-lived,
-/// signed/rotating token instead -- a static QR code can be photographed
-/// once (by the member, or by anyone standing near them) and reused
-/// indefinitely to claim a door-access log against that member's account
-/// forever, with no way to revoke or expire it. Not building that now
-/// (it needs a token-issuing endpoint and a scanner-side verification
-/// step that don't exist yet); this comment exists so it isn't silently
-/// forgotten either.
+/// Note: the QR code is just the plain member ID. A real version should use a short-lived signed
+/// token, because a photo of a static code could be reused forever.
 class QrAccessScreen extends StatefulWidget {
   final ActiveMembership membership;
 
-  /// The member's profile, fetched once by [MainShell] and shared with the
-  /// other tabs (its `memberId` is the QR payload). Null if that fetch
-  /// failed, in which case the QR area shows "Unable to load your member
-  /// ID" instead of a code.
+  /// The member's profile from MainShell; its member ID is the QR content. Null if it failed to
+  /// load.
   final Profile? profile;
   final VoidCallback onBackToDashboard;
 
-  const QrAccessScreen({
-    super.key,
-    required this.membership,
-    required this.profile,
-    required this.onBackToDashboard,
-  });
+  const QrAccessScreen({super.key, required this.membership, required this.profile, required this.onBackToDashboard});
 
   @override
   State<QrAccessScreen> createState() => _QrAccessScreenState();
@@ -75,7 +57,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
     try {
       await _doorAccessService.logDoorAccess(_guestCount);
       if (!mounted) return;
-      context.triggerSuccess(); // Sprint 8 Task 4: door opened
+      context.triggerSuccess();
       setState(() {
         _isOpening = false;
         _guestCount = 0;
@@ -171,10 +153,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            // Deliberately ALWAYS white, in both themes -- not colors.surface.
-            // A QR scanner needs real black-on-white contrast; a dark-mode
-            // card fill behind it would risk it not scanning at all, so this
-            // one element intentionally opts out of the theme.
+            // Always white, even in dark mode: QR scanners need black on white.
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
@@ -187,16 +166,13 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
                     child: Text(
                       l10n.unableToLoadMemberId,
                       textAlign: TextAlign.center,
-                      // Fixed dark-on-white text to match the QR card's
-                      // always-white fill above, not colors.textMuted.
+                      // Dark text to match the white QR card.
                       style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                     ),
                   ),
                 )
               : QrImageView(
-                  // See this file's class-level doc comment: a plain
-                  // member_id is a training-project simplification,
-                  // not something to reuse in production as-is.
+                  // The plain member ID (see the note at the top of this class).
                   data: widget.profile!.memberId!,
                   version: QrVersions.auto,
                   size: 199,
@@ -260,11 +236,7 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
     );
   }
 
-  // A warning-accented INFO box, not a neutral surface -- same reasoning as
-  // ReserveEventScreen's purple package card: keeps its own brightness-picked
-  // amber tint (the design's exact light-mode colors; a dark amber-tinted
-  // surface with light amber text in dark mode) rather than becoming an
-  // undifferentiated `colors.surface` card.
+  // A tinted info box, so it stands out in both light and dark mode.
   Widget _buildNote(BuildContext context, AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF3A2E12) : const Color(0xFFFFFBEB);
@@ -281,7 +253,10 @@ class _QrAccessScreenState extends State<QrAccessScreen> {
         TextSpan(
           style: TextStyle(fontSize: 14, color: ink),
           children: [
-            TextSpan(text: l10n.noteLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
+            TextSpan(
+              text: l10n.noteLabel,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             TextSpan(text: l10n.guestOrdersNote),
           ],
         ),

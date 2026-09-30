@@ -3,18 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/screens/auth/sign_in_screen.dart';
 
-/// Sprint 8 Task 6 -- i18n + RTL. `SignInScreen` doesn't take an injectable
-/// `AuthService` (a pre-existing gap, not this task's to fix), so this only
-/// covers what doesn't need a live backend: rendering in both locales, the
-/// RTL-specific fixes (the back arrow's direction, `Directionality` itself),
-/// and the one client-side validator this screen owns.
+/// SignInScreen can't take a fake AuthService, so these tests cover what works without a backend:
+/// both languages, right-to-left and the form validation.
 Future<void> _pump(WidgetTester tester, {String locale = 'en'}) async {
-  // A generous canvas, same convention every other screen test in this
-  // suite uses (e.g. home_content_test.dart, privacy_security_screen_test.dart)
-  // -- narrow-width responsiveness is a separate, pre-existing concern from
-  // this task's actual scope (i18n/RTL), and testing at ~400px surfaces a
-  // RenderFlex overflow in BOTH languages equally (confirmed independently
-  // -- not an RTL-specific regression), which would conflate the two.
+  // A large screen size, like the other screen tests.
   tester.view.physicalSize = const Size(800, 1400);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);

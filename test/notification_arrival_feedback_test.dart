@@ -1,8 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rosewater_cafe/services/notification_arrival_feedback.dart';
 
-/// Records what would have been played, with a configurable
-/// "Sound & Vibration" toggle.
+/// Records what would have played, with a configurable "Sound & Vibration" switch.
 class _Rig {
   final List<String> log = [];
   final Object? prefOrError; // bool, or something to throw

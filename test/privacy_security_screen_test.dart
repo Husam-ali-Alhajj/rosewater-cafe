@@ -10,10 +10,7 @@ import 'package:rosewater_cafe/services/settings_provider.dart';
 import 'package:rosewater_cafe/widgets/setting_toggle_row.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// A fake with no real `local_auth` platform channel behind it -- a widget
-/// test environment has none, so this stands in, matching the
-/// constructor-injection pattern every other real service in this file's
-/// fakes already follows.
+/// A fake biometric service (tests have no real device).
 class _FakeBiometricService extends BiometricService {
   _FakeBiometricService({this.available = true});
 
@@ -27,19 +24,10 @@ class _FakeBiometricService extends BiometricService {
   }
 }
 
-/// Records every password change / email change the screen asks for, and
-/// lets a test make either fail the way the real ones can. Also stands in
-/// for the live Supabase user this screen would otherwise need for its
-/// Email card ([currentUserEmail]/[pendingEmailChange]) -- a widget test
-/// can't initialise a real Supabase client, so these are overridden here
-/// instead of falling through to the real ones.
+/// Records password and email changes and can make them fail. Also fakes the current email, since
+/// tests can't start Supabase.
 class _FakeAuthService extends AuthService {
-  _FakeAuthService({
-    this.failure,
-    this.changeEmailFailure,
-    this.email = 'member@example.com',
-    this.pendingEmail,
-  });
+  _FakeAuthService({this.failure, this.changeEmailFailure, this.email = 'member@example.com', this.pendingEmail});
 
   final ChangePasswordFailure? failure;
   final ChangeEmailFailure? changeEmailFailure;
@@ -91,26 +79,20 @@ Future<void> _pump(
   tester.view.physicalSize = const Size(800, 3000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  // Security Options' Biometric Authentication / Auto-Lock rows are real
-  // now (Sprint 8 Task 5) -- they read/write SettingsProvider, so this
-  // screen needs one in its own widget tree here too, same as App
-  // Settings' own test file.
+  // The biometric and auto-lock switches use SettingsProvider.
   await tester.pumpWidget(
     ChangeNotifierProvider<SettingsProvider>.value(
       value: settings ?? await SettingsProvider.load(),
       child: MaterialApp(
-        // Sprint 9 Task 5: "View Privacy Policy"/"Terms of Service" push real
-        // screens now (PrivacyPolicyScreen/TermsOfServiceScreen), which read
-        // AppLocalizations for their chrome.
+        // The Privacy Policy and Terms screens need translations.
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: PrivacySecurityScreen(
           authService: auth ?? _FakeAuthService(),
           accountDeletionService: deletion ?? _FakeAccountDeletionService(),
           biometricService: biometricService ?? _FakeBiometricService(),
-          // Real default is signOutAndShowLanding, which needs a live Supabase
-          // client -- tests substitute a harmless no-op unless one wants to
-          // prove this step runs (see the "confirming" test below).
+          // The real step signs out, which needs Supabase, so tests use a no-op unless they check
+          // it.
           onAccountDeleted: onAccountDeleted ?? (_) async {},
         ),
       ),
@@ -141,7 +123,12 @@ Future<void> _openEmailForm(WidgetTester tester) async {
 Finder get _newEmailField => find.byType(TextFormField).at(0);
 Finder get _emailPasswordField => find.byType(TextFormField).at(1);
 
-Future<void> _fill(WidgetTester tester, {String current = 'OldPass1', String next = 'NewPass2', String? confirm}) async {
+Future<void> _fill(
+  WidgetTester tester, {
+  String current = 'OldPass1',
+  String next = 'NewPass2',
+  String? confirm,
+}) async {
   await tester.enterText(_currentField, current);
   await tester.enterText(_newField, next);
   await tester.enterText(_confirmField, confirm ?? next);
@@ -198,12 +185,12 @@ void main() {
     });
   });
 
-  group('Auto-Lock is real (Sprint 8 Task 5)', () {
+  group('Auto-Lock', () {
     testWidgets('reflects SettingsProvider.autoLockEnabled and tapping flips it', (tester) async {
       final settings = await SettingsProvider.load();
       await _pump(tester, settings: settings);
 
-      expect(settings.autoLockEnabled, isFalse); // decision #45's original reasoning: never on by default
+      expect(settings.autoLockEnabled, isFalse); // off by default
       expect(tester.widget<SettingSwitch>(find.byKey(const ValueKey('auto-lock'))).value, isFalse);
 
       await tester.tap(find.byKey(const ValueKey('auto-lock')));
@@ -214,7 +201,7 @@ void main() {
     });
   });
 
-  group('Biometric Authentication is real (Sprint 8 Task 5)', () {
+  group('Biometric Authentication', () {
     testWidgets('turning it on checks device capability first, and enables it when available', (tester) async {
       final settings = await SettingsProvider.load();
       final biometrics = _FakeBiometricService(available: true);
@@ -301,7 +288,9 @@ void main() {
 
       await _openForm(tester);
       for (var i = 0; i < 3; i++) {
-        final field = tester.widget<TextField>(find.descendant(of: find.byType(TextFormField).at(i), matching: find.byType(TextField)));
+        final field = tester.widget<TextField>(
+          find.descendant(of: find.byType(TextFormField).at(i), matching: find.byType(TextField)),
+        );
         expect(field.controller!.text, isEmpty);
       }
     });
@@ -319,26 +308,29 @@ void main() {
       expect(auth.calls, isEmpty);
     });
 
-    testWidgets('the new password must pass decision #10 -- each missing rule gets its own message, and nothing is sent', (tester) async {
-      final auth = _FakeAuthService();
-      await _pump(tester, auth: auth);
-      await _openForm(tester);
+    testWidgets(
+      'the new password must pass the password rules -- each missing rule gets its own message, and nothing is sent',
+      (tester) async {
+        final auth = _FakeAuthService();
+        await _pump(tester, auth: auth);
+        await _openForm(tester);
 
-      final cases = {
-        'Ab1': 'Must be at least 8 characters',
-        'password1': 'Add at least one uppercase letter',
-        'PASSWORD1': 'Add at least one lowercase letter',
-        'Passwordd': 'Add at least one number',
-        '': 'Password is required',
-      };
-      for (final entry in cases.entries) {
-        await _fill(tester, next: entry.key, confirm: entry.key);
-        await tester.tap(find.text('Update Password'));
-        await tester.pumpAndSettle();
-        expect(find.text(entry.value), findsOneWidget, reason: 'new password "${entry.key}"');
-      }
-      expect(auth.calls, isEmpty);
-    });
+        final cases = {
+          'Ab1': 'Must be at least 8 characters',
+          'password1': 'Add at least one uppercase letter',
+          'PASSWORD1': 'Add at least one lowercase letter',
+          'Passwordd': 'Add at least one number',
+          '': 'Password is required',
+        };
+        for (final entry in cases.entries) {
+          await _fill(tester, next: entry.key, confirm: entry.key);
+          await tester.tap(find.text('Update Password'));
+          await tester.pumpAndSettle();
+          expect(find.text(entry.value), findsOneWidget, reason: 'new password "${entry.key}"');
+        }
+        expect(auth.calls, isEmpty);
+      },
+    );
 
     testWidgets('a new password identical to the current one is rejected client-side', (tester) async {
       final auth = _FakeAuthService();
@@ -414,7 +406,9 @@ void main() {
     });
 
     testWidgets('a general failure is shown under the form, and the button works again', (tester) async {
-      final auth = _FakeAuthService(failure: const ChangePasswordFailure("Couldn't update your password. Please try again."));
+      final auth = _FakeAuthService(
+        failure: const ChangePasswordFailure("Couldn't update your password. Please try again."),
+      );
       await _pump(tester, auth: auth);
       await _openForm(tester);
 
@@ -523,7 +517,7 @@ void main() {
 
       expect(find.text("Couldn't remove your stored files. Please try again."), findsOneWidget);
       expect(find.text('Delete Permanently'), findsOneWidget); // not stuck on "Deleting…"
-      expect(log, isEmpty); // the local session was never ended -- the account is still real
+      expect(log, isEmpty); // the local session was never ended
     });
   });
 
@@ -542,7 +536,10 @@ void main() {
     });
 
     testWidgets('a change already pending from before shows the pending notice up front', (tester) async {
-      await _pump(tester, auth: _FakeAuthService(email: 'husam@example.com', pendingEmail: 'new@example.com'));
+      await _pump(
+        tester,
+        auth: _FakeAuthService(email: 'husam@example.com', pendingEmail: 'new@example.com'),
+      );
 
       expect(find.textContaining('new@example.com'), findsOneWidget);
       expect(find.textContaining('still works until then'), findsOneWidget);
@@ -589,8 +586,20 @@ void main() {
       expect(find.text('Change Email'), findsOneWidget); // row is back
 
       await _openEmailForm(tester);
-      expect(tester.widget<TextField>(find.descendant(of: _newEmailField, matching: find.byType(TextField))).controller!.text, isEmpty);
-      expect(tester.widget<TextField>(find.descendant(of: _emailPasswordField, matching: find.byType(TextField))).controller!.text, isEmpty);
+      expect(
+        tester
+            .widget<TextField>(find.descendant(of: _newEmailField, matching: find.byType(TextField)))
+            .controller!
+            .text,
+        isEmpty,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.descendant(of: _emailPasswordField, matching: find.byType(TextField)))
+            .controller!
+            .text,
+        isEmpty,
+      );
     });
 
     testWidgets('a valid request sends both fields, closes the form, and shows the pending notice', (tester) async {
@@ -660,7 +669,7 @@ void main() {
     });
   });
 
-  group('Sprint 9 Task 5: Privacy Policy and Terms of Service open real screens', () {
+  group('Privacy Policy and Terms of Service', () {
     testWidgets('View Privacy Policy opens the real, draft Privacy Policy screen', (tester) async {
       await _pump(tester);
 

@@ -1,9 +1,5 @@
-/// Client-side-only shape validation for the mock Payment screen's card
-/// fields. This is a training project with no real payment processor (see
-/// docs/decisions.md #4) — these checks exist purely so the form behaves
-/// realistically, not to actually verify a card. None of these values are
-/// ever sent anywhere; kept as pure functions (rather than private State
-/// methods) specifically so they're unit-testable on their own.
+/// Card field checks for the payment form. There's no real payment processor, so these only make
+/// the form behave realistically; the values are never sent anywhere.
 class PaymentValidators {
   PaymentValidators._();
 
@@ -22,7 +18,7 @@ class PaymentValidators {
     final month = int.parse(match.group(1)!);
     final year = 2000 + int.parse(match.group(2)!);
     final reference = now ?? DateTime.now();
-    final expiryEnd = DateTime(year, month + 1); // first moment the card is no longer valid
+    final expiryEnd = DateTime(year, month + 1); // the card stops being valid at this moment
     if (!expiryEnd.isAfter(reference)) return 'Card has expired';
     return null;
   }

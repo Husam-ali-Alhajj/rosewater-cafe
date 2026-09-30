@@ -3,13 +3,8 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/legal_document_screen.dart';
 
-/// Sprint 9 Task 5. **Draft placeholder text, not company-approved copy**, in
-/// English and Arabic (shown in the app's language) --
-/// see docs/decisions.md's Task 5 entry and [LegalDocumentScreen]'s doc
-/// comment. The billing section states this app's actual upgrade-only rule
-/// (decision #75: `upgrade_subscription` rejects anything that isn't a
-/// strictly-higher-priced plan) rather than a generic "you may change your
-/// plan" line that wouldn't be true here.
+/// Terms of Service, in English and Arabic. DRAFT placeholder text, not reviewed by a lawyer or
+/// approved by the company.
 class TermsOfServiceScreen extends StatelessWidget {
   const TermsOfServiceScreen({super.key});
 
@@ -93,8 +88,7 @@ class TermsOfServiceScreen extends StatelessWidget {
     ),
   ];
 
-  /// The same draft in Arabic -- also placeholder text pending real review
-  /// (and a professional legal translation of the final copy).
+  /// The same draft in Arabic (also a placeholder).
   static const _sectionsAr = [
     LegalSection(
       '1. قبول الشروط',

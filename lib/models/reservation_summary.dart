@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// The just-created reservation's data, carried from [ReserveEventScreen]
-/// to [ReservationConfirmedScreen] via constructor -- no re-fetch, since
-/// the screen that just submitted the reservation already has every field
-/// this needs. Same pattern as PaymentSuccessScreen taking its
-/// MembershipPlan directly rather than looking it up again.
+/// The reservation just made, passed from the booking form to the confirmation screen.
 class ReservationSummary {
   final DateTime eventDate;
   final TimeOfDay startTime;

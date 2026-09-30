@@ -1,15 +1,6 @@
-/// Derives a card's display brand and last 4 digits from what the user typed.
-///
-/// **A training-project simplification, on purpose** (same category as
-/// `confirm_subscription_payment`, decisions #4/#16 -- not a new kind): with
-/// no real payment processor, there is nothing to tell us the true brand, so
-/// it's guessed from the number's leading digits, purely so a saved card can
-/// be shown as "Visa •••• 4242". A real processor returns the brand and last
-/// 4 alongside a token; this code goes away then. The result is display-only
-/// -- never used to decide whether a card is valid.
-///
-/// The full number never leaves the form: only [detect]'s brand and
-/// [lastFour] are ever passed on to the service and stored.
+/// Works out a card's brand and last 4 digits from the typed number, just for showing it ("Visa
+/// •••• 4242"). There's no payment processor yet, so the brand is guessed from the first digits.
+/// Only the brand and last 4 are ever saved.
 class CardBrand {
   CardBrand._();
 
@@ -17,7 +8,7 @@ class CardBrand {
   static const mastercard = 'Mastercard';
   static const discover = 'Discover';
 
-  /// Shown when the leading digits match none of the above.
+  /// Used when the brand isn't recognised.
   static const unknown = 'Card';
 
   static String _digits(String cardNumber) => cardNumber.replaceAll(RegExp(r'\D'), '');

@@ -1,39 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// The single, shared home for every app-wide setting this project has (or
-/// will have this sprint): theme, animations, sound, haptics, auto-lock, and
-/// biometric login. Sprint 8's foundation task -- every one of these was
-/// previously either not stored anywhere at all, or (had a screen actually
-/// stored one locally) would have been its own separate `shared_preferences`
-/// call. One `ChangeNotifier`, registered once above `MaterialApp`
-/// (`main.dart`), so any screen reads/writes through `context.watch` /
-/// `context.read` instead of prop-drilling or reaching for
-/// `SharedPreferences.getInstance()` itself.
+/// App-wide settings for this device: theme, animations, sound, haptics, auto-lock, biometric login
+/// and language. Provided once above MaterialApp so any screen can read or change them.
 ///
-/// **This task deliberately does not wire any screen's toggle to this class
-/// yet** -- App Settings' Dark Mode/Animations/Sound/Haptic and Privacy &
-/// Security's Auto-Lock/Biometric all stay exactly the inert placeholders
-/// they were before this task (decisions #5/#45/#47). Each gets wired to the
-/// real setting here, and made to actually do something, in its own later
-/// Sprint 8 task. This task is purely the shared storage they'll all use.
-///
-/// Deliberately device-local, not per-account or backend state (matching
-/// `OnboardingPrefs`/`RememberMePrefs`, not `NotificationPrefs`'s per-user
-/// scoping) -- these are how-this-device-behaves preferences, not something
-/// that should follow a specific account.
-///
-/// Constructed via the async [load] factory, awaited in `main()` BEFORE
-/// `runApp()` -- the same "resolve everything first, no flash of a wrong
-/// state" pattern decision #15 already established for session routing.
-/// Building this synchronously with in-memory defaults and correcting them
-/// once the real stored values loaded would mean an actual dark-mode user
-/// sees a flash of light theme (or vice versa) on every cold start.
+/// Stored on the device, not the account. Loaded before the app starts so there's no flash of the
+/// wrong theme.
 class SettingsProvider extends ChangeNotifier {
-  // Initializing formals -- Dart exposes each one's call-site name with the
-  // field's leading underscore stripped (a private field can't have a
-  // private named-parameter name), so `load()` below calls this with plain
-  // names (`prefs:`, `themeMode:`, ...) despite the fields being private.
   SettingsProvider._({
     required this._prefs,
     required this._themeMode,
@@ -55,29 +28,19 @@ class SettingsProvider extends ChangeNotifier {
   static const _keyBiometricEnabled = 'settings.biometric_enabled';
   static const _keyLocale = 'settings.locale';
 
-  // Defaults, applied only when nothing has been stored yet.
-  //
-  // themeMode defaults to light, NOT system, on purpose: App Settings'
-  // "Dark Mode" row (Sprint 8 Task 2, AppTheme.dark) is a plain on/off
-  // switch, not a three-way System/Light/Dark picker -- there's no UI for
-  // "follow the system" for this to represent, so a fresh install starts
-  // in the state that switch actually shows as off (light), the same way
-  // every other toggle here defaults to whatever its own row is drawn as.
+  // Defaults, used until something is saved. Dark Mode is an on/off switch, so the default is light
+  // (not "follow the system").
   static const _defaultThemeMode = ThemeMode.light;
-  static const _defaultAnimationsEnabled = true; // design shows these "on"
+  static const _defaultAnimationsEnabled = true; // on, as in the design
   static const _defaultSoundEnabled = true;
   static const _defaultHapticsEnabled = true;
-  static const _defaultAutoLockEnabled = false; // decision #45: shown off, not implying protection that isn't real
-  static const _defaultAutoLockTimeoutSeconds = 300; // 5 minutes; revisited when Auto-Lock's own task wires this up
-  static const _defaultBiometricEnabled = false; // decision #45, same reasoning as auto-lock
-  // 'en' -- matches App Settings' Language list showing English selected by
-  // default (decision #5's original static state, before Sprint 8 Task 6
-  // made English/Arabic real). An ISO 639-1 code, not the design's display
-  // name ("English"/"Arabic") -- what `Locale(...)` and the ARB filenames
-  // both use.
+  static const _defaultAutoLockEnabled = false; // off by default
+  static const _defaultAutoLockTimeoutSeconds = 300; // 5 minutes
+  static const _defaultBiometricEnabled = false; // off by default
+  // Default language code.
   static const _defaultLocale = 'en';
 
-  /// Languages with real translations -- the only ones the picker allows.
+  /// Languages with translations, the only ones that can be picked.
   static const _selectableLocales = {'en', 'ar'};
 
   final SharedPreferences _prefs;
@@ -99,10 +62,7 @@ class SettingsProvider extends ChangeNotifier {
   int get autoLockTimeoutSeconds => _autoLockTimeoutSeconds;
   bool get biometricEnabled => _biometricEnabled;
 
-  /// An ISO 639-1 code: 'en' or 'ar' -- the only selectable languages
-  /// (decision #72; French/Spanish show in the picker but are disabled
-  /// until translated). A stale 'fr'/'es' saved before that change is
-  /// dropped on [load], so the picker always has a real, visible pick.
+  /// 'en' or 'ar'. An old saved 'fr' or 'es' falls back to English on [load].
   String get locale => _locale;
 
   Future<void> setThemeMode(ThemeMode value) async {
@@ -153,8 +113,7 @@ class SettingsProvider extends ChangeNotifier {
     await _prefs.setString(_keyLocale, value);
   }
 
-  /// Reads every stored value (or its default) from disk and returns a
-  /// fully-populated instance -- call once, awaited, before `runApp()`.
+  /// Reads every saved value (or its default). Call once, before runApp().
   static Future<SettingsProvider> load() async {
     final prefs = await SharedPreferences.getInstance();
     return SettingsProvider._(
@@ -166,9 +125,7 @@ class SettingsProvider extends ChangeNotifier {
       autoLockEnabled: prefs.getBool(_keyAutoLockEnabled) ?? _defaultAutoLockEnabled,
       autoLockTimeoutSeconds: prefs.getInt(_keyAutoLockTimeoutSeconds) ?? _defaultAutoLockTimeoutSeconds,
       biometricEnabled: prefs.getBool(_keyBiometricEnabled) ?? _defaultBiometricEnabled,
-      locale: _selectableLocales.contains(prefs.getString(_keyLocale))
-          ? prefs.getString(_keyLocale)!
-          : _defaultLocale,
+      locale: _selectableLocales.contains(prefs.getString(_keyLocale)) ? prefs.getString(_keyLocale)! : _defaultLocale,
     );
   }
 
@@ -177,6 +134,6 @@ class SettingsProvider extends ChangeNotifier {
     for (final mode in ThemeMode.values) {
       if (mode.name == name) return mode;
     }
-    return null; // an unrecognised stored value falls back to the default, never throws
+    return null; // an unknown saved value falls back to the default
   }
 }

@@ -183,7 +183,7 @@
   "planFeature247Access": "24/7 access",
   "planFeatureEventPriority": "Event priority",
   "planFeatureExclusiveMenu": "Exclusive menu",
-  "@planFeatureStandardSeating": {"description": "membership_plans.features -- real DB content from a small fixed catalog (see the Task 2 migration); translated by exact-string lookup in utils/membership_localization.dart, unrecognized strings fall back to the raw DB value"},
+  "@planFeatureStandardSeating": {"description": "A plan perk from the database, translated in utils/membership_localization.dart; unknown values are shown as stored"},
 
   "couldNotLoadDetailsError": "Could not load your details. Check your connection and try again.",
   "takePhoto": "Take Photo",
@@ -549,7 +549,7 @@
 
   "unreadNotificationsCount": "{count, plural, =0{No unread notifications} =1{1 unread notification} other{{count} unread notifications}}",
   "@unreadNotificationsCount": {
-    "description": "Notifications feed subtitle (Figma App-23: \"2 unread notifications\")",
+    "description": "Notifications screen subtitle, e.g. \"2 unread notifications\"",
     "placeholders": {"count": {"type": "int"}}
   },
   "unreadBadgeSemantics": "{count, plural, =1{1 unread notification} other{{count} unread notifications}}",
@@ -565,22 +565,22 @@
   "couldntUpdateNotificationError": "Couldn't update that notification. Please try again.",
   "timeJustNow": "Just now",
   "timeMinutesAgo": "{n}m ago",
-  "@timeMinutesAgo": {"description": "Figma App-23 style: \"5m ago\"", "placeholders": {"n": {"type": "int"}}},
+  "@timeMinutesAgo": {"description": "e.g. \"5m ago\"", "placeholders": {"n": {"type": "int"}}},
   "timeHoursAgo": "{n}h ago",
-  "@timeHoursAgo": {"description": "Figma App-23: \"2h ago\"", "placeholders": {"n": {"type": "int"}}},
+  "@timeHoursAgo": {"description": "e.g. \"2h ago\"", "placeholders": {"n": {"type": "int"}}},
   "timeDaysAgo": "{n}d ago",
-  "@timeDaysAgo": {"description": "Figma App-23: \"1d ago\" (under a week; older shows a date)", "placeholders": {"n": {"type": "int"}}},
+  "@timeDaysAgo": {"description": "e.g. \"1d ago\" (under a week; older shows a date)", "placeholders": {"n": {"type": "int"}}},
 
   "notifEventReminderTitle": "Event Reminder",
   "notifEventReminderBody": "Your {eventType} reservation is coming up on {date} at {time} for {guestCount, plural, =1{1 guest} other{{guestCount} guests}}.",
   "@notifEventReminderBody": {
-    "description": "Sent ~24h before a reservation (Figma App-23 \"Event Reminder\" card). {eventType} is the localized event type; {date}/{time} already formatted for the locale",
+    "description": "Sent about 24 hours before a reservation. {eventType} is translated; {date} and {time} are already formatted",
     "placeholders": {"eventType": {"type": "String"}, "date": {"type": "String"}, "time": {"type": "String"}, "guestCount": {"type": "int"}}
   },
   "notifLowAllowanceTitle": "Low Allowance Alert",
   "notifLowHookahBody": "{remaining, plural, =0{You have used all your hookah sessions this month.} =1{You have only 1 hookah session remaining this month.} other{You have only {remaining} hookah sessions remaining this month.}}",
   "@notifLowHookahBody": {
-    "description": "Figma App-23 \"Low Allowance Alert\" card, hookah",
+    "description": "Low allowance alert, hookah",
     "placeholders": {"remaining": {"type": "int"}}
   },
   "notifLowDrinksBody": "{remaining, plural, =0{You have used all your drinks this month.} =1{You have only 1 drink remaining this month.} other{You have only {remaining} drinks remaining this month.}}",

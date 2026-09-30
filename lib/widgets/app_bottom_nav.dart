@@ -8,9 +8,7 @@ class _BottomNavTabData {
   const _BottomNavTabData({required this.icon, required this.label});
 }
 
-/// Sprint 8 Task 6: built inside `build()`, not as a top-level `const`
-/// list, since the labels now come from `AppLocalizations` (needs a
-/// `BuildContext`) instead of fixed string literals.
+/// Built in build() because the labels are translated.
 List<_BottomNavTabData> _tabs(AppLocalizations l10n) => [
   _BottomNavTabData(icon: Icons.home_outlined, label: l10n.navHome),
   _BottomNavTabData(icon: Icons.qr_code_outlined, label: l10n.navQrCode),
@@ -18,25 +16,11 @@ List<_BottomNavTabData> _tabs(AppLocalizations l10n) => [
   _BottomNavTabData(icon: Icons.person_outline, label: l10n.navProfile),
 ];
 
-/// Bottom navigation bar matching the Figma `BottomNav` component (node
-/// 1216:2285) exactly: white background, 1px top border, 24px outline
-/// icons, 12px labels (bold + accent color when active, regular + muted
-/// gray otherwise), and a small 4px accent dot under the active tab's icon
-/// -- all four values read directly off that node, not eyeballed.
+/// The bottom navigation bar from the design. The active tab is bold, in the accent colour, with a
+/// small dot under its icon.
 ///
-/// One deliberate deviation from the Figma frame: tabs there hug their own
-/// text width (a 375px-wide mock with per-label gaps); here each tab is
-/// `Expanded` to equal width instead; a fixed-content-width nav bar looks
-/// wrong the moment the device isn't exactly 375px wide, so this trades
-/// exact-pixel-match for correctness at real screen widths.
-///
-/// **RTL note (Sprint 8 Task 6, decision #63):** needed NO layout changes
-/// for Arabic -- every tab is a plain vertical `Column` (icon, dot, label),
-/// with no left/right positioning to mirror, and the enclosing `Row`
-/// already reverses its children's visual order automatically under RTL
-/// `Directionality` (Flutter's default `Row` behavior, since this file
-/// never overrides `textDirection`). Confirmed by reading the render logic,
-/// not assumed -- see `test/app_bottom_nav_test.dart`'s RTL group.
+/// Unlike the design, each tab takes equal width, so it looks right on any screen size. Works in
+/// right-to-left without changes: the Row reverses the tab order automatically.
 class AppBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -60,11 +44,7 @@ class AppBottomNav extends StatelessWidget {
             children: [
               for (var i = 0; i < tabs.length; i++)
                 Expanded(
-                  child: _BottomNavButton(
-                    data: tabs[i],
-                    isActive: i == currentIndex,
-                    onTap: () => onTap(i),
-                  ),
+                  child: _BottomNavButton(data: tabs[i], isActive: i == currentIndex, onTap: () => onTap(i)),
                 ),
             ],
           ),
@@ -87,9 +67,7 @@ class _BottomNavButton extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        // The active tab's icon sits 4px higher than an inactive one --
-        // the 4px the accent dot below it takes up -- so every tab's
-        // label still lands at the same baseline regardless of state.
+        // The active icon sits 4px higher (the dot's space), so all labels line up.
         padding: EdgeInsets.only(top: isActive ? 4 : 8, bottom: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -104,11 +82,7 @@ class _BottomNavButton extends StatelessWidget {
               ),
             Text(
               data.label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: color,
-              ),
+              style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w600 : FontWeight.w400, color: color),
             ),
           ],
         ),

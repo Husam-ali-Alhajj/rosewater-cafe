@@ -8,28 +8,17 @@ import '../../widgets/app_page_route.dart';
 import '../../widgets/screen_header.dart';
 import 'add_payment_method_screen.dart';
 
-// Exact values read from the Figma `PaymentMethodsScreen` frame (node
-// 1217:2477) via the REST API -- same method as decisions #20/#40/#41/#42.
-// Sprint 8 Task 2 (dark mode rebuild): the neutral greys are now sourced
-// from `context.colors`; the green "Default"/set-default and red delete inks
-// map onto the semantic success/danger tokens, which invert correctly.
+// Sizes from the design; colours come from the theme so dark mode works.
 
-const _hairline = 0.515; // Figma's fractional hairline stroke width
+const _hairline = 0.515;
 
-/// Payment Methods (Figma frame "PaymentMethodsScreen", node 1217:2477):
-/// the user's saved cards -- brand, masked number, expiry, a green "Default"
-/// badge -- with "Add New Payment Method", and on each card a delete button
-/// (and, on non-default cards, a set-as-default button).
+/// The user's saved cards (brand, masked number, expiry, a "Default" badge), with buttons to add,
+/// delete or set as default.
 ///
-/// Everything shown is a real `payment_methods` row, metadata only (no full
-/// number or CVV exists to show). The "one default per user" rule is enforced
-/// in the database, not here: this screen just asks for "make this default" or
-/// "delete this" and reloads the list, so what it shows is always what the
-/// server ended up with -- never a client-side reordering.
+/// The database enforces one default card per user, so after each action the list is simply
+/// reloaded from the server.
 ///
-/// **Not in the design, added for a real list:** an empty state, a load-failure
-/// state with retry, a confirm dialog before deleting, and SnackBars for
-/// failures.
+/// Added beyond the design: empty and error states, a delete confirmation and error messages.
 class PaymentMethodsScreen extends StatefulWidget {
   final PaymentMethodService service;
 
@@ -44,8 +33,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   bool _loadFailed = false;
   List<PaymentMethod> _methods = const [];
 
-  /// The card an action is currently running on; all actions are disabled
-  /// meanwhile so two can't interleave.
+  /// The card an action is running on; all buttons are disabled meanwhile.
   String? _busyId;
 
   @override
@@ -80,9 +68,9 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   }
 
   Future<void> _add() async {
-    final added = await Navigator.of(context).push<bool>(
-      appRoute(context, (_) => AddPaymentMethodScreen(isFirstCard: _methods.isEmpty)),
-    );
+    final added = await Navigator.of(
+      context,
+    ).push<bool>(appRoute(context, (_) => AddPaymentMethodScreen(isFirstCard: _methods.isEmpty)));
     if (added == true && mounted) await _load();
   }
 
@@ -98,7 +86,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     }
     if (!mounted) return;
     setState(() => _busyId = null);
-    await _load(); // show exactly what the server ended up with
+    await _load();
   }
 
   Future<void> _delete(PaymentMethod method) async {
@@ -130,7 +118,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     }
     if (!mounted) return;
     setState(() => _busyId = null);
-    await _load(); // the database promotes another card if this was the default
+    await _load(); // the database picks a new default if needed
   }
 
   @override
@@ -142,7 +130,6 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
-            // Figma's frame padding: 16 sides, 32 top; 32 below the list.
             padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -183,8 +170,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   }
 }
 
-/// "Add New Payment Method" (Figma node 1217:2486): 48 tall, radius 8, the
-/// primary gradient, a 16px plus icon 15px before the label, centred.
+/// The "Add New Payment Method" button.
 class _AddButton extends StatelessWidget {
   final VoidCallback? onTap;
 
@@ -226,10 +212,7 @@ class _AddButton extends StatelessWidget {
   }
 }
 
-/// One saved card (Figma nodes 1217:2492 / 1217:2514): a 56px gradient tile
-/// with a card emoji, the brand (+ a green "Default" badge), the masked
-/// number and the expiry; a delete button at the right, plus a set-as-default
-/// button on non-default cards.
+/// One saved card: card tile, brand (with "Default" badge), masked number, expiry, and its buttons.
 class _PaymentMethodCard extends StatelessWidget {
   final PaymentMethod method;
   final bool enabled;
@@ -262,10 +245,7 @@ class _PaymentMethodCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 56px tile, vertically centred in the 76px content. Uses
-                  // the theme's own surface tones (rather than the design's
-                  // fixed light-grey pair) so it doesn't go flat/invisible
-                  // against a dark card.
+                  // Uses theme colours so the tile stays visible on a dark card.
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: Container(
@@ -319,10 +299,8 @@ class _CardDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    // The design's column is 76 tall on a non-default card; on the default
-    // card the extra 4px gap before "Expires" pushes it to 80, spilling into
-    // the card's bottom padding. Reproduced: the box stays 76 and the text
-    // overflows visibly rather than growing the card.
+    // Matches the design: the text column keeps a fixed height, so on the default card it overflows
+    // slightly instead of growing the card.
     return SizedBox(
       height: 76,
       child: OverflowBox(
@@ -341,12 +319,7 @@ class _CardDetails extends StatelessWidget {
                       method.brand,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 18,
-                        height: 28 / 18,
-                        letterSpacing: -0.44,
-                        color: colors.textPrimary,
-                      ),
+                      style: TextStyle(fontSize: 18, height: 28 / 18, letterSpacing: -0.44, color: colors.textPrimary),
                     ),
                   ),
                   if (method.isDefault) ...[
@@ -388,7 +361,7 @@ class _CardDetails extends StatelessWidget {
   }
 }
 
-/// A 36x32 icon button, radius 8, no fill (Figma nodes 1217:2507 etc.).
+/// A small icon button.
 class _IconAction extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -414,8 +387,7 @@ class _IconAction extends StatelessWidget {
   }
 }
 
-/// A white card with a short message and an optional action -- the empty and
-/// load-failure states (neither exists in the design).
+/// A card with a message and an optional button, used for the empty and error states.
 class _MessageCard extends StatelessWidget {
   final String message;
   final String? actionLabel;

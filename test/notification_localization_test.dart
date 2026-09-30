@@ -68,7 +68,8 @@ void main() {
     });
 
     test('Arabic plural forms follow the guest count', () {
-      String body(int n) => localizeNotification(_notification('event_reservation_confirmed', _event(guests: n)), _ar).body;
+      String body(int n) =>
+          localizeNotification(_notification('event_reservation_confirmed', _event(guests: n)), _ar).body;
       expect(body(5), contains('5 ضيوف')); // 3-10: few
       expect(body(12), contains('12 ضيفًا')); // 11-99: many
       expect(body(100), contains('100 ضيف')); // other

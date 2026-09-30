@@ -5,21 +5,13 @@ import '../utils/app_animations.dart';
 
 const _switchOn = Color(0xFFEC003F);
 
-const _hairline = 0.515; // Figma's fractional hairline stroke width
+const _hairline = 0.515;
 
-/// One settings toggle: an icon, a 14px label over a 14px description, and a
-/// switch at the right, all inside 16px padding, with a hairline divider below
-/// (unless it's the last row in its card). Read from the Figma
-/// "NotificationToggle" rows (Notifications node 1217:2554, Privacy & Security
-/// node 1217:2653) -- the two screens share it.
+/// One settings row: icon, label, description and a switch, with a divider below (except the last
+/// row). [iconSize] varies as in the design.
 ///
-/// An icon's frame in the design varies in size (15.31-20px); pass it as
-/// [iconSize]. The text always starts 12px after the icon's right edge.
-///
-/// [onToggle] null means **disabled**: the switch is drawn dimmed, can't be
-/// tapped, and announces itself as unavailable. [note] adds a small extra line
-/// under the description (e.g. "(Coming Soon)", as the design labels Dark
-/// Mode).
+/// A null [onToggle] disables the row (dimmed and not tappable). [note] adds a small extra line,
+/// like "(Coming Soon)".
 class SettingToggleRow extends StatelessWidget {
   final IconData icon;
   final double iconSize;
@@ -30,7 +22,7 @@ class SettingToggleRow extends StatelessWidget {
   final bool showDivider;
   final String? note;
 
-  /// Set on the switch itself, so tests (and callers) can find it.
+  /// Set on the switch so tests can find it.
   final Key? switchKey;
 
   const SettingToggleRow({
@@ -52,7 +44,11 @@ class SettingToggleRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: showDivider
-          ? BoxDecoration(border: Border(bottom: BorderSide(color: colors.border, width: _hairline)))
+          ? BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: colors.border, width: _hairline),
+              ),
+            )
           : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,10 +99,8 @@ class SettingToggleRow extends StatelessWidget {
   }
 }
 
-/// The design's switch (Figma e.g. node 1217:2564): a 44x24 pill, red
-/// `#EC003F` when on and grey `#D1D5DC` when off, with a 16px white thumb 4px
-/// in from the edge on either side. Announced to screen readers as a toggle
-/// with its label. With a null [onTap] it is disabled: dimmed and inert.
+/// The design's switch: a pill that's red when on and grey when off, with a white thumb. Disabled
+/// when [onTap] is null.
 class SettingSwitch extends StatelessWidget {
   final String label;
   final bool value;
@@ -117,14 +111,8 @@ class SettingSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    // NOT `context.colors.surfaceElevated`: that token IS the card's own
-    // white in light mode (see `_Card`'s fill in app_settings_screen.dart),
-    // so an off-state track drawn in it -- with a white thumb on top --
-    // was a solid-white pill on a solid-white card: invisible, with nothing
-    // to tap. Same pitfall `DotsIndicator.inactiveColor`'s doc comment
-    // already calls out for the exact same reason; this picks its own
-    // brightness-aware grey pair the same way, rather than reusing a card
-    // fill for a small solid control that sits ON a card.
+    // Its own grey instead of a card colour: in light mode that would be white on a white card, so
+    // the switch would be invisible.
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final switchOff = isDark ? const Color(0xFF4A4152) : const Color(0xFFD1D5DC);
     return Semantics(
@@ -140,16 +128,10 @@ class SettingSwitch extends StatelessWidget {
             duration: context.animDuration(const Duration(milliseconds: 150)),
             width: 44,
             height: 24,
-            decoration: BoxDecoration(
-              color: value ? _switchOn : switchOff,
-              borderRadius: BorderRadius.circular(12),
-            ),
+            decoration: BoxDecoration(color: value ? _switchOn : switchOff, borderRadius: BorderRadius.circular(12)),
             child: Stack(
               children: [
-                // Sprint 8 Task 6: AnimatedPositionedDirectional (not
-                // AnimatedPositioned's physical `left`), so the thumb slides
-                // toward the trailing edge -- which is the LEFT in RTL -- not
-                // always toward the physical left/right.
+                // The thumb slides toward the correct side in right-to-left too.
                 AnimatedPositionedDirectional(
                   duration: context.animDuration(const Duration(milliseconds: 150)),
                   start: value ? 24 : 4,

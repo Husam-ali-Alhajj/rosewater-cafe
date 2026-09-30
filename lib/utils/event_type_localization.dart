@@ -1,14 +1,10 @@
 import '../l10n/app_localizations.dart';
 
-/// Canonical event-type values sent to the server (`p_event_type`) --
-/// these stay in English regardless of the active locale, since there's
-/// no backing table for event types to be looked up from; only the
-/// on-screen label localizes, via [localizedEventType].
+/// Event types sent to the server. Always English; only the label on screen is translated.
 const eventTypes = ['Birthday', 'Corporate', 'Private Party', 'Other'];
 
-/// [type]'s label in [l10n]'s language. Shared by the Reserve an Event
-/// form and event-reservation notifications (whose `data.event_type` is
-/// this same canonical value), so both always show the same wording.
+/// The translated label for [type]. Used by the booking form and event notifications, so both use
+/// the same words.
 String localizedEventType(AppLocalizations l10n, String type) {
   switch (type) {
     case 'Birthday':

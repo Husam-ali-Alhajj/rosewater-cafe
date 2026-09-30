@@ -10,25 +10,10 @@ import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 import 'sign_in_screen.dart';
 
-/// The screen Forgot Password was always missing a second half for
-/// (decision #55): reached ONLY by `auth_deep_link_listener.dart`, the
-/// moment Supabase fires `AuthChangeEvent.passwordRecovery` because a real
-/// password-recovery email link was just opened. There's no button anywhere
-/// in the app that navigates here on purpose -- landing on this screen IS
-/// the proof a real recovery link worked.
+/// Opened only by a password-reset email link (see auth_deep_link_listener.dart). There's no
+/// current-password field: the link already proved it's the user.
 ///
-/// Same shape as [ForgotPasswordScreen]: a card on the gradient background,
-/// a form that swaps to a success view once it succeeds. Same password
-/// rules as signup ([Validators.password], decision #10) -- there's no
-/// "current password" field, because the whole point of this flow is the
-/// user doesn't remember it; the recovery link itself already proved this
-/// is really them.
-///
-/// On success, the recovery session is ended (`signOut`) and the success
-/// view's button sends the user to [SignInScreen] to sign in fresh with the
-/// new password -- chosen over silently continuing on the recovery session,
-/// so "did it actually work?" gets answered by an explicit, ordinary sign-in
-/// rather than assumed.
+/// On success we sign out, and the user signs in again with the new password.
 class SetNewPasswordScreen extends StatefulWidget {
   const SetNewPasswordScreen({super.key});
 
@@ -58,7 +43,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
 
   String? _validatePassword(String? value) {
     if (_serverPasswordError != null) return _serverPasswordError;
-    return Validators.password(value); // decision #10, same as signup
+    return Validators.password(value);
   }
 
   String? _validateConfirm(String? value) {
@@ -67,7 +52,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
   }
 
   Future<void> _submit() async {
-    if (_isSubmitting) return; // same re-entry guard as every other auth form
+    if (_isSubmitting) return;
     _serverPasswordError = null;
     setState(() => _formError = null);
     if (!_formKey.currentState!.validate()) return;
@@ -75,8 +60,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
     setState(() => _isSubmitting = true);
     try {
       await _authService.completePasswordRecovery(_passwordController.text);
-      // The recovery session has done its one job -- end it so nothing is
-      // left silently signed in if the user never taps through to Sign In.
+      // End the recovery session so nothing stays signed in.
       try {
         await supabase.auth.signOut();
       } catch (_) {}
@@ -106,9 +90,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
   }
 
   void _continueToSignIn() {
-    Navigator.of(
-      context,
-    ).pushAndRemoveUntil(appRoute(context, (_) => const SignInScreen()), (route) => false);
+    Navigator.of(context).pushAndRemoveUntil(appRoute(context, (_) => const SignInScreen()), (route) => false);
   }
 
   @override
@@ -154,11 +136,7 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
           const SizedBox(height: 24),
           Text(l10n.setNewPasswordHeading, style: AppTextStyles.heading1(context)),
           const SizedBox(height: 8),
-          Text(
-            l10n.chooseNewPasswordSubtitle,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMuted(context),
-          ),
+          Text(l10n.chooseNewPasswordSubtitle, textAlign: TextAlign.center, style: AppTextStyles.bodyMuted(context)),
           const SizedBox(height: 24),
           TextFormField(
             controller: _passwordController,
@@ -197,7 +175,11 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
           ),
           if (_formError != null) ...[
             const SizedBox(height: 16),
-            Text(_formError!, textAlign: TextAlign.center, style: TextStyle(color: context.colors.danger, fontSize: 12)),
+            Text(
+              _formError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: context.colors.danger, fontSize: 12),
+            ),
           ],
           const SizedBox(height: 24),
           GradientButton(
@@ -231,11 +213,7 @@ class _SuccessContent extends StatelessWidget {
         const SizedBox(height: 24),
         Text(l10n.passwordUpdatedHeading, style: AppTextStyles.heading1(context), textAlign: TextAlign.center),
         const SizedBox(height: 8),
-        Text(
-          l10n.passwordUpdatedBody,
-          textAlign: TextAlign.center,
-          style: AppTextStyles.bodyMuted(context),
-        ),
+        Text(l10n.passwordUpdatedBody, textAlign: TextAlign.center, style: AppTextStyles.bodyMuted(context)),
         const SizedBox(height: 24),
         GradientButton(label: l10n.continueToSignIn, onPressed: onContinue),
       ],

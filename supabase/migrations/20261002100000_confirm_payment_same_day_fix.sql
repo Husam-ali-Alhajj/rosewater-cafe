@@ -1,18 +1,11 @@
--- Fix: a same-day re-subscribe could fail in confirm_subscription_payment
--- (decision #81).
+-- Fix: paying could fail on the same day a usage period already started, because usage_allowances
+-- allows only one row per user per start date.
 --
--- usage_allowances allows one row per user per period_start, and this
--- function always inserted a new row starting today. A member can't reach
--- that through the app (they can't cancel an active membership, nor start
--- one while active), but if a membership is cancelled directly in the
--- database (e.g. by staff) and the member re-subscribes the same day,
--- paying failed with `23505 duplicate key value violates unique
--- constraint "usage_allowances_user_id_period_start_key"` -- reproduced on
--- the live dev project. upgrade_subscription had the same problem and got
--- this same fix in 20260930160000.
+-- Users can't reach this through the app (they can't cancel an active membership or start one while
+-- active), but it can happen if a membership is cancelled directly in the database and the member
+-- subscribes again the same day. upgrade_subscription had the same problem and the same fix.
 --
--- Only change from 20261001100000's version: the usage insert reuses
--- today's row when one exists (ON CONFLICT DO UPDATE).
+-- The only change: the usage insert reuses today's row if there is one.
 
 create or replace function public.confirm_subscription_payment(p_subscription_id uuid)
 returns timestamptz
@@ -44,11 +37,8 @@ begin
     raise exception 'subscription_not_found_or_not_pending';
   end if;
 
-  -- A usage row starting today may already exist (see this migration's
-  -- header) -- reuse it as this subscription's fresh period instead of
-  -- failing on `unique (user_id, period_start)`: re-pointed here, usage
-  -- back to zero, low-allowance markers (#70) cleared. Same fix as
-  -- upgrade_subscription's (20260930160000).
+  -- A usage row starting today may already exist. Reuse it for this subscription instead of
+  -- failing: re-linked, usage back to zero, alert flags cleared.
   insert into public.usage_allowances (user_id, subscription_id, period_start, period_end)
   values (v_user_id, v_found_id, current_date, v_valid_until::date)
   on conflict (user_id, period_start) do update
