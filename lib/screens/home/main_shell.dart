@@ -19,9 +19,7 @@ const _profileTab = 3; // a membership notification's "View Details" goes here
 
 /// The authenticated app's real entry point once a member has an active
 /// subscription: a persistent 4-tab bottom nav (Home / QR Code / Events /
-/// Profile) matching the Figma `BottomNav` component, replacing the old
-/// flat `ComingSoonScreen(label: 'Home')` destination used everywhere
-/// before this sprint.
+/// Profile) matching the Figma `BottomNav` component.
 ///
 /// All four tabs are built out. `IndexedStack` (not swapping the child
 /// widget per tap) keeps each tab's state alive across switches, matching

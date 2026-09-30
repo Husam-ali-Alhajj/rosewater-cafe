@@ -5347,6 +5347,53 @@ the row's own `subscription_id` directly -- same result today, but exact
 if a non-current period's row is ever updated.
 ---
 
+### 81. Pre-submission fixes: same-day re-subscribe + table permissions
+
+The user chose to fix only these two of the known issues before submitting.
+
+**1. Same-day re-subscribe failed** (migration
+`20261002100000_confirm_payment_same_day_fix.sql`). `confirm_subscription_payment`
+always inserted a usage row starting today, and `usage_allowances` allows
+one per user per `period_start`. **Correction to how this was first
+described:** a member can't reach it through the app -- `cancel_subscription`
+only cancels a *pending* membership, and `start_subscription` refuses while
+one is active (both verified live). It happens only if a membership is
+cancelled directly in the database (e.g. by staff) and the member
+re-subscribes the same day -- reproduced live: `23505 duplicate key value
+violates unique constraint "usage_allowances_user_id_period_start_key"`.
+Fixed exactly like `upgrade_subscription`'s (#75): the insert reuses today's
+row (`ON CONFLICT DO UPDATE`), re-pointed to the new subscription (#80),
+usage zeroed, #70's alert markers cleared. Verified live after: the same
+scenario now succeeds -- one usage row for today, linked to the new
+subscription, reset to 0 (after 5 hookah had been used).
+
+**2. Leftover default table permissions** (migration
+`20261002110000_tighten_table_grants.sql`). A live audit of all 10 public
+tables found 8 still granting `anon` and `authenticated` every default
+privilege -- SELECT/INSERT/UPDATE/DELETE plus TRUNCATE (which bypasses RLS),
+REFERENCES, TRIGGER -- far beyond their RLS policies (#68 had fixed only
+`notifications`). **Revoke-only**, nothing granted, so no access can widen:
+every table's grants now equal its policies -- `anon` has nothing anywhere
+(no table has an anon policy; nothing in the app queries before sign-in),
+and `authenticated` keeps exactly: SELECT on door_access_logs,
+event_reservations, membership_plans, subscriptions, usage_allowances;
+SELECT+INSERT on id_documents; SELECT+UPDATE on profiles; all four on
+payment_methods. Checked against the app's code: every query and write it
+makes uses a kept privilege. SECURITY DEFINER functions run as the owner,
+unaffected.
+Verified live, as `authenticated`, rolled back -- still works: reading
+plans / own subscription / usage / reservations / door logs / ID documents,
+uploading an ID document, adding a card + making it default + deleting it,
+updating the profile. Now blocked (`42501`): TRUNCATE, inserting a
+subscription directly, updating usage, deleting a profile, and any `anon`
+read. No app code changed; `flutter test` still passes.
+
+Not done (noted for the company): Supabase will keep auto-granting ALL on
+*future* tables -- each new table needs the same revoke (or the schema's
+default privileges changed).
+
+---
+
 ## Checkpoint: status of every open item, as of the end of Sprint 2
 
 Went through every open gap/question in this file with the user before

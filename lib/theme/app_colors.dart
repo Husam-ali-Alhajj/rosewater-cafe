@@ -6,7 +6,6 @@ class AppColors {
   AppColors._();
 
   static const Color pink = Color(0xFFE91E63);
-  static const Color hotPink = Color(0xFFEC1E63);
   static const Color purple = Color(0xFF9C27B0);
   static const Color orange = Color(0xFFF57C00);
 
@@ -16,13 +15,6 @@ class AppColors {
     colors: [Color(0xFFFF2056), Color(0xFF9810FA)],
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-  );
-
-  // Membership status card gradient on Home
-  static const LinearGradient membershipGradient = LinearGradient(
-    colors: [purple, pink],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
   );
 
   // Choose Membership card accents (icon badge + "Select" button) per tier.
@@ -54,13 +46,6 @@ class AppColors {
   // off node 1213:1030.
   static const Color membershipCheckmark = Color(0xFF00C950);
   static const Color membershipPremiumBorder = Color(0xFFC27AFF);
-  static const Color membershipCardBorder = Color(0xFFE5E7EB);
-
-  // Text colors specific to the membership cards (Figma uses slightly
-  // different shades here than the app's general textDark/textMuted).
-  static const Color membershipListText = Color(0xFF364153);
-  static const Color membershipPriceText = Color(0xFF101828);
-  static const Color membershipPriceSuffix = Color(0xFF6A7282);
 
   // The soft 3-stop wash used behind every screen so far (onboarding, auth
   // landing) — confirmed identical on both, so treated as the page-wide
