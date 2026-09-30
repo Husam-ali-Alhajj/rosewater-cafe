@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/supabase_client.dart';
+import '../../widgets/app_page_route.dart';
 import 'auth_landing_screen.dart';
 
 /// Ends the current session and returns to Auth Landing, clearing the whole
@@ -16,14 +18,14 @@ Future<bool> signOutAndShowLanding(BuildContext context) async {
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't sign out. Please try again.")),
+        SnackBar(content: Text(AppLocalizations.of(context).couldntSignOutError)),
       );
     }
     return false;
   }
   if (!context.mounted) return true;
   Navigator.of(context).pushAndRemoveUntil(
-    MaterialPageRoute(builder: (_) => const AuthLandingScreen()),
+    appRoute(context, (_) => const AuthLandingScreen()),
     (route) => false,
   );
   return true;

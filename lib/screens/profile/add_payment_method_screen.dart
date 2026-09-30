@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/payment_method_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/card_brand.dart';
 import '../../utils/payment_validators.dart';
 import '../../widgets/form_buttons.dart';
 import '../../widgets/payment_fields.dart';
 import '../../widgets/screen_header.dart';
 
-const _mutedText = Color(0xFF6A7282);
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
 /// Add Payment Method.
@@ -115,16 +115,18 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _errorMessage = "Couldn't save your card. Check your connection and try again.";
+        _errorMessage = AppLocalizations.of(context).couldntSaveCardError;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
@@ -132,16 +134,16 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 ScreenHeader(
-                  title: 'Add Payment Method',
+                  title: l10n.addPaymentMethodHeading,
                   onBack: _saving ? null : () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: colors.surface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+                    border: Border.all(color: colors.border, width: _hairline),
                   ),
                   child: Form(
                     key: _formKey,
@@ -149,7 +151,7 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         PaymentField(
-                          label: 'Card Number',
+                          label: l10n.cardNumberLabel,
                           controller: _cardNumberController,
                           hint: '1234 5678 9012 3456',
                           validator: PaymentValidators.cardNumber,
@@ -163,7 +165,7 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
                           children: [
                             Expanded(
                               child: PaymentField(
-                                label: 'Expiry Date',
+                                label: l10n.expiryDateLabel,
                                 controller: _expiryController,
                                 hint: 'MM/YY',
                                 validator: PaymentValidators.expiry,
@@ -175,7 +177,7 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: PaymentField(
-                                label: 'CVV',
+                                label: l10n.cvvLabel,
                                 controller: _cvvController,
                                 hint: '123',
                                 validator: PaymentValidators.cvv,
@@ -199,10 +201,10 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
                                   onChanged: _saving ? null : (v) => setState(() => _makeDefault = v ?? false),
                                   visualDensity: VisualDensity.compact,
                                 ),
-                                const Expanded(
+                                Expanded(
                                   child: Text(
-                                    'Set as default payment method',
-                                    style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: AppColors.textDark),
+                                    l10n.setAsDefaultPaymentCheckbox,
+                                    style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textPrimary),
                                   ),
                                 ),
                               ],
@@ -210,10 +212,9 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
                           ),
                         ],
                         const SizedBox(height: 16),
-                        const Text(
-                          'For your security, only the card type, last 4 digits and expiry date '
-                          'are saved — never your full card number or CVV.',
-                          style: TextStyle(fontSize: 12, height: 16 / 12, color: _mutedText),
+                        Text(
+                          l10n.cardSecurityNote,
+                          style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
                         ),
                       ],
                     ),
@@ -224,17 +225,27 @@ class _AddPaymentMethodScreenState extends State<AddPaymentMethodScreen> {
                   Text(
                     _errorMessage!,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.danger, fontSize: 12),
+                    style: TextStyle(color: colors.danger, fontSize: 12),
                   ),
                 ],
                 const SizedBox(height: 24),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: CancelButton(onTap: _saving ? null : () => Navigator.of(context).pop())),
+                    Expanded(
+                      child: CancelButton(
+                        label: l10n.cancelButton,
+                        onTap: _saving ? null : () => Navigator.of(context).pop(),
+                      ),
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: SaveButton(label: 'Save Card', saving: _saving, onTap: _saving ? null : _save),
+                      child: SaveButton(
+                        label: l10n.saveCardButton,
+                        savingLabel: l10n.savingEllipsis,
+                        saving: _saving,
+                        onTap: _saving ? null : _save,
+                      ),
                     ),
                   ],
                 ),

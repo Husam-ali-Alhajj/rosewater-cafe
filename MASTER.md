@@ -83,19 +83,19 @@ project and swaps one config file (§14).
 | QR / Door Access + `log_door_access` RPC | ✅ Built |
 | Event reservation form + confirmation + `create_event_reservation` RPC | ✅ Built (UI click-through was left to the developer, #37/#38) |
 | Subscription expiry (daily `pg_cron` job + client-side check) | ✅ Built |
-| Profile tab (read-only screen + **Sign Out**) | ✅ Built (Sprint 5 Task 1). Its only remaining stub row is **Upgrade Membership**, since decision #25 has no re-subscribe flow to send it to yet |
+| Profile tab (read-only screen + **Sign Out**) | ✅ Built (Sprint 5 Task 1). **Upgrade Membership is real** (#76) -- hidden entirely for a VIP member (nothing to upgrade to), otherwise opens a real screen routing into the existing payment form |
 | Edit Profile (name, phone, photo; email read-only) | ✅ Built (Sprint 5 Task 2, #42), avatars bucket + storage isolation proven live |
-| App Settings (Sprint 5 Task 7, #47) | ✅ Dark Mode/Language/Animations/Sound/Haptic are visual-only placeholders (decisions #5/#47); **Cache Size/Clear Cache/Clear All App Data are real** — a genuine, computed number, and real clearing (image cache + local preferences + sign-out) |
-| Help & Support (Sprint 5 Task 6, #46) | ✅ Static contact cards (no backend); FAQ accordion with the **one real answer** the design exports, the other three questions shown with a plain placeholder, never invented copy; Resources open coming-soon pages |
-| Privacy & Security (Sprint 5 Task 5, #45; Delete Account made real, #52; hardened, #54; Change Email added, #57) | ✅ **Change Password is real** (re-enter the current password; same strength rules as signup). **Delete Account is real, immediate, self-service deletion, and password-gated**: an inline form (same expand-in-place pattern as Change Password) re-verifies the current password, then removes every stored file in both `avatars`/`id-documents` — aborting the whole deletion if that cleanup fails — before calling `delete_own_account`, which cascades through every table of the user's data; no undo, no request queue. **Change Email is real and password-gated too**: requests a Supabase email change (current email keeps working until the new one's confirmation link is clicked; `profiles.email` follows automatically via a server-side sync trigger). Biometric / Two-Factor / Auto-Lock are **disabled "Coming soon" placeholders**; Privacy Policy / Terms open a coming-soon page |
+| App Settings (Sprint 5 Task 7, #47; Dark Mode made real, Sprint 8 Task 2, #59; Animations made real, Sprint 8 Task 3, #60) | ✅ **Dark Mode is real**: `AppTheme.dark`, bound to `SettingsProvider.themeMode`, live-updates every screen with no restart. **Animations is real**: off collapses every screen-to-screen transition (`AppPageRoute`, all 28 `Navigator.push` call sites app-wide) and every explicit `Animated*` duration (switches, the FAQ chevron, the dots indicator, onboarding's slide swipe) to 1ms; on returns them to normal. Language/Sound/Haptic are still visual-only placeholders (decisions #5/#47). **Cache Size/Clear Cache/Clear All App Data are real** — a genuine, computed number, and real clearing (image cache + local preferences + sign-out) |
+| Help & Support (Sprint 5 Task 6, #46; remaining FAQ answers drafted, Sprint 9 Task 6, #79) | ✅ Static contact cards (no backend); FAQ accordion with the **one real, design-exported answer**, plus **draft answers for the other three** (#79) grounded in this app's real behavior (allowance alerts, `maxGuests`, service hours), each flagged with a "pending confirmation from the company" note — still not the company's real copy, just not blank anymore; Resources open coming-soon pages |
+| Privacy & Security (Sprint 5 Task 5, #45; Delete Account made real, #52; hardened, #54; Change Email added, #57; Biometric + Auto-Lock made real, Sprint 8 Task 5, #62) | ✅ **Change Password is real** (re-enter the current password; same strength rules as signup). **Delete Account is real, immediate, self-service deletion, and password-gated**: an inline form (same expand-in-place pattern as Change Password) re-verifies the current password, then removes every stored file in both `avatars`/`id-documents` — aborting the whole deletion if that cleanup fails — before calling `delete_own_account`, which cascades through every table of the user's data; no undo, no request queue. **Change Email is real and password-gated too**: requests a Supabase email change (current email keeps working until the new one's confirmation link is clicked; `profiles.email` follows automatically via a server-side sync trigger). **Biometric Authentication and Auto-Lock are real** — `AppLockGate` shows a real lock screen on resuming past `autoLockTimeoutSeconds`, biometric-gated (`local_auth`) with a password fallback; Biometric checks device capability before it's allowed to turn on. **Not yet verified on a real device** — no Android SDK/Xcode/physical device in this environment. **Two-Factor** is still a **disabled "Coming soon" placeholder**. **Privacy Policy / Terms of Service are now real screens** (Sprint 9 Task 5, #78) — draft, placeholder legal-shaped copy naming this app's actual tables/behavior (real self-service account deletion, upgrade-only billing), with a persistent in-app banner marking it as not lawyer-reviewed and not company-approved yet |
 | Notification settings (7 toggles, **local-only**) | ✅ Built (Sprint 5 Task 4, #44): saved on the device with `shared_preferences`, no table, no network. The toggles record preferences only — nothing sends push/email/SMS yet |
 | Payment Methods (list / add / set default / delete, metadata only) | ✅ Built (Sprint 5 Task 3, #43); one-default-per-user enforced in the database and proven live. Card brand/last4 are derived client-side for display — still no real processor |
-| **Notifications** (Home bell) | 🟡 Stub screen, no unread badge, table exists but unused (#32, #41) |
+| **Notifications** (Home bell) | 🟡 Stub screen, no unread badge (#32, #41). **Backing schema is now real** (#65): `confirm_subscription_payment`/`create_event_reservation` each write a real row, table is locked down (no client INSERT, `is_read`-only UPDATE) -- an actual feed UI reading it is still a future task |
 | Home dashboard header (Welcome / Member ID / Logout) | ✅ Built to the Figma frame (#41) |
 | **Real payments** (Stripe) | ❌ Mocked on purpose — see §15 |
 | **Usage counters incrementing** (`hookah_used`/`drinks_used`) | ❌ No mechanism exists (#25, #33) |
 | **Usage period renewal / re-subscribe flow** | ❌ Deferred (#25) |
-| Settings, dark mode, language, Help & Support | ❌ Not built (#5) |
+| Settings, language, Help & Support | ❌ Not built (#5) -- dark mode is now real, see the App Settings row above (#59) |
 | Admin/staff side (ID approval, door scanner) | ❌ Not in this app |
 
 Git history mirrors the sprints: `first sprint` → `sprint 1` → `sprint 2` →
@@ -453,17 +453,48 @@ Three cards (Figma frames `1217:2644` / `1217:2946`, #45):
   which deletes exactly the caller's own `auth.users` row — cascading through every table of their
   data (profile, subscriptions, payment methods, reservations, everything) — then the screen ends
   the local session and returns to Auth Landing. Replaces the request-queue of decision #45; there
-  is no `deletion_requests` table anymore. View Privacy Policy / Terms of Service open a coming-soon
-  page (no text exists yet).
+  is no `deletion_requests` table anymore. View Privacy Policy / Terms of Service now open real
+  screens (Sprint 9 Task 5, #78) — draft, placeholder legal-shaped copy, clearly marked in-app as
+  not lawyer-reviewed and not company-approved yet.
 
 ### App Settings — `screens/profile/app_settings_screen.dart`
 Appearance → Language → Interactions → Data & Storage → app info footer (#47).
-- **Dark Mode, Language, Animations, Sound Effects, Haptic Feedback are all visual-only.**
-  Dark Mode/Language were already out of scope (decision #5); Animations/Sound/Haptic weren't
-  asked for either, so they're drawn at the design's own state (on) and are inert, for the same
-  "no functionality beyond what's decided in scope" reason. (The Notifications screen's "Sound &
-  Vibration" toggle is a *different* setting — notification sound, not general UI sound — kept
-  deliberately separate, like decision #33's two different "guests" fields.)
+- **Dark Mode is real** (Sprint 8 Task 2, #59, rebuilt through v3): `AppTheme.dark` gives every
+  surface (background wash, cards, inputs, text) a real dark navy value instead of
+  `ThemeData.dark()`'s generic stub. As of v3, the accent itself is theme-aware too —
+  `context.colors.accentGradient`/`.accent` is the pink/purple `primaryGradient`/`bottomNavActive`
+  in light mode and a dedicated blue gradient/solid in dark mode (the membership tier gradients
+  stay unchanged in both, since those identify a plan, not the app's action color). The row here
+  reads and writes `SettingsProvider.themeMode` — the same provider `main.dart`'s `MaterialApp`
+  watches for `themeMode` — so flipping it updates every screen immediately, with no restart.
+- **Animations is real** (Sprint 8 Task 3, #60): off collapses every screen-to-screen navigation
+  (`AppPageRoute`/`appRoute`, all 28 `Navigator.push` call sites app-wide) and every explicit
+  `Animated*` widget duration (`context.animDuration`: switches, the FAQ chevron, the dots
+  indicator, onboarding's slide swipe) to 1ms instead of the normal ~150-300ms; on returns them to
+  normal. The row reads/writes `SettingsProvider.animationsEnabled`.
+- **Sound Effects and Haptic Feedback are real** (Sprint 8 Task 4, #61): `context.triggerButtonPress`/
+  `.triggerSuccess`/`.triggerError` (`lib/utils/app_feedback.dart`) gate `HapticFeedback`/
+  `SystemSound.play` **independently** through `SettingsProvider.soundEnabled`/`.hapticsEnabled` at a
+  small, fixed set of real trigger points: every `GradientButton` press (haptic only), payment
+  confirmed/door opened/reservation confirmed (haptic + sound), failed sign-in/failed payment
+  (haptic + sound). Real-device confirmation (haptics don't exist in a browser) is the user's own to
+  do, same as Dark Mode/Animations' look-and-feel checks.
+- **Language is real for English/Arabic, across the whole app** (Sprint 8 Task 6, #63 Phase 1 +
+  #64 Phase 2): tapping a row calls `SettingsProvider.setLocale`, which `MaterialApp.locale` reads —
+  Arabic switches every translated string and flips `Directionality` to RTL app-wide, live, no
+  restart. French/Spanish are real, storable picks too (the design shows all four selectable), they
+  just have no ARB translation yet — `supportedLocales` only lists en/ar, so Flutter's own locale
+  resolution falls back to English text automatically, with a caption saying so under the list.
+  **Every screen is now translated and RTL-audited** — Phase 1 (#63) did the bottom nav, Sign In and
+  Home; Phase 2 (#64) extended the exact same pattern (real strings, RTL-audited, tested) through the
+  remaining ~27 screens: Auth, Membership, Events + QR, Onboarding, Profile + Edit Profile, Payment
+  Methods + Add Payment Method, Notification Settings + App Settings, and Privacy & Security + Help &
+  Support. Along the way, two **shared widgets** got their own RTL fixes once, rather than
+  per-screen: `ScreenHeader`'s back arrow/tooltip, and `SettingToggleRow`'s switch thumb. **Still
+  open**: the Arabic strings are AI-written and unreviewed by a fluent speaker (the user's own to
+  check). (The Notifications screen's "Sound & Vibration" toggle is a *different* setting —
+  notification sound, not general UI sound — kept deliberately separate, like decision #33's two
+  different "guests" fields.)
 - **Data & Storage is real**, the task's explicit "your call": **Cache Size shows the real,
   computed number of bytes in Flutter's image cache** — never the design's fabricated "12.5 MB" —
   and **Clear Cache** really clears it (meaningful: the profile photo's signed URL is the one real
@@ -478,13 +509,16 @@ Call Us — a label and a description only, no real address/number in the design
 tappable, no backend**) → an FAQ accordion → Resources.
 - **FAQ:** the design exports a real answer for only the first question ("How do I use my QR
   code…"); the other three questions are real design copy but their answers were never
-  exported (the "1 of 4 FAQ answers exported" gap flagged since Sprint 2). Those three show a
-  plain **"Answer not available yet."** placeholder — never an invented answer standing in for
-  real content. The accordion is exclusive (opening one closes any other) and the first item
-  starts open, matching the one state the design shows.
+  exported (the "1 of 4 FAQ answers exported" gap flagged since Sprint 2 — **still open**).
+  Sprint 9 Task 6 (#79) gave each of those three a **draft answer** instead, grounded in this
+  app's real behavior (the real allowance-alert threshold, the real `maxGuests` field, the real
+  service-hour values) rather than invented filler, each carrying a small "pending confirmation
+  from the company" note the real, first answer doesn't have. The accordion is exclusive
+  (opening one closes any other) and the first item starts open, matching the one state the
+  design shows.
 - **Resources** (User Guide / Membership Benefits / Community Guidelines) have no content yet,
-  so each opens a coming-soon page, the same pattern as Privacy & Security's Privacy Policy /
-  Terms of Service.
+  so each opens a coming-soon page (Privacy & Security's Privacy Policy / Terms of Service used
+  to share this same stub pattern — they're real screens now, #78).
 
 ### Notification settings — `screens/profile/notification_settings_screen.dart`
 Built to Figma frame `1217:2539` (#44). Header → **Communication Preferences** card (gradient
@@ -555,7 +589,7 @@ else in the app calls the database.
 | `notification_prefs.dart` | Seven notification toggles, saved on the device (per user id). **No backend.** | `SharedPreferences` (no network) |
 | `payment_method_service.dart` | List / add (brand, last4, expiry, default request — no parameter for a number or CVV) / set default / delete. Plain table access, no RPC. | `from('payment_methods')` |
 | `avatar_service.dart` | Photo type/size validation, upload to `avatars/<user_id>/…`, signed display URLs, best-effort delete of a replaced photo. | `storage.from('avatars')` |
-| `usage_service.dart` | Latest `usage_allowances` row (the "used" half). | `from('usage_allowances')` |
+| `usage_service.dart` | The `usage_allowances` row for the caller's current *active* subscription (via `subscription_id`, #80) — not just the newest row on file, so a lapsed member correctly gets no usage card instead of stale old numbers. | `from('subscriptions')` (find the active one), `from('usage_allowances')` |
 | `id_document_service.dart` | Validate (type/size) → upload → record. | `storage.from('id-documents')`, `from('id_documents').insert` |
 | `door_access_service.dart` | Log an entry. | RPC `log_door_access` |
 | `event_reservation_service.dart` | Create a reservation; owns the client copy of the hourly price. | RPC `create_event_reservation` |
@@ -618,7 +652,7 @@ them into the dashboard's SQL Editor.
 | `profiles` | 1:1 extension of `auth.users`: name, email, phone, avatar, `member_id` | read/update own row (no INSERT — the trigger creates it; `member_id` immutable; `email` can't be changed by a client request) |
 | `membership_plans` | Reference/seed data: price, limits, guests, `is_popular`, `features[]` | read only |
 | `subscriptions` | A user's plan + `status` + `started_at`/`valid_until` | **read only** |
-| `usage_allowances` | Per-period `hookah_used` / `drinks_used` | **read only** |
+| `usage_allowances` | Per-period `hookah_used` / `drinks_used`, linked to the subscription it belongs to via `subscription_id` (not null, #80) | **read only** |
 | `door_access_logs` | Audit trail of door entries + guest count | **read only** (no delete) |
 | `event_reservations` | Private-event bookings incl. server-computed `total_price` | **read only** — write only via `create_event_reservation` RPC; the UPDATE policy that let a user edit their own `total_price` was closed live (#53) |
 | `id_documents` | Path to an uploaded ID + `verification_status` | read + insert own (forced `pending`); **no UPDATE** |
@@ -788,14 +822,30 @@ Figma REST API), not eyeballed (#20).
   gradient** (`#FF2056 → #9810FA`); per-tier gradients (Basic grey, Premium
   purple, VIP rose); the soft 3-stop **page background gradient**
   (`#FFF1F2 → #FDF2F8 → #FAF5FF`); bottom-nav active accent `#EC003F`; text and
-  status colours.
-- **`theme/app_text_styles.dart`** — `logoTitle` (italic serif "Times New Roman"),
-  headings, body, button. Some screens deliberately use **literal inline styles**
-  because Figma gives certain elements unique sizes; the shared styles were left
-  untouched so already-approved screens didn't change (#20).
-- **`theme/app_theme.dart`** — `AppTheme.light` (Material 3, Inter via
-  `google_fonts`, pink seed colour, filled inputs, rounded cards/buttons).
-  `AppTheme.dark` is a bare stub and **isn't wired** — dark mode is out of scope (#5).
+  status colours. Also carries dark-mode counterparts for every neutral
+  (`darkBackground`/`darkSurface`/`darkTextPrimary`/etc., #59) — the accent
+  colours above are reused unchanged in both modes.
+- **`theme/app_semantic_colors.dart`** (#59) — `AppSemanticColors`, a `ThemeExtension`
+  wrapping the light/dark neutral tokens above (page gradient, card surface, input
+  fill, border, primary/muted text, success/warning/danger) as `.light`/`.dark`
+  instances registered on `AppTheme`. A screen reads whichever is active via the
+  `context.colors` `BuildContext` extension instead of a hardcoded `AppColors`
+  constant; falls back to `.light` when the ambient theme doesn't carry the
+  extension (existing widget tests built directly off `ThemeData()`).
+- **`theme/app_text_styles.dart`** — `logoTitle`, `heading1`, `heading2`, `body`,
+  `bodyMuted` now take a `BuildContext` and resolve their color through
+  `context.colors` (#59) so the same call every auth screen already made just
+  gained a `(context)`; `button` (always white on a brand gradient) stays a plain
+  `const`. Some screens deliberately use **literal inline styles** because Figma
+  gives certain elements unique sizes; the shared styles were left untouched so
+  already-approved screens didn't change (#20).
+- **`theme/app_theme.dart`** — `AppTheme.light`/`.dark` (Material 3, Inter via
+  `google_fonts`, pink seed colour, filled inputs, rounded cards/buttons), both
+  built off `AppSemanticColors.light`/`.dark` so every surface/text color is
+  real per brightness. `AppTheme.dark` is a real dark theme now (Sprint 8 Task 2,
+  #59), not `ThemeData.dark()`'s bare stub — `main.dart`'s `MaterialApp` wires it
+  as `darkTheme`, with `themeMode` bound to `SettingsProvider.themeMode` so it
+  updates live, no restart.
 - **Shared widgets** (`lib/widgets/`):
   - `GradientButton` — the primary CTA; configurable gradient/height/font;
     renders at 50 % opacity with no shadow when `onPressed` is null.
@@ -841,7 +891,15 @@ Figma REST API), not eyeballed (#20).
 | `test/secure_local_storage_test.dart` | write → read → delete goes through the storage platform (fakes the OS layer) |
 | `test/home_content_test.dart` | Home screen data mapping: greeting by first name + member ID (and their no-placeholder fallbacks), status card, usage `used / limit` and Unlimited-with-no-bar, progress fractions, service-hours status by time, benefits from the plan, every callback, and the layout's spacing/card heights against Figma |
 | `test/app_settings_service_test.dart` | Real Flutter image-cache size/clear (a real image is put in the cache via a trivial in-memory `ImageProvider`, no network) and real `shared_preferences` wiping |
-| `test/app_settings_screen_test.dart` | Every row/copy shown; Dark Mode/Language/Animations/Sound/Haptic are all off-or-on-as-designed and inert (tapping does nothing); Cache Size shows the real computed number, never the design's fake "12.5 MB"; Clear Cache really clears and updates the shown size; Clear All App Data confirms first, then clears the image cache and local preferences and runs the (injectable) post-clear step, in that order |
+| `test/app_settings_screen_test.dart` | Every row/copy shown; **Dark Mode reflects `SettingsProvider.themeMode` and tapping it flips that provider** (#59); **Animations reflects `SettingsProvider.animationsEnabled` and tapping it flips that provider** (#60); Language/Sound/Haptic are all off-or-on-as-designed and inert (tapping does nothing); Cache Size shows the real computed number, never the design's fake "12.5 MB"; Clear Cache really clears and updates the shown size; Clear All App Data confirms first, then clears the image cache and local preferences and runs the (injectable) post-clear step, in that order |
+| `test/app_page_route_test.dart` | `AppPageRoute`'s transition duration on/off (never literally `Duration.zero`); `appRoute()` reads the live `SettingsProvider` value at push time in both states, plus its no-provider fallback; `context.animDuration`'s same three cases |
+| `test/app_feedback_test.dart` | Records the actual `HapticFeedback`/`SystemSound` platform-channel calls `triggerButtonPress`/`triggerSuccess`/`triggerError` make (a mocked `SystemChannels.platform` handler, not just reading the code) across all four on/off combinations of `soundEnabled`/`hapticsEnabled` — proves they gate independently, not just together; plus the no-`SettingsProvider` fallback |
+| `test/app_lock_gate_test.dart` | Whether resuming shows the lock screen, for every combination (elapsed under/over the timeout, Auto-Lock on/off, signed in or not, a transient `.inactive` blip with no matching `.paused`) — uses `tester.binding.handleAppLifecycleStateChanged` for real lifecycle transitions and an injectable clock to control elapsed time without waiting on it |
+| `test/app_lock_screen_test.dart` | The unlock interaction: biometric auto-attempt on show, failed-attempt UI (Try Again / Use Password Instead both visible, never gated behind a failure), the password fallback (right password unlocks via the real `AuthService.verifyCurrentPassword`, wrong password shows the real error and stays locked), switching between the two paths |
+| `test/biometric_service_test.dart` | Against a fake `LocalAuthPlatform` (the plugin's own platform interface): `isAvailable()`'s two independent checks (device-supports-biometrics AND something-enrolled), `authenticate()` swallowing a plugin-level error into `false` rather than throwing |
+| `test/app_bottom_nav_test.dart` | English/Arabic labels, no English fallback in Arabic, `Directionality` flips to RTL, the active tab/dot still render correctly, and — the real point — tapping a tab reports the same logical index under RTL despite the visual order reversing |
+| `test/sign_in_screen_test.dart` | English/Arabic strings (no fallback), `Directionality`, and the back arrow actually pointing the other way under RTL (`Icons.arrow_forward`, not just `Icons.arrow_back` sitting on a mirrored screen) — plus the local password validator's message in both languages |
+| `test/home_content_test.dart` (i18n/RTL group) | Every real string translated in Arabic (real data like the name/member ID/plan interpolated, never itself translated), no English fallback, `Directionality`, and an icon-badge row's icon MEASURED to sit right of its label under RTL / left of it under LTR — not just that both render |
 | `test/help_support_screen_test.dart` | Contact cards show their real copy and aren't tappable; all 4 real questions shown; the one real answer starts expanded; the other 3 show the SAME placeholder (never 3 different invented answers — checked by scanning the whole page for phrases a plausible fabricated answer would use); expand/collapse and exclusive-accordion behaviour; Resources open a coming-soon page |
 | `test/change_password_test.dart` | `AuthService.changePassword` against a fake auth client that logs every call: the CURRENT password is verified (`signIn`) BEFORE `updateUser`; a wrong current password, a rate limit, a network failure or no session all mean `updateUser` is never called; server rejections land on the right field; ending other sessions is best-effort |
 | `test/privacy_security_screen_test.dart` | The screen: the three disabled placeholders (off, no handler, Coming Soon, tapping does nothing); the password form (empty current rejected, each #10 rule's own message, same-as-current, mismatch — none reach the service; a valid form sends current + new; wrong current shown under its field); Delete Account (confirm → the RPC is called once and the local session ends; Cancel calls nothing; a failure shows a message, leaves the button available, and never ends the session) |
@@ -920,7 +978,7 @@ flutter analyze
 8. **`status` can lag reality up to ~24 h**; always check `valid_until` too (§9.5).
 
 ### Known gaps
-- **Biometric login, Two-Factor Authentication and Auto-Lock** are disabled placeholders (#45); **Privacy Policy / Terms of Service text** doesn't exist. **3 of 4 FAQ answers** are still unwritten (#46). **Dark Mode, Language, Animations, general UI Sound/Haptic** are visual-only (#5/#47). **Upgrade Membership and the Home bell's notifications feed** aren't built — Profile is otherwise fully built out (Profile's rows open stubs). **Forgot Password is now real, end to end, on Flutter Web** (#55) — request, email, deep-link, Set New Password screen, sign-in with the new password. **Changing the login email is now real too** (#57) — Privacy & Security's Email card, password-gated, with `profiles.email` kept in sync by a new server-side trigger. **Mobile (Android/iOS) deep-linking is not built** for either flow — the redirect URL and platform config (`AndroidManifest.xml`/`Info.plist`) are web-only right now; `SupabaseConfig.authRedirectUrl` is the one place to change when that's built.
+- **Biometric Authentication and Auto-Lock are real** (#62) — `AppLockGate` (mounted above `MaterialApp`) shows a real lock screen on resuming past the stored timeout, gated by `local_auth` biometrics with a password fallback; **not yet verified on a real device** (no Android SDK/Xcode/physical device here). **Two-Factor Authentication** is still a disabled placeholder (#45). **Privacy Policy / Terms of Service are now real, draft placeholder screens** (#78) — legal-shaped copy naming this app's actual data/behavior, marked in-app as not lawyer-reviewed and pending real company copy. **3 of 4 FAQ answers are now draft copy too** (#79) — grounded in real app behavior, each flagged as pending the company's confirmation; the underlying "only 1 of 4 exported" gap (#46) is still open. **Dark Mode is real** (#59) — App Settings' toggle live-updates every screen through `SettingsProvider`/`AppTheme.dark`, no restart, including a dedicated blue accent in dark mode as of v3. **Animations is real** (#60) — off collapses every screen transition and explicit widget-animation duration to 1ms app-wide. **Sound Effects and Haptic Feedback are real** (#61) — gated independently, at a small fixed set of real trigger points (button presses, payment/door/reservation success, failed sign-in/payment). **i18n (English/Arabic) is real, app-wide** (#63 Phase 1 + #64 Phase 2) — `SettingsProvider.locale` + ARB files + RTL; every screen is translated and RTL-audited, not just the three Phase 1 named; French/Spanish are real picks that fall back to English text; the Arabic strings remain unreviewed by a fluent speaker. **Upgrade Membership is real now** (#76) — Profile hides the entry point entirely for a VIP member (nothing higher to upgrade to), otherwise it opens a real screen that reuses the existing payment form and calls `upgrade_subscription`; **not yet live-tested from this session** (no live project access, no working local Supabase stack). The Home bell's notifications feed is real too (#68) — Profile is otherwise fully built out. **Forgot Password is now real, end to end, on Flutter Web** (#55) — request, email, deep-link, Set New Password screen, sign-in with the new password. **Changing the login email is now real too** (#57) — Privacy & Security's Email card, password-gated, with `profiles.email` kept in sync by a new server-side trigger. **Mobile (Android/iOS) deep-linking is not built** for either flow — the redirect URL and platform config (`AndroidManifest.xml`/`Info.plist`) are web-only right now; `SupabaseConfig.authRedirectUrl` is the one place to change when that's built.
 - **PKCE code verifier** uses default plain-text storage — low risk until a
   magic-link/OAuth flow exists (#6).
 - **Accounts created while email confirmation was ON stay unconfirmed** if it's
@@ -935,7 +993,8 @@ flutter analyze
   skipped because it contradicts #22; the user chose to keep #22 (#24).
 
 ### Open questions for the company
-Real event pricing and type list · full FAQ copy (only 1 of 4 answers exported) ·
+Real event pricing and type list · full FAQ copy (only 1 of 4 answers exported; the other 3 now
+show a draft stand-in, #79, still pending the company's real copy) ·
 what a "notification" is and whether it needs its own table/push delivery ·
 whether notification preferences are server- or device-side · whether staff will
 have a separate admin app for ID verification and door scanning.
@@ -980,7 +1039,6 @@ have a separate admin app for ID verification and door scanning.
 | Change plan prices / limits / perks | `membership_plans` rows (DB), not code |
 | Change the event hourly price | `create_event_reservation` (`c_price_per_hour`) **and** `EventReservationService.pricePerHour` |
 | Add a bottom-nav tab | `widgets/app_bottom_nav.dart` + `screens/home/main_shell.dart` |
-| Build Upgrade Membership (Profile's last stub row) | new screen + a plan-change RPC (none exists yet) | replace the matching `_openComingSoon('…')` call in `screens/profile/profile_screen.dart` |
 | Add a new secured write | New migration with an RPC following §9.5/§10 + a service with a Failure class |
 | Change colors / gradients | `lib/theme/app_colors.dart` |
 | Understand *why* something is the way it is | `docs/decisions.md` (search `#N`) |
@@ -1022,3 +1080,17 @@ have a separate admin app for ID verification and door scanning.
 | 56 | "Remember me" made real: unchecked forces sign-out on next cold start (`AppEntryPoint`) |
 | 57 | Change Login Email built: password-gated, Privacy & Security, `profiles.email` sync trigger |
 | 58 | Sprint 8 Task 1: shared `SettingsProvider` foundation (not wired to any screen yet) |
+| 59 | Sprint 8 Task 2: real Dark Mode -- `AppTheme.dark`, `MaterialApp.themeMode` bound to `SettingsProvider`, App Settings' toggle wired for real |
+| 60 | Sprint 8 Task 3: real Animations toggle -- `AppPageRoute`/`context.animDuration`, app-wide (28 `Navigator.push` sites) |
+| 61 | Sprint 8 Task 4: real Sound & Haptic Feedback -- independently gated, small fixed set of real trigger points |
+| 62 | Sprint 8 Task 5: real Auto-Lock + Biometric login -- `AppLockGate`, `local_auth`, password fallback |
+| 63 | Sprint 8 Task 6 Phase 1: i18n infra + English/Arabic for bottom nav, Sign In, Home (RTL-audited) |
+| 64 | Sprint 8 Task 6 Phase 2: i18n extended to the remaining ~27 screens; `ScreenHeader`/`SettingToggleRow` RTL-fixed once, shared |
+| 65 | Sprint 9 Task 1: Notifications schema -- real `notifications` table (no client INSERT, column-grant-only UPDATE), `confirm_subscription_payment`/`create_event_reservation` each insert a real row. Verified against a from-scratch local Postgres replay of every migration (real network access to the live project blocked in this session) -- all 5 acceptance points confirmed with real role-impersonation output |
+| 66–74 | Notifications roadmap steps 1–5 (localization/`data` column, preferences, feed + Home bell badge, bundled fonts, event reminders + allowance alerts, arrival sound/vibration, FR/ES shown-not-selectable, Reservation Details page, Resend email) -- see docs/decisions.md, not individually logged here |
+| 75 | Sprint 9 Task 3: `upgrade_subscription` RPC -- locks + re-reads both real prices server-side, `downgrade_not_supported` on equal/cheaper, old row cancelled (not deleted) before the new active row + fresh `usage_allowances` row are inserted. Verified the same way as #65 (local Postgres replay) -- all acceptance points confirmed, including that every rejected attempt leaves zero trace. **Then applied + re-verified on the live project**, which found a same-day-upgrade bug (`usage_allowances` unique `(user_id, period_start)`); fixed in `20260930160000_upgrade_subscription_same_day_fix.sql` |
+| 76 | Sprint 9 Task 4: Upgrade Membership screen -- new `UpgradeMembershipScreen` + shared `MembershipPlanCard` (extracted from Choose Membership), `PaymentScreen.upgrade` reuses the existing payment form as-is, Profile's button now hides entirely (not disabled) when no higher-priced plan exists. `flutter analyze`/`flutter test` clean (317/317); **the task's own live-test acceptance (Basic→Premium, Premium→VIP, Home refreshing, VIP hidden) is not verified from this session** -- no live project access and no working local Supabase stack (Docker daemon unreachable) -- still the user's own to run |
+| 77 | Upgrade notification (subscription_upgraded, with email/badge/chime like every other notification) + paying with a saved card on both signup and upgrade payment screens (user-reported gaps after #76) |
+| 78 | Sprint 9 Task 5: Privacy Policy & Terms of Service -- real screens (`LegalDocumentScreen` + two content files) replacing the coming-soon stubs, named after this app's actual tables/behavior (real self-service deletion #52, upgrade-only billing #75). **Draft placeholder text, not company-approved copy** -- a persistent in-app banner and this entry both say so plainly. `flutter analyze`/`flutter test` clean (334/334) |
+| 79 | Sprint 9 Task 6: remaining FAQ answers -- draft copy for the 3 unanswered questions, grounded in real behavior (allowance-alert threshold #70, `maxGuests`, service hours), each flagged with a "pending confirmation from the company" note the one real answer doesn't carry. **Doesn't close the "1 of 4 exported" open question (#46)** -- just stops the screen showing blank accordions. `flutter analyze`/`flutter test` clean (338/338) |
+| 80 | Sprint 10 Task 1: `usage_allowances.subscription_id` -- real FK, backfilled (3-pass best-effort, guard fails loudly on any unmatched row) then made `not null`; `confirm_subscription_payment`/`upgrade_subscription` set it on insert (including the same-day-upgrade `ON CONFLICT` reuse, now correctly re-pointed); `UsageService.fetchCurrentUsage()` joins through the caller's *active* subscription instead of "newest `period_start`", fixing a real bug where a lapsed member would still see their last period's stale usage numbers. Verified via local Postgres replay across 5 scenarios incl. a genuinely-unmatched-row negative test and real role-impersonated RPC calls (not just seeded data); live project untouched this session (network blocked). `flutter analyze`/`flutter test` clean (338/338) |

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_semantic_colors.dart';
 
 /// Digits-only MM/YY formatter -- inserts the "/" automatically so typing
 /// stays natural, matching the design's placeholder. Shared by the Payment
@@ -47,12 +47,13 @@ class PaymentField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: Color(0xFF0A0A0A)),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: -0.15, color: colors.textPrimary),
         ),
         const SizedBox(height: 4),
         TextFormField(
@@ -68,17 +69,17 @@ class PaymentField extends StatelessWidget {
           autofillHints: null,
           enableSuggestions: false,
           autocorrect: false,
-          style: const TextStyle(fontSize: 16, color: Color(0xFF717182), letterSpacing: -0.31),
+          style: TextStyle(fontSize: 16, color: colors.textMuted, letterSpacing: -0.31),
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
-            fillColor: const Color(0xFFF3F3F5),
+            fillColor: colors.inputFill,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
+              borderSide: BorderSide(color: colors.border),
             ),
-            errorStyle: TextStyle(color: AppColors.danger, fontSize: 11),
+            errorStyle: TextStyle(color: colors.danger, fontSize: 11),
           ),
         ),
       ],

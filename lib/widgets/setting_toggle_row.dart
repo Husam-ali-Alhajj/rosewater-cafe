@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_semantic_colors.dart';
+import '../utils/app_animations.dart';
 
-const _iconGrey = Color(0xFF4A5565);
-const _mutedText = Color(0xFF4A5565);
-const _comingSoonInk = Color(0xFF99A1AF);
-const _rowDivider = Color(0xFFF3F4F6);
 const _switchOn = Color(0xFFEC003F);
-const _switchOff = Color(0xFFD1D5DC);
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
@@ -52,10 +48,11 @@ class SettingToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: showDivider
-          ? const BoxDecoration(border: Border(bottom: BorderSide(color: _rowDivider, width: _hairline)))
+          ? BoxDecoration(border: Border(bottom: BorderSide(color: colors.border, width: _hairline)))
           : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,7 +63,7 @@ class SettingToggleRow extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Icon(icon, size: iconSize, color: _iconGrey),
+                  child: Icon(icon, size: iconSize, color: colors.textMuted),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -75,23 +72,23 @@ class SettingToggleRow extends StatelessWidget {
                     children: [
                       Text(
                         label,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           height: 1,
                           letterSpacing: -0.15,
-                          color: AppColors.textDark,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         description,
-                        style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _mutedText),
+                        style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
                       ),
                       if (note != null)
                         Text(
                           note!,
-                          style: const TextStyle(fontSize: 12, height: 16 / 12, color: _comingSoonInk),
+                          style: TextStyle(fontSize: 12, height: 16 / 12, color: colors.textMuted),
                         ),
                     ],
                   ),
@@ -120,6 +117,16 @@ class SettingSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
+    // NOT `context.colors.surfaceElevated`: that token IS the card's own
+    // white in light mode (see `_Card`'s fill in app_settings_screen.dart),
+    // so an off-state track drawn in it -- with a white thumb on top --
+    // was a solid-white pill on a solid-white card: invisible, with nothing
+    // to tap. Same pitfall `DotsIndicator.inactiveColor`'s doc comment
+    // already calls out for the exact same reason; this picks its own
+    // brightness-aware grey pair the same way, rather than reusing a card
+    // fill for a small solid control that sits ON a card.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final switchOff = isDark ? const Color(0xFF4A4152) : const Color(0xFFD1D5DC);
     return Semantics(
       toggled: value,
       label: label,
@@ -130,18 +137,22 @@ class SettingSwitch extends StatelessWidget {
           onTap: onTap,
           customBorder: const StadiumBorder(),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: context.animDuration(const Duration(milliseconds: 150)),
             width: 44,
             height: 24,
             decoration: BoxDecoration(
-              color: value ? _switchOn : _switchOff,
+              color: value ? _switchOn : switchOff,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Stack(
               children: [
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 150),
-                  left: value ? 24 : 4,
+                // Sprint 8 Task 6: AnimatedPositionedDirectional (not
+                // AnimatedPositioned's physical `left`), so the thumb slides
+                // toward the trailing edge -- which is the LEFT in RTL -- not
+                // always toward the physical left/right.
+                AnimatedPositionedDirectional(
+                  duration: context.animDuration(const Duration(milliseconds: 150)),
+                  start: value ? 24 : 4,
                   top: 4,
                   child: Container(
                     width: 16,

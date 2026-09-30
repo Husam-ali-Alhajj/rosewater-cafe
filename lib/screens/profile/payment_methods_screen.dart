@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/payment_method.dart';
 import '../../services/payment_method_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/screen_header.dart';
 import 'add_payment_method_screen.dart';
 
 // Exact values read from the Figma `PaymentMethodsScreen` frame (node
 // 1217:2477) via the REST API -- same method as decisions #20/#40/#41/#42.
-const _cardNumberInk = Color(0xFF4A5565);
-const _expiresInk = Color(0xFF6A7282);
-const _defaultBadgeFill = Color(0xFFDCFCE7);
-const _defaultBadgeInk = Color(0xFF016630);
-const _setDefaultInk = Color(0xFF00A63E);
-const _deleteInk = Color(0xFFE7000B);
+// Sprint 8 Task 2 (dark mode rebuild): the neutral greys are now sourced
+// from `context.colors`; the green "Default"/set-default and red delete inks
+// map onto the semantic success/danger tokens, which invert correctly.
 
 const _hairline = 0.515; // Figma's fractional hairline stroke width
 
@@ -82,7 +81,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
 
   Future<void> _add() async {
     final added = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => AddPaymentMethodScreen(isFirstCard: _methods.isEmpty)),
+      appRoute(context, (_) => AddPaymentMethodScreen(isFirstCard: _methods.isEmpty)),
     );
     if (added == true && mounted) await _load();
   }
@@ -95,7 +94,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     } on PaymentMethodFailure catch (e) {
       if (mounted) _showMessage(e.message);
     } catch (_) {
-      if (mounted) _showMessage('Something went wrong. Please try again.');
+      if (mounted) _showMessage(AppLocalizations.of(context).genericTryAgainError);
     }
     if (!mounted) return;
     setState(() => _busyId = null);
@@ -104,16 +103,17 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
 
   Future<void> _delete(PaymentMethod method) async {
     if (_busyId != null) return;
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Remove this card?'),
-        content: Text('${method.brand} ending in ${method.last4} will be removed from your account.'),
+        title: Text(l10n.removeCardTitle),
+        content: Text(l10n.removeCardBody(method.brand, method.last4)),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.cancelButton)),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Remove', style: TextStyle(color: _deleteInk)),
+            child: Text(l10n.removeButton, style: TextStyle(color: ctx.colors.danger)),
           ),
         ],
       ),
@@ -126,7 +126,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     } on PaymentMethodFailure catch (e) {
       if (mounted) _showMessage(e.message);
     } catch (_) {
-      if (mounted) _showMessage('Something went wrong. Please try again.');
+      if (mounted) _showMessage(l10n.genericTryAgainError);
     }
     if (!mounted) return;
     setState(() => _busyId = null);
@@ -135,9 +135,11 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+        decoration: BoxDecoration(gradient: colors.pageBackgroundGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             // Figma's frame padding: 16 sides, 32 top; 32 below the list.
@@ -145,7 +147,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ScreenHeader(title: 'Payment Methods', onBack: () => Navigator.of(context).pop()),
+                ScreenHeader(title: l10n.paymentMethodsLabel, onBack: () => Navigator.of(context).pop()),
                 const SizedBox(height: 24),
                 _AddButton(onTap: _busyId == null ? _add : null),
                 const SizedBox(height: 24),
@@ -156,12 +158,12 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                   )
                 else if (_loadFailed)
                   _MessageCard(
-                    message: "Couldn't load your payment methods.",
-                    actionLabel: 'Try again',
+                    message: l10n.couldntLoadPaymentMethods,
+                    actionLabel: l10n.tryAgainButton,
                     onAction: _load,
                   )
                 else if (_methods.isEmpty)
-                  const _MessageCard(message: "You haven't added a payment method yet.")
+                  _MessageCard(message: l10n.noPaymentMethodsYet)
                 else
                   for (var i = 0; i < _methods.length; i++) ...[
                     if (i > 0) const SizedBox(height: 16),
@@ -194,20 +196,20 @@ class _AddButton extends StatelessWidget {
       opacity: onTap == null ? 0.5 : 1,
       child: Container(
         height: 48,
-        decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(gradient: context.colors.accentGradient, borderRadius: BorderRadius.circular(8)),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(8),
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.add, size: 16, color: Colors.white),
-                SizedBox(width: 15),
+                const Icon(Icons.add, size: 16, color: Colors.white),
+                const SizedBox(width: 15),
                 Text(
-                  'Add New Payment Method',
-                  style: TextStyle(
+                  AppLocalizations.of(context).addNewPaymentMethodButton,
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     height: 20 / 14,
@@ -243,12 +245,13 @@ class _PaymentMethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: SizedBox(
         height: 76,
@@ -259,7 +262,10 @@ class _PaymentMethodCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 56px tile, vertically centred in the 76px content.
+                  // 56px tile, vertically centred in the 76px content. Uses
+                  // the theme's own surface tones (rather than the design's
+                  // fixed light-grey pair) so it doesn't go flat/invisible
+                  // against a dark card.
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: Container(
@@ -268,8 +274,8 @@ class _PaymentMethodCard extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFF3F4F6), Color(0xFFE5E7EB)],
+                        gradient: LinearGradient(
+                          colors: [colors.inputFill, colors.surfaceElevated],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -286,16 +292,16 @@ class _PaymentMethodCard extends StatelessWidget {
             if (!method.isDefault) ...[
               _IconAction(
                 icon: Icons.check_circle_outline,
-                color: _setDefaultInk,
-                tooltip: 'Set as default',
+                color: colors.success,
+                tooltip: AppLocalizations.of(context).setAsDefaultTooltip,
                 onTap: enabled ? onSetDefault : null,
               ),
               const SizedBox(width: 8),
             ],
             _IconAction(
               icon: Icons.delete_outline,
-              color: _deleteInk,
-              tooltip: 'Delete',
+              color: colors.danger,
+              tooltip: AppLocalizations.of(context).deleteTooltip,
               onTap: enabled ? onDelete : null,
             ),
           ],
@@ -312,6 +318,7 @@ class _CardDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     // The design's column is 76 tall on a non-default card; on the default
     // card the extra 4px gap before "Expires" pushes it to 80, spilling into
     // the card's bottom padding. Reproduced: the box stays 76 and the text
@@ -334,11 +341,11 @@ class _CardDetails extends StatelessWidget {
                       method.brand,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         height: 28 / 18,
                         letterSpacing: -0.44,
-                        color: AppColors.textDark,
+                        color: colors.textPrimary,
                       ),
                     ),
                   ),
@@ -346,14 +353,17 @@ class _CardDetails extends StatelessWidget {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: _defaultBadgeFill, borderRadius: BorderRadius.circular(8)),
-                      child: const Text(
-                        'Default',
+                      decoration: BoxDecoration(
+                        color: colors.success.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        AppLocalizations.of(context).defaultBadge,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           height: 16 / 12,
-                          color: _defaultBadgeInk,
+                          color: colors.success,
                         ),
                       ),
                     ),
@@ -364,12 +374,12 @@ class _CardDetails extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               method.maskedNumber,
-              style: const TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.31, color: _cardNumberInk),
+              style: TextStyle(fontSize: 16, height: 24 / 16, letterSpacing: -0.31, color: colors.textMuted),
             ),
             SizedBox(height: method.isDefault ? 4 : 0),
             Text(
               method.expiryLabel,
-              style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _expiresInk),
+              style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
             ),
           ],
         ),
@@ -415,19 +425,20 @@ class _MessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: _hairline),
+        border: Border.all(color: colors.border, width: _hairline),
       ),
       child: Column(
         children: [
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: _cardNumberInk),
+            style: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: -0.15, color: colors.textMuted),
           ),
           if (actionLabel != null) TextButton(onPressed: onAction, child: Text(actionLabel!)),
         ],

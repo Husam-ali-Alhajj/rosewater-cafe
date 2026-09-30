@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/models/membership_plan.dart';
 import 'package:rosewater_cafe/models/profile.dart';
 import 'package:rosewater_cafe/screens/profile/profile_screen.dart';
@@ -39,6 +40,10 @@ Future<_Calls> _pump(
   Profile? profile = _profile,
   ActiveMembership? membership,
   bool signOutEnabled = true,
+  // Sprint 9 Task 4: defaults true so every pre-existing test below (which
+  // all assume "Upgrade Membership" shows) keeps working unchanged --
+  // the false case gets its own dedicated test.
+  bool hasUpgradeOption = true,
 }) async {
   // Tall enough that nothing needs scrolling, so taps land on-screen.
   tester.view.physicalSize = const Size(800, 2400);
@@ -48,10 +53,15 @@ Future<_Calls> _pump(
   final calls = _Calls();
   await tester.pumpWidget(
     MaterialApp(
+      // Sprint 8 Task 6 Phase 2: this screen now reads AppLocalizations
+      // throughout (see profile_screen.dart).
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: ProfileContent(
           profile: profile,
           membership: membership ?? _membership('Premium'),
+          hasUpgradeOption: hasUpgradeOption,
           onRetry: calls.rec('retry'),
           onEditProfile: calls.rec('edit'),
           onUpgradeMembership: calls.rec('upgrade'),
@@ -185,5 +195,26 @@ void main() {
 
     await tester.tap(find.text('Sign Out'));
     expect(calls.log, isEmpty);
+  });
+
+  group('Sprint 9 Task 4: Upgrade Membership entry point', () {
+    testWidgets('shows and fires its callback when a higher-priced plan exists', (tester) async {
+      final calls = await _pump(tester, hasUpgradeOption: true);
+
+      expect(find.text('Upgrade Membership'), findsOneWidget);
+      await tester.tap(find.text('Upgrade Membership'));
+      expect(calls.log, ['upgrade']);
+    });
+
+    testWidgets('hidden entirely -- not shown disabled -- when there is nothing to upgrade to (e.g. VIP)', (
+      tester,
+    ) async {
+      await _pump(tester, membership: _membership('VIP'), hasUpgradeOption: false);
+
+      // The rest of the card is still there; only the upgrade row is gone.
+      expect(find.text('Membership Details'), findsOneWidget);
+      expect(find.text('VIP'), findsOneWidget);
+      expect(find.text('Upgrade Membership'), findsNothing);
+    });
   });
 }

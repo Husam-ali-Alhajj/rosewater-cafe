@@ -43,6 +43,7 @@ class SettingsProvider extends ChangeNotifier {
     required this._autoLockEnabled,
     required this._autoLockTimeoutSeconds,
     required this._biometricEnabled,
+    required this._locale,
   });
 
   static const _keyThemeMode = 'settings.theme_mode';
@@ -52,17 +53,16 @@ class SettingsProvider extends ChangeNotifier {
   static const _keyAutoLockEnabled = 'settings.auto_lock_enabled';
   static const _keyAutoLockTimeoutSeconds = 'settings.auto_lock_timeout_seconds';
   static const _keyBiometricEnabled = 'settings.biometric_enabled';
+  static const _keyLocale = 'settings.locale';
 
   // Defaults, applied only when nothing has been stored yet.
   //
-  // themeMode defaults to light, NOT system, on purpose: AppTheme.dark is
-  // currently just Flutter's bare ThemeData.dark() (no brand colors, no
-  // Inter font, none of this app's custom styling) -- following the system
-  // setting today would mean a device already in dark mode sees that
-  // unstyled stub the moment a later task wires `themeMode` into
-  // `MaterialApp`, which would look broken, not just unfinished. Matches
-  // today's actual behavior exactly (MaterialApp has no darkTheme/themeMode
-  // wired at all yet, so it's always light regardless of device setting).
+  // themeMode defaults to light, NOT system, on purpose: App Settings'
+  // "Dark Mode" row (Sprint 8 Task 2, AppTheme.dark) is a plain on/off
+  // switch, not a three-way System/Light/Dark picker -- there's no UI for
+  // "follow the system" for this to represent, so a fresh install starts
+  // in the state that switch actually shows as off (light), the same way
+  // every other toggle here defaults to whatever its own row is drawn as.
   static const _defaultThemeMode = ThemeMode.light;
   static const _defaultAnimationsEnabled = true; // design shows these "on"
   static const _defaultSoundEnabled = true;
@@ -70,6 +70,15 @@ class SettingsProvider extends ChangeNotifier {
   static const _defaultAutoLockEnabled = false; // decision #45: shown off, not implying protection that isn't real
   static const _defaultAutoLockTimeoutSeconds = 300; // 5 minutes; revisited when Auto-Lock's own task wires this up
   static const _defaultBiometricEnabled = false; // decision #45, same reasoning as auto-lock
+  // 'en' -- matches App Settings' Language list showing English selected by
+  // default (decision #5's original static state, before Sprint 8 Task 6
+  // made English/Arabic real). An ISO 639-1 code, not the design's display
+  // name ("English"/"Arabic") -- what `Locale(...)` and the ARB filenames
+  // both use.
+  static const _defaultLocale = 'en';
+
+  /// Languages with real translations -- the only ones the picker allows.
+  static const _selectableLocales = {'en', 'ar'};
 
   final SharedPreferences _prefs;
 
@@ -80,6 +89,7 @@ class SettingsProvider extends ChangeNotifier {
   bool _autoLockEnabled;
   int _autoLockTimeoutSeconds;
   bool _biometricEnabled;
+  String _locale;
 
   ThemeMode get themeMode => _themeMode;
   bool get animationsEnabled => _animationsEnabled;
@@ -88,6 +98,12 @@ class SettingsProvider extends ChangeNotifier {
   bool get autoLockEnabled => _autoLockEnabled;
   int get autoLockTimeoutSeconds => _autoLockTimeoutSeconds;
   bool get biometricEnabled => _biometricEnabled;
+
+  /// An ISO 639-1 code: 'en' or 'ar' -- the only selectable languages
+  /// (decision #72; French/Spanish show in the picker but are disabled
+  /// until translated). A stale 'fr'/'es' saved before that change is
+  /// dropped on [load], so the picker always has a real, visible pick.
+  String get locale => _locale;
 
   Future<void> setThemeMode(ThemeMode value) async {
     _themeMode = value;
@@ -131,6 +147,12 @@ class SettingsProvider extends ChangeNotifier {
     await _prefs.setBool(_keyBiometricEnabled, value);
   }
 
+  Future<void> setLocale(String value) async {
+    _locale = value;
+    notifyListeners();
+    await _prefs.setString(_keyLocale, value);
+  }
+
   /// Reads every stored value (or its default) from disk and returns a
   /// fully-populated instance -- call once, awaited, before `runApp()`.
   static Future<SettingsProvider> load() async {
@@ -144,6 +166,9 @@ class SettingsProvider extends ChangeNotifier {
       autoLockEnabled: prefs.getBool(_keyAutoLockEnabled) ?? _defaultAutoLockEnabled,
       autoLockTimeoutSeconds: prefs.getInt(_keyAutoLockTimeoutSeconds) ?? _defaultAutoLockTimeoutSeconds,
       biometricEnabled: prefs.getBool(_keyBiometricEnabled) ?? _defaultBiometricEnabled,
+      locale: _selectableLocales.contains(prefs.getString(_keyLocale))
+          ? prefs.getString(_keyLocale)!
+          : _defaultLocale,
     );
   }
 

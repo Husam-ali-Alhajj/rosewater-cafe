@@ -56,10 +56,20 @@ dependencies:
   provider: ^6.1.2
 
   # Formatting dates (event reservations, membership "valid until")
-  intl: ^0.19.0
+  intl: ^0.20.2
 
-  # The Figma design uses Inter as its typeface throughout the app
-  google_fonts: ^6.2.1
+  # Sprint 8 Task 5: Auto-Lock + Biometric login -- Face ID/Touch ID/fingerprint
+  local_auth: ^2.3.0
+
+  # Sprint 8 Task 6: i18n -- English/Arabic (French/Spanish selectable but
+  # fall back to English text until translated in a later pass)
+  flutter_localizations:
+    sdk: flutter
+
+  # Notifications roadmap step 4: plays the bundled notification chime
+  # (assets/sounds/) -- Flutter's own SystemSound is silent on web and
+  # most Android devices
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +78,10 @@ dev_dependencies:
   # Used only in tests, to fake the secure-storage platform channel so
   # SecureLocalStorage's read/write logic can be tested without a device
   flutter_secure_storage_platform_interface: ^1.1.2
+
+  # Used only in tests, to fake local_auth's platform channel so
+  # BiometricService's logic can be tested without a real device
+  local_auth_platform_interface: ^1.1.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -81,6 +95,9 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  # Sprint 8 Task 6: generates lib/l10n/app_localizations.dart from the ARB
+  # files under lib/l10n/ (config in l10n.yaml) on every `flutter pub get`.
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -89,6 +106,42 @@ flutter:
 
   assets:
     - assets/images/
+    # Notification chime -- generated for this app (no third-party audio)
+    - assets/sounds/
+
+  fonts:
+    # English typeface, per the Figma design. Bundled (not google_fonts,
+    # which only ever downloaded Regular, so every heavier weight was
+    # faked). OFL -- see OFL.txt beside the files.
+    #
+    # The 700 slot deliberately points at SemiBold: English was reading
+    # too heavy at true Bold, so anything styled FontWeight.w700 renders as
+    # Inter SemiBold in English, while Arabic (Noto Naskh, below) keeps its
+    # real Bold -- Naskh needs the extra weight to read as bold at all.
+    # One mapping here instead of a locale check at ~40 call sites.
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/inter/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/inter/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/inter/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/inter/Inter-SemiBold.ttf
+          weight: 700
+    # Arabic typeface (see AppTheme._arabicFontFamily). Bundled for the
+    # same reason, so every weight -- including a real Bold -- is there and
+    # works offline. OFL -- see OFL.txt beside the files.
+    - family: NotoNaskhArabic
+      fonts:
+        - asset: assets/fonts/noto_naskh_arabic/NotoNaskhArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/noto_naskh_arabic/NotoNaskhArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/noto_naskh_arabic/NotoNaskhArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/noto_naskh_arabic/NotoNaskhArabic-Bold.ttf
+          weight: 700
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import '../../models/profile.dart';
 import '../../services/profile_service.dart';
 import '../../services/subscription_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/app_page_route.dart';
 import '../events/events_tab.dart';
 import '../membership/choose_membership_screen.dart';
 import '../profile/profile_screen.dart';
@@ -13,15 +14,12 @@ import 'home_screen.dart';
 const _homeTab = 0;
 const _qrCodeTab = 1;
 const _eventsTab = 2;
-// Profile is index 3, referenced only positionally below -- no named
-// constant needed since nothing ever navigates to it programmatically.
+const _profileTab = 3; // a membership notification's "View Details" goes here
 // (Its real screen is `ProfileScreen`, Sprint 5 Task 1.)
 
 /// The authenticated app's real entry point once a member has an active
 /// subscription: a persistent 4-tab bottom nav (Home / QR Code / Events /
-/// Profile) matching the Figma `BottomNav` component, replacing the old
-/// flat `ComingSoonScreen(label: 'Home')` destination used everywhere
-/// before this sprint.
+/// Profile) matching the Figma `BottomNav` component.
 ///
 /// All four tabs are built out. `IndexedStack` (not swapping the child
 /// widget per tap) keeps each tab's state alive across switches, matching
@@ -87,7 +85,7 @@ class _MainShellState extends State<MainShell> {
     if (!mounted) return;
     if (membership == null) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const ChooseMembershipScreen()),
+        appRoute(context, (_) => const ChooseMembershipScreen()),
         (route) => false,
       );
       return;
@@ -113,6 +111,7 @@ class _MainShellState extends State<MainShell> {
       profile: _profile,
       onGoToQrCode: () => _goToTab(_qrCodeTab),
       onGoToEvents: () => _goToTab(_eventsTab),
+      onGoToProfile: () => _goToTab(_profileTab),
     ),
     QrAccessScreen(
       membership: _membership,
@@ -132,7 +131,7 @@ class _MainShellState extends State<MainShell> {
     if (_loading) {
       return Scaffold(
         body: Container(
-          decoration: const BoxDecoration(gradient: AppColors.pageBackgroundGradient),
+          decoration: BoxDecoration(gradient: context.colors.pageBackgroundGradient),
           child: const Center(child: CircularProgressIndicator()),
         ),
       );

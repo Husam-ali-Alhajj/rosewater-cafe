@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/auth_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/validators.dart';
+import '../../widgets/app_page_route.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/onboarding_icon_badge.dart';
 import '../membership/choose_membership_screen.dart';
@@ -62,7 +64,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 
   String? _validateConfirmPassword(String? value) {
-    if (value != _passwordController.text) return 'Passwords do not match';
+    if (value != _passwordController.text) return AppLocalizations.of(context).passwordsDoNotMatch;
     return null;
   }
 
@@ -102,8 +104,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       // would push an unauthenticated user into a screen that assumes
       // they're logged in, so show a "check your email" state instead.
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => hasSession
+        appRoute(
+          context,
+          (_) => hasSession
               ? const ChooseMembershipScreen()
               : ConfirmEmailPendingScreen(email: email),
         ),
@@ -130,21 +133,19 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Something went wrong. Check your connection and try again.',
-          ),
-        ),
+        SnackBar(content: Text(AppLocalizations.of(context).genericConnectionError)),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.pageBackgroundGradient,
+        decoration: BoxDecoration(
+          gradient: colors.pageBackgroundGradient,
         ),
         child: SafeArea(
           child: SingleChildScrollView(
@@ -153,19 +154,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                  // Sprint 8 Task 6: see sign_in_screen.dart for why this
+                  // needs an explicit RTL check.
+                  icon: Icon(
+                    Directionality.of(context) == TextDirection.rtl ? Icons.arrow_forward : Icons.arrow_back,
+                    color: colors.textPrimary,
+                  ),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: AppColors.cardWhite.withValues(alpha: 0.9),
+                    color: colors.surface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(14),
                     // Figma's fractional hairline stroke (same value as App
                     // Settings' _hairline), confirmed in Sprint 6 Task 3 --
                     // was missing entirely before this fidelity pass.
-                    border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 0.515),
+                    border: Border.all(color: colors.border, width: 0.515),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.25),
@@ -179,25 +185,22 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        const OnboardingIconBadge(
-                          icon: Icons.person,
-                          gradient: AppColors.primaryGradient,
-                        ),
+                        const OnboardingIconBadge(icon: Icons.person),
                         const SizedBox(height: 24),
-                        Text('Create Account', style: AppTextStyles.heading1),
+                        Text(l10n.createAccountHeading, style: AppTextStyles.heading1(context)),
                         const SizedBox(height: 8),
                         Text(
-                          'Join Rosewater Café today',
-                          style: AppTextStyles.bodyMuted,
+                          l10n.joinToday,
+                          style: AppTextStyles.bodyMuted(context),
                         ),
                         const SizedBox(height: 24),
                         TextFormField(
                           controller: _fullNameController,
                           textCapitalization: TextCapitalization.words,
-                          decoration: const InputDecoration(
-                            labelText: 'Full Name',
-                            hintText: 'John Doe',
-                            prefixIcon: Icon(Icons.person_outline),
+                          decoration: InputDecoration(
+                            labelText: l10n.fullNameLabel,
+                            hintText: l10n.fullNameHint,
+                            prefixIcon: const Icon(Icons.person_outline),
                           ),
                           validator: _validateFullName,
                         ),
@@ -205,10 +208,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Email Address',
-                            hintText: 'your@email.com',
-                            prefixIcon: Icon(Icons.mail_outline),
+                          decoration: InputDecoration(
+                            labelText: l10n.emailAddressLabel,
+                            hintText: l10n.emailAddressHint,
+                            prefixIcon: const Icon(Icons.mail_outline),
                           ),
                           validator: _validateEmail,
                           onChanged: (_) {
@@ -221,10 +224,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         TextFormField(
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
-                          decoration: const InputDecoration(
-                            labelText: 'Phone Number',
-                            hintText: '+1 (555) 000-0000',
-                            prefixIcon: Icon(Icons.phone_outlined),
+                          decoration: InputDecoration(
+                            labelText: l10n.phoneNumberLabel,
+                            hintText: l10n.phoneNumberHint,
+                            prefixIcon: const Icon(Icons.phone_outlined),
                           ),
                           validator: _validatePhone,
                         ),
@@ -233,10 +236,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
-                            labelText: 'Password',
-                            hintText: '••••••••',
-                            helperText:
-                                '8+ characters, with uppercase, lowercase & a number',
+                            labelText: l10n.passwordLabel,
+                            hintText: l10n.passwordHint,
+                            helperText: l10n.passwordHelperText,
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -261,8 +263,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           controller: _confirmPasswordController,
                           obscureText: _obscureConfirmPassword,
                           decoration: InputDecoration(
-                            labelText: 'Confirm Password',
-                            hintText: '••••••••',
+                            labelText: l10n.confirmPasswordLabel,
+                            hintText: l10n.passwordHint,
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -294,20 +296,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                 padding: const EdgeInsets.only(top: 12),
                                 child: RichText(
                                   text: TextSpan(
-                                    style: AppTextStyles.bodyMuted,
+                                    style: AppTextStyles.bodyMuted(context),
                                     children: [
-                                      const TextSpan(text: 'I agree to the '),
+                                      TextSpan(text: l10n.agreeToTermsPrefix),
                                       TextSpan(
-                                        text: 'Terms of Service',
+                                        text: l10n.termsOfService,
                                         style: TextStyle(
-                                          color: AppColors.danger,
+                                          color: colors.accent,
                                         ),
                                       ),
-                                      const TextSpan(text: ' and '),
+                                      TextSpan(text: l10n.agreeToTermsAnd),
                                       TextSpan(
-                                        text: 'Privacy Policy',
+                                        text: l10n.privacyPolicy,
                                         style: TextStyle(
-                                          color: AppColors.danger,
+                                          color: colors.accent,
                                         ),
                                       ),
                                     ],
@@ -321,11 +323,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Align(
-                              alignment: Alignment.centerLeft,
+                              // AlignmentDirectional.centerStart, not the
+                              // physical Alignment.centerLeft (Sprint 8
+                              // Task 6) -- same fix as Sign In's error text.
+                              alignment: AlignmentDirectional.centerStart,
                               child: Text(
-                                'You must agree to continue',
+                                l10n.mustAgreeToContinue,
                                 style: TextStyle(
-                                  color: AppColors.danger,
+                                  color: colors.danger,
                                   fontSize: 12,
                                 ),
                               ),
@@ -334,8 +339,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         const SizedBox(height: 24),
                         GradientButton(
                           label: _isSubmitting
-                              ? 'Creating account…'
-                              : 'Create Account',
+                              ? l10n.creatingAccount
+                              : l10n.createAccount,
                           onPressed: _isSubmitting ? null : _submit,
                         ),
                         const SizedBox(height: 16),
@@ -343,20 +348,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'Already have an account? ',
-                              style: AppTextStyles.bodyMuted,
+                              l10n.alreadyHaveAccount,
+                              style: AppTextStyles.bodyMuted(context),
                             ),
+                            // A gap, not a trailing space baked into the
+                            // translated string (Sprint 8 Task 6).
+                            const SizedBox(width: 4),
                             GestureDetector(
                               onTap: () =>
                                   Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (_) => const SignInScreen(),
+                                    appRoute(
+                                      context,
+                                      (_) => const SignInScreen(),
                                     ),
                                   ),
                               child: Text(
-                                'Sign In',
+                                l10n.signInButton,
                                 style: TextStyle(
-                                  color: AppColors.danger,
+                                  color: colors.accent,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),

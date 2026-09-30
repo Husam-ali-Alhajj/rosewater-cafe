@@ -26,6 +26,9 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Sprint 8 Task 5: local_auth (Face ID) -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Rosewater Café uses Face ID to unlock the app when Auto-Lock is on.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

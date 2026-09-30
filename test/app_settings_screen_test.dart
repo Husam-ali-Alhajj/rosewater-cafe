@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:rosewater_cafe/l10n/app_localizations.dart';
 import 'package:rosewater_cafe/screens/profile/app_settings_screen.dart';
 import 'package:rosewater_cafe/services/app_settings_service.dart';
+import 'package:rosewater_cafe/services/settings_provider.dart';
 import 'package:rosewater_cafe/widgets/setting_toggle_row.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,13 +34,30 @@ class _FakeService extends AppSettingsService {
   }
 }
 
-Future<void> _pump(WidgetTester tester, {AppSettingsService? service, Future<void> Function(BuildContext)? onDataCleared}) async {
+Future<void> _pump(
+  WidgetTester tester, {
+  AppSettingsService? service,
+  Future<void> Function(BuildContext)? onDataCleared,
+  SettingsProvider? settings,
+}) async {
   tester.view.physicalSize = const Size(800, 3000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  // The Dark Mode row is real now (Sprint 8 Task 2): it reads/writes
+  // `SettingsProvider`, the same provider `main.dart` registers above
+  // `MaterialApp` for real -- so this screen needs one in its own widget
+  // tree here too, the same way `main.dart` provides it.
   await tester.pumpWidget(
-    MaterialApp(
-      home: AppSettingsScreen(service: service ?? _FakeService(), onDataCleared: onDataCleared ?? (_) async {}),
+    ChangeNotifierProvider<SettingsProvider>.value(
+      value: settings ?? await SettingsProvider.load(),
+      child: MaterialApp(
+        // Sprint 8 Task 6 Phase 2: ScreenHeader (this screen's back button)
+        // now reads AppLocalizations for its tooltip/RTL-aware arrow --
+        // this screen's own strings aren't localized yet (a later task).
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AppSettingsScreen(service: service ?? _FakeService(), onDataCleared: onDataCleared ?? (_) async {}),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -58,14 +78,16 @@ void main() {
         'Appearance',
         'Dark Mode',
         'Switch to dark theme',
-        '(Coming Soon)',
         'Animations',
         'Enable smooth animations throughout the app',
         'Language',
+        // Each language is shown in its own script (Sprint 8 Task 6) --
+        // "العربية", not "Arabic" -- the standard language-picker
+        // convention, not something AppLocalizations governs.
         'English',
-        'Arabic',
-        'French',
-        'Spanish',
+        'العربية',
+        'Français',
+        'Español',
         'Interactions',
         'Sound Effects',
         'Play sounds for actions and notifications',
@@ -90,40 +112,134 @@ void main() {
     });
   });
 
-  group('decision #5: Dark Mode and Language are visual only, never functional', () {
-    testWidgets('Dark Mode is off, disabled, and tapping it does nothing', (tester) async {
-      await _pump(tester);
+  group('Dark Mode is real (Sprint 8 Task 2)', () {
+    testWidgets('reflects SettingsProvider.themeMode and tapping flips it', (tester) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
 
-      final sw = tester.widget<SettingSwitch>(find.byKey(const ValueKey('placeholder-dark-mode')));
-      expect(sw.value, isFalse);
-      expect(sw.onTap, isNull);
+      expect(settings.themeMode, ThemeMode.light);
+      expect(_isOn(tester, 'dark-mode'), isFalse);
 
-      await tester.tap(find.byKey(const ValueKey('placeholder-dark-mode')), warnIfMissed: false);
+      await tester.tap(find.byKey(const ValueKey('dark-mode')));
       await tester.pumpAndSettle();
-      expect(_isOn(tester, 'placeholder-dark-mode'), isFalse);
+
+      expect(settings.themeMode, ThemeMode.dark);
+      expect(_isOn(tester, 'dark-mode'), isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('dark-mode')));
+      await tester.pumpAndSettle();
+
+      expect(settings.themeMode, ThemeMode.light);
+      expect(_isOn(tester, 'dark-mode'), isFalse);
     });
 
-    testWidgets('only English shows selected, and no language row is tappable', (tester) async {
-      await _pump(tester);
+    testWidgets('starts on when SettingsProvider already has dark mode set', (tester) async {
+      SharedPreferences.setMockInitialValues({'settings.theme_mode': 'dark'});
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
 
-      expect(find.byIcon(Icons.check), findsOneWidget); // exactly one selected row
-
-      // Tapping "Arabic" does nothing -- still only English selected.
-      await tester.tap(find.text('Arabic'), warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(_isOn(tester, 'dark-mode'), isTrue);
     });
   });
 
-  group('Animations / Sound Effects / Haptic Feedback: drawn at the design state, inert', () {
-    testWidgets('all three are on and not tappable', (tester) async {
-      await _pump(tester);
+  group('Animations is real (Sprint 8 Task 3)', () {
+    testWidgets('reflects SettingsProvider.animationsEnabled and tapping flips it', (tester) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
 
-      for (final key in ['placeholder-animations', 'placeholder-sound-effects', 'placeholder-haptic-feedback']) {
-        final sw = tester.widget<SettingSwitch>(find.byKey(ValueKey(key)));
-        expect(sw.value, isTrue, reason: key);
-        expect(sw.onTap, isNull, reason: key);
-      }
+      expect(settings.animationsEnabled, isTrue); // design shows it on, and that's the default
+      expect(_isOn(tester, 'animations'), isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('animations')));
+      await tester.pumpAndSettle();
+
+      expect(settings.animationsEnabled, isFalse);
+      expect(_isOn(tester, 'animations'), isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('animations')));
+      await tester.pumpAndSettle();
+
+      expect(settings.animationsEnabled, isTrue);
+      expect(_isOn(tester, 'animations'), isTrue);
+    });
+
+    testWidgets('starts off when SettingsProvider already has animations disabled', (tester) async {
+      SharedPreferences.setMockInitialValues({'settings.animations_enabled': false});
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(_isOn(tester, 'animations'), isFalse);
+    });
+  });
+
+  group('Language is real for English/Arabic (Sprint 8 Task 6)', () {
+    testWidgets('starts on English selected, and tapping Arabic switches SettingsProvider.locale', (tester) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(settings.locale, 'en');
+      expect(find.byIcon(Icons.check), findsOneWidget); // exactly one selected row
+
+      await tester.tap(find.text('العربية'));
+      await tester.pumpAndSettle();
+
+      expect(settings.locale, 'ar');
+      expect(find.byIcon(Icons.check), findsOneWidget); // still exactly one, now on Arabic's row
+    });
+
+    testWidgets('French/Spanish are shown but disabled: tapping does nothing, marked Coming Soon', (tester) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(find.text('(Coming Soon)'), findsNWidgets(2)); // French + Spanish, not English/Arabic
+
+      await tester.tap(find.text('Français'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Español'));
+      await tester.pumpAndSettle();
+
+      expect(settings.locale, 'en'); // unchanged
+      expect(find.byIcon(Icons.check), findsOneWidget); // still just English's
+    });
+  });
+
+  group('Sound Effects / Haptic Feedback are real (Sprint 8 Task 4)', () {
+    testWidgets('each reflects its own SettingsProvider value and tapping flips only that one', (tester) async {
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(settings.soundEnabled, isTrue);
+      expect(settings.hapticsEnabled, isTrue);
+      expect(_isOn(tester, 'sound-effects'), isTrue);
+      expect(_isOn(tester, 'haptic-feedback'), isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('sound-effects')));
+      await tester.pumpAndSettle();
+
+      expect(settings.soundEnabled, isFalse);
+      expect(settings.hapticsEnabled, isTrue); // untouched
+      expect(_isOn(tester, 'sound-effects'), isFalse);
+      expect(_isOn(tester, 'haptic-feedback'), isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('haptic-feedback')));
+      await tester.pumpAndSettle();
+
+      expect(settings.soundEnabled, isFalse); // still off
+      expect(settings.hapticsEnabled, isFalse);
+      expect(_isOn(tester, 'sound-effects'), isFalse);
+      expect(_isOn(tester, 'haptic-feedback'), isFalse);
+    });
+
+    testWidgets('start off when SettingsProvider already has them disabled', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'settings.sound_enabled': false,
+        'settings.haptics_enabled': false,
+      });
+      final settings = await SettingsProvider.load();
+      await _pump(tester, settings: settings);
+
+      expect(_isOn(tester, 'sound-effects'), isFalse);
+      expect(_isOn(tester, 'haptic-feedback'), isFalse);
     });
   });
 
