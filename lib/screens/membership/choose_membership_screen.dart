@@ -30,8 +30,7 @@ class _ChooseMembershipScreenState extends State<ChooseMembershipScreen> {
     _init();
   }
 
-  /// Always shows the plans. If a pending subscription already exists, the server rejects a second
-  /// one and we show that message.
+  /// Always shows the plans. Choosing one replaces any unpaid membership from earlier.
   Future<void> _init() async {
     try {
       final plans = await _subscriptionService.fetchPlans();
